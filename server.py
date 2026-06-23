@@ -17,7 +17,8 @@ class UTF8ServerHandler(http.server.SimpleHTTPRequestHandler):
 socketserver.TCPServer.allow_reuse_address = True
 
 if __name__ == "__main__":
-    with socketserver.TCPServer(("", PORT), UTF8ServerHandler) as httpd:
+    # ponytail: bind localhost only — this is a local dev server, no reason to expose it to the LAN
+    with socketserver.TCPServer(("127.0.0.1", PORT), UTF8ServerHandler) as httpd:
         print(f"Serving 'Kalimat' app at http://localhost:{PORT} with UTF-8 support...")
         try:
             httpd.serve_forever()
