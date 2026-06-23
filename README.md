@@ -1,25 +1,37 @@
-# Arabic Word Of The Day
+<div dir="rtl">
 
-A polished static website that introduces one Arabic word each day with its meaning, pronunciation, example usage, and learning history.
+# كَلِمات | الكلمة العربية اليومية
 
-## Features
+موقع ثابت بسيط يعرض كلمة عربية بليغة كل يوم مع ضبطها ومعناها ومثال على استخدامها، ويحفظ سجلّ ما تعلّمته — لإثراء حصيلتك اللغوية كلمةً كل يوم.
 
-- Daily Arabic vocabulary card
-- Native speech playback where supported
-- Local learning history
-- Share and copy actions
-- Responsive RTL interface
+## المزايا
 
-## Run Locally
+- بطاقة كلمة عربية جديدة كل يوم، ثابتة طوال اليوم لا تتغيّر بالتحديث
+- لا تتكرّر الكلمة حتى تنتهي القائمة كاملة
+- نطق صوتي للكلمة (حيثما يدعمه المتصفّح)
+- سجلّ محلّي للكلمات التي اطّلعت عليها مع إمكانية مراجعتها
+- مشاركة الكلمة ونسخ تفاصيلها
+- عدّاد تنازلي للكلمة التالية
+- واجهة متجاوبة بترتيب من اليمين إلى اليسار
 
-Open `index.html` in a browser, or run:
+## التشغيل محليًّا
+
+يكفي فتح ملف `index.html` مباشرةً في المتصفّح، أو تشغيل الخادم المحلّي للحصول على دعم كامل لترميز UTF-8:
 
 ```powershell
 python server.py
 ```
 
-Then visit the local URL shown in the terminal.
+ثم افتح الرابط الظاهر في الطرفية: `http://localhost:8000`
 
-## Tech
+## كيف يعمل
 
-Built with plain HTML, CSS, and JavaScript. No build step required.
+- قائمة الكلمات مضمَّنة داخل `app.js`، فلا حاجة لأي اتصال بالشبكة بعد تحميل الصفحة.
+- يُختار للكلمة مفتاحٌ مرتبط بتاريخ اليوم، فتبقى كلمة واحدة ثابتة طوال اليوم.
+- يُحفظ التقدّم والسجلّ في `localStorage` داخل متصفّحك فقط؛ لا تُرسَل أي بيانات لأي خادم.
+
+## التقنيات
+
+مبني بلغات الويب الأساسية: HTML و CSS و JavaScript فقط، بلا أي مكتبات خارجية أو خطوة بناء. الأيقونات مرسومة بصيغة SVG مضمَّنة، والخطوط الوحيدة الخارجية هي خطوط Google Fonts.
+
+</div>

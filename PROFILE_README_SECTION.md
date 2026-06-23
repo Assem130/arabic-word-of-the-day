@@ -1,7 +1,11 @@
-## Featured Project
+<div dir="rtl">
 
-### [Arabic Word Of The Day](https://github.com/Assem130/arabic-word-of-the-day)
+## مشروع مميَّز
 
-A polished Arabic vocabulary website that presents one word each day with pronunciation, meaning, example usage, sharing, and a local learning history.
+### [كَلِمات | الكلمة العربية اليومية](https://github.com/Assem130/arabic-word-of-the-day)
 
-**Built with:** HTML, CSS, JavaScript
+موقع عربي أنيق يعرض كلمة بليغة كل يوم مع ضبطها ومعناها ومثال على استخدامها، مع نطق صوتي ومشاركة وسجلّ محلّي لما تعلّمته. مبني بلغات الويب الأساسية بلا أي مكتبات خارجية أو خطوة بناء.
+
+**التقنيات:** HTML و CSS و JavaScript
+
+</div>
