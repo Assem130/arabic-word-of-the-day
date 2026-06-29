@@ -1017,13 +1017,24 @@ ${word.example}
 }
 
 function copyToClipboard(text) {
-    navigator.clipboard.writeText(text)
+    const copy = navigator.clipboard?.writeText
+        ? navigator.clipboard.writeText(text)
+        : Promise.reject();
+
+    copy
         .then(() => {
             showToast("تم نسخ تفاصيل الكلمة إلى الحافظة!");
         })
-        .catch(err => {
-            console.error("Clipboard copy failed", err);
-            showToast("فشل النسخ تلقائياً!");
+        .catch(() => {
+            const textarea = document.createElement("textarea");
+            textarea.value = text;
+            textarea.style.position = "fixed";
+            textarea.style.opacity = "0";
+            document.body.appendChild(textarea);
+            textarea.select();
+            const copied = document.execCommand("copy");
+            textarea.remove();
+            showToast(copied ? "تم نسخ تفاصيل الكلمة إلى الحافظة!" : "تعذّر النسخ؛ يرجى المحاولة مجدداً.");
         });
 }
 

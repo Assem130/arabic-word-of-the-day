@@ -2,201 +2,89 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="تطبيق كلمات - تعلم كلمة عربية بليغة ونادرة كل يوم لتثري مخزونك اللغوي. مصمم للمتحدثين الأصليين الراغبين في الارتقاء بفصاحتهم.">
-    <title>كَلِمات | الكلمة العربية اليومية</title>
-
-    <!-- ponytail: CSP locks scripts to same-origin (no inline JS in this app); fonts are the only third party -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'">
-
-    <!-- Google Fonts (ponytail: trimmed to weights actually used in style.css — dropped Amiri italics + all 300 weights) -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="كَلِمات — تجربة يومية للاحتفاء بثراء اللغة العربية.">
+    <title>كَلِمات | العربية كما لم تتأملها من قبل</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://picsum.photos https://fastly.picsum.photos; object-src 'none'; base-uri 'self'; form-action 'none'">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Cairo:wght@400;600;700;800&family=Outfit:wght@400;600&display=swap" rel="stylesheet">
-
-    <!-- App Stylesheet -->
-    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="revamp.css">
 </head>
 <body>
-    <!-- ponytail: inline SVG sprite replaces the FontAwesome CDN — 13 icons, zero external requests. Lucide-style 24x24 stroke paths inherit size (1em) and color (currentColor). -->
-    <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
-        <symbol id="i-book-open" viewBox="0 0 24 24"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></symbol>
-        <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></symbol>
-        <symbol id="i-calendar-days" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/></symbol>
-        <symbol id="i-bars" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
-        <symbol id="i-volume-high" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14"/></symbol>
-        <symbol id="i-waveform" viewBox="0 0 24 24"><path d="M2 12h2M6 9v6M10 5v14M14 8v8M18 10v4M22 12h0"/></symbol>
-        <symbol id="i-book-reader" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></symbol>
-        <symbol id="i-quote" viewBox="0 0 24 24"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2-2-2H4c-1.25 0-2 .75-2 2v6c0 1.25.75 2 2 2h3c0 2-1 4-4 4z"/><path d="M14 21c3 0 7-1 7-8V5c0-1.25-.757-2-2-2h-4c-1.25 0-2 .75-2 2v6c0 1.25.75 2 2 2h3c0 2-1 4-4 4z"/></symbol>
-        <symbol id="i-leaf" viewBox="0 0 24 24"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/><path d="M2 21c0-3 1.85-5.36 5.08-6"/></symbol>
-        <symbol id="i-xmark" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
-        <symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98"/></symbol>
-        <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
-        <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 2v20"/></symbol>
-    </defs></svg>
+    <svg class="svg-sprite" aria-hidden="true">
+        <defs>
+            <symbol id="i-book-open" viewBox="0 0 24 24"><path d="M12 7v14M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></symbol>
+            <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+        </defs>
+    </svg>
 
-    <!-- Calligraphy Watermark Background SVG (ponytail: inline SVG, zero external assets, highly performant) -->
-    <div class="calligraphy-watermark" aria-hidden="true">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" width="100%" height="100%">
-            <path d="M100,200 C300,100 500,300 700,200 C750,350 550,450 400,350 C300,500 200,600 350,700 C500,800 600,600 750,750" fill="none" stroke="rgba(197, 168, 128, 0.04)" stroke-width="8" stroke-linecap="round"/>
-            <path d="M150,300 C250,200 450,250 550,150 C650,300 450,500 300,400 C150,600 300,700 500,650" fill="none" stroke="rgba(197, 168, 128, 0.03)" stroke-width="12" stroke-linecap="round"/>
-            <text x="50" y="550" font-family="'Amiri', serif" font-size="280" fill="rgba(197, 168, 128, 0.03)" transform="rotate(-15 50 550)">ض</text>
-            <text x="450" y="300" font-family="'Amiri', serif" font-size="220" fill="rgba(197, 168, 128, 0.02)" transform="rotate(25 450 300)">ع</text>
-        </svg>
-    </div>
-
-    <!-- App Header -->
-    <header class="app-header">
-        <div class="header-container">
-            <div class="header-logo">
-                <div class="logo-icon">
+    <main class="page-shell">
+        <header class="nav-wrap">
+            <nav class="nav" aria-label="التنقل الرئيسي">
+                <a class="brand" href="#top" aria-label="كلمات، الصفحة الرئيسية">
                     <svg class="icon"><use href="#i-book-open"/></svg>
+                    <span>كَلِمات</span>
+                </a>
+                <p class="nav-note">لفظٌ واحد. أفقٌ أوسع.</p>
+                <div class="nav-actions">
+                    <a class="nav-word-link" href="word.html">كلمة اليوم <svg class="icon"><use href="#i-arrow"/></svg></a>
                 </div>
-                <div class="logo-text">
-                    <h1 class="logo-title">كلمة اليوم</h1>
-                    <p class="logo-subtitle">نزيد من لغتنا، كل يوم كلمة</p>
-                </div>
-            </div>
-            <div class="header-actions">
-                <button class="btn-action-round" id="btn-toggle-history" title="المخزون اللغوي (الأرشيف)">
-                    <svg class="icon"><use href="#i-calendar"/></svg>
-                    <span class="badge" id="history-count">0</span>
-                </button>
-                <button class="btn-action-round" id="btn-toggle-menu" title="القائمة">
-                    <svg class="icon"><use href="#i-bars"/></svg>
-                </button>
-            </div>
-        </div>
-    </header>
+            </nav>
+        </header>
 
-    <!-- Main Content -->
-    <main class="main-content">
-        <!-- Hero Section -->
-        <section class="hero-section">
-            <h2 class="hero-title">كلمة اليوم</h2>
-            <div class="ornament-divider">
-                <span class="ornament-diamond">❖</span>
+        <section class="hero" id="top">
+            <div class="hero-copy">
+                <p class="eyebrow">العربية كما لم تتأملها من قبل</p>
+                <h1>كل يوم، كلمة <span class="inline-image" aria-hidden="true"></span> تستحق أن تبقى.</h1>
+                <p class="hero-lede">مساحة يومية هادئة تردّ للكلمة معناها، موسيقاها، ومكانها في الذاكرة.</p>
+                <a class="primary-button" href="word.html">اكتشف كلمة اليوم</a>
             </div>
-            <p class="hero-subtitle">كلمة جديدة كل يوم، لتثري لغتك وتعبر أدق.</p>
-            <div class="date-pill">
-                <svg class="icon"><use href="#i-calendar-days"/></svg>
-                <span id="date-display">...</span>
+            <div class="hero-art" aria-hidden="true">
+                <div class="hero-glyph">ض</div>
+                <p>لغةٌ تُرى<br>قبل أن تُقرأ</p>
+            </div>
+            <div class="date-display">
+                <span>كَلِمات</span>
+                <strong>موعد يومي مع العربية</strong>
             </div>
         </section>
 
-        <!-- Main Card Wrapper -->
-        <div class="card-container">
-            <article class="word-card" id="word-card">
-                <!-- Section 1: Word -->
-                <div class="card-section word-section">
-                    <span class="section-label">الكلمة</span>
-                    <h2 class="main-word" id="main-word" aria-label="الكلمة اليومية">...</h2>
-                    
-                    <!-- Hidden linguistic data slots for compatibility with existing JS engine -->
-                    <div style="display: none;">
-                        <span id="word-vocalization">...</span>
-                        <span id="word-weight">...</span>
-                        <span id="word-root">...</span>
-                        <span id="word-category">...</span>
-                    </div>
+        <section class="manifesto">
+            <p class="manifesto-text">لا نحتاج إلى كلمات أكثر فحسب. نحتاج إلى أن نتوقف عند الكلمات التي نملكها، وأن نرى داخل كل لفظٍ تاريخاً وصوتاً واحتمالاً جديداً للتعبير.</p>
+        </section>
 
-                    <div class="ornament-divider-sm">
-                        <span class="ornament-diamond-sm">❖</span>
-                    </div>
-                </div>
+        <section class="accordion-section">
+            <div class="accordion-heading">
+                <p>من اللفظ إلى الأثر</p>
+                <h2>ثلاث طرق لتسكن الكلمة في ذاكرتك.</h2>
+            </div>
+            <div class="horizontal-accordion">
+                <article tabindex="0"><span>النطق</span><div><h3>قلها</h3><p>ردد الكلمة بصوت مسموع حتى يصبح وزنها مألوفاً.</p></div></article>
+                <article tabindex="0"><span>السياق</span><div><h3>استخدمها</h3><p>اكتب جملة واحدة تخصك؛ الذاكرة تحب ما هو شخصي.</p></div></article>
+                <article tabindex="0"><span>العودة</span><div><h3>راجعها</h3><p>عد إلى مخزونك اللغوي، ودع الكلمات القديمة تلتقي بالجديدة.</p></div></article>
+            </div>
+        </section>
 
-                <!-- Section 2: Pronunciation -->
-                <div class="card-section pronunciation-section">
-                    <span class="section-label">النطق</span>
-                    <div class="pronunciation-row">
-                        <button class="btn-speech-round" id="btn-speak" title="استمع إلى النطق">
-                            <svg class="icon"><use href="#i-volume-high"/></svg>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Section 3: Meaning -->
-                <div class="card-section meaning-section">
-                    <span class="section-label">المعنى</span>
-                    <div class="meaning-row">
-                        <p class="meaning-text" id="word-meaning">...</p>
-                        <div class="section-icon-container">
-                            <svg class="icon"><use href="#i-book-reader"/></svg>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Section 4: Example -->
-                <div class="card-section example-section">
-                    <span class="section-label">مثال على الاستخدام</span>
-                    <div class="example-row">
-                        <blockquote class="example-text" id="word-example-text">
-                            ...
-                        </blockquote>
-                        <div class="section-icon-container">
-                            <svg class="icon"><use href="#i-quote"/></svg>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Section 5: Card Footer -->
-                <footer class="card-inner-footer">
-                    <div class="footer-icon-container">
-                        <svg class="icon"><use href="#i-leaf"/></svg>
-                    </div>
-                    <div class="footer-text-container">
-                        <span class="footer-main-text">غدًا، كلمة جديدة بانتظارك</span>
-                        <span class="footer-sub-text">لا تنسَ العودة كل يوم.</span>
-                        <span class="footer-timer-text">الكلمة التالية خلال: <span id="countdown-timer">--:--:--</span></span>
-                    </div>
-                </footer>
-            </article>
+        <div class="marquee" aria-hidden="true">
+            <div>معنى · نطق · سياق · فصاحة · ذاكرة · معنى · نطق · سياق · فصاحة · ذاكرة ·</div>
         </div>
+
+        <section class="final-cta">
+            <p>كلمة واحدة تفصل بينك وبين تعبير أدق.</p>
+            <h2>افتح كلمة اليوم، واترك لغتك تنمو على مهل.</h2>
+            <a class="light-button" href="word.html">اذهب إلى كلمة اليوم</a>
+        </section>
+
+        <footer class="footer">
+            <span>كَلِمات</span>
+            <p>تجربة يومية للاحتفاء بثراء العربية.</p>
+            <small>© ٢٠٢٦</small>
+        </footer>
     </main>
 
-    <!-- History Drawer (ponytail: sliding HTML section using CSS transition) -->
-    <aside class="history-drawer" id="history-drawer" aria-label="أرشيف الكلمات">
-        <header class="drawer-header">
-            <h3>مخزوني اللغوي</h3>
-            <button class="btn-action-round" id="btn-close-drawer" title="إغلاق">
-                <svg class="icon"><use href="#i-xmark"/></svg>
-            </button>
-        </header>
-        <div class="drawer-content">
-            <p class="drawer-empty-msg" id="drawer-empty-msg">لم تفتح أي كلمات بعد. عد يومياً لتكتشف كلمات جديدة وتثري فصاحتك!</p>
-            <ul class="history-list" id="history-list">
-                <!-- Dynamically populated -->
-            </ul>
-        </div>
-    </aside>
-
-    <!-- Dropdown Menu (ponytail: lightweight dropdown instead of heavy library modals) -->
-    <div class="app-menu-dropdown" id="app-menu-dropdown">
-        <button class="menu-item" id="btn-share">
-            <svg class="icon"><use href="#i-share"/></svg> مشاركة الكلمة
-        </button>
-        <button class="menu-item" id="btn-copy-link">
-            <svg class="icon"><use href="#i-copy"/></svg> نسخ تفاصيل الكلمة
-        </button>
-        <hr class="menu-divider">
-        <div class="menu-info">
-            <p>تطبيق <strong>كَلِمَات</strong></p>
-            <small>© ٢٠٢٦ جميع الحقوق محفوظة لزيادة الحصيلة اللغوية.</small>
-        </div>
-    </div>
-    
-    <!-- Toast notification for actions -->
-    <div class="toast" id="toast">تم نسخ الكلمة بنجاح!</div>
-
-    <!-- Page Footer -->
-    <footer class="app-footer">
-        <div class="footer-content">
-            <svg class="icon"><use href="#i-shield"/></svg>
-            <span>لا تتكرر الكلمات، وكل يوم كلمة جديدة مختارة بعناية.</span>
-        </div>
-    </footer>
-
-    <!-- Scripts -->
-    <script src="app.js" charset="utf-8"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+    <script src="revamp.js"></script>
 </body>
 </html>
