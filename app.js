@@ -138,7 +138,6 @@ const WORDS_DB = [
         pronunciation: "/al-‘abaq/",
         vocalization: "بفتح العين والباء",
         weight: "فَعَل",
-        root: "ع b q",
         root: "ع ب ق",
         category: "حواس وجمال",
         meaning: "رائحة الطيب الذكية إذا علقت بالثوب أو المكان وثبتت فيه واستمرت طويلاً.",
@@ -535,7 +534,6 @@ const WORDS_DB = [
         pronunciation: "/ash-shanaf/",
         vocalization: "بفتح الشين والنون",
         weight: "فَعَل",
-        root: "ش ش ن ف",
         root: "ش ن ف",
         category: "حواس وجمال",
         meaning: "القرط الذي يُعلق في الجزء الأعلى من أذن المرأة لتزيينها، والتطلع والنظر الطويل إعجاباً وشغفاً.",
@@ -646,7 +644,6 @@ const WORDS_DB = [
         pronunciation: "/al-walah/",
         vocalization: "بفتح الواو واللام",
         weight: "فَعَل",
-        root: "w l h",
         root: "و ل هـ",
         category: "مشاعر وعاطفة",
         meaning: "الحيرة والذهول وفقدان العقل والصبر من شدة الحب أو لوعة الفراق والوجد المأساوي.",
@@ -658,7 +655,6 @@ const WORDS_DB = [
         pronunciation: "/al-khafooq/",
         vocalization: "بفتح الخاء وضم الفاء",
         weight: "فَعُول",
-        root: "خ ف q",
         root: "خ ف ق",
         category: "مشاعر وعاطفة",
         meaning: "القلب الشديد النبض والخفقان من شدة الحب أو الخوف، أو الريح السريعة الشديدة الهبوب.",
@@ -672,6 +668,8 @@ let appState = {
     todayDateString: "",
     learnedWords: []
 };
+
+const STORAGE_KEY = "arabic_words_state";
 
 // DOM Elements
 const elMainWord = document.getElementById("main-word");
@@ -711,7 +709,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // Load state from localStorage (ponytail: standard JSON parsing from localStorage)
 function loadState() {
-    const savedState = localStorage.getItem("arabic_words_state");
+    const savedState = localStorage.getItem(STORAGE_KEY);
     if (savedState) {
         try {
             appState = JSON.parse(savedState);
@@ -728,17 +726,13 @@ function loadState() {
 
 // Save state back to localStorage
 function saveState() {
-    localStorage.setItem("arabic_words_state", JSON.stringify(appState));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
 }
 
 // Determine the word of the day without repeating until all are exhausted
 function determineTodayWord() {
     const today = new Date();
-    // Use date string as key to lock the word for the current local day (YYYY-MM-DD)
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-    const todayStr = `${year}-${month}-${day}`;
+    const todayStr = getLocalDateKey(today);
 
     // If word is already set for today, just load it
     if (appState.todayDateString === todayStr && appState.todayWord) {
@@ -779,6 +773,13 @@ function determineTodayWord() {
     }
 
     saveState();
+}
+
+function getLocalDateKey(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
 }
 
 // Render the current word on the UI
@@ -847,26 +848,17 @@ function setupSpeech() {
         utterance.pitch = 1.0;
 
         // Button micro-animation when speaking
-        btnSpeak.innerHTML = `<svg class="icon"><use href="#i-waveform"/></svg>`;
-        btnSpeak.classList.add("speaking");
-
-        utterance.onend = () => {
-            btnSpeak.innerHTML = `<svg class="icon"><use href="#i-volume-high"/></svg>`;
-            btnSpeak.classList.remove("speaking");
-        };
-
-        utterance.onerror = () => {
-            btnSpeak.innerHTML = `<svg class="icon"><use href="#i-volume-high"/></svg>`;
-            btnSpeak.classList.remove("speaking");
-        };
+        setSpeaking(true);
+        utterance.onend = utterance.onerror = () => setSpeaking(false);
 
         window.speechSynthesis.speak(utterance);
     });
+}
 
-    // Mobile/Safari fallback: load voices when they change asynchronously
-    if (window.speechSynthesis.onvoiceschanged !== undefined) {
-        window.speechSynthesis.onvoiceschanged = () => {};
-    }
+function setSpeaking(isSpeaking) {
+    const icon = isSpeaking ? "i-waveform" : "i-volume-high";
+    btnSpeak.innerHTML = `<svg class="icon"><use href="#${icon}"/></svg>`;
+    btnSpeak.classList.toggle("speaking", isSpeaking);
 }
 
 // Render history list inside the drawer
