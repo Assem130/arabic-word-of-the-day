@@ -56,6 +56,7 @@ function loadState() {
         else saveState();
     } catch {
         appState = Core.createDefaultState();
+        persistenceBlocked = true;
         document.getElementById("storage-warning").hidden = false;
     }
 }

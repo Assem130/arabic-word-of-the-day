@@ -108,7 +108,8 @@ for (const page of [wordPage, homePage]) {
     assert.match(page, /<main class="page-shell" id="main-content" tabindex="-1">/, "each page needs a main target");
 }
 assert.match(css, /@media \(hover: none\)/, "touch users must be able to read accordion details");
-assert.match(css, /outline: 3px solid var\(--lime\)/, "focus must remain visible on dark surfaces");
+assert.match(css, /button:focus-visible, a:focus-visible, \[tabindex\]:focus-visible \{ outline: 3px solid var\(--ink\)/, "focus must remain visible on light surfaces");
+assert.match(css, /\.nav :is\(button, a\):focus-visible, \.word-identity :is\(button, a\):focus-visible \{ outline: 3px solid var\(--lime\)/, "focus must remain visible on dark surfaces");
 for (const word of words) {
     assert.equal(Number.isInteger(word.id), true);
     for (const field of ["word", "pronunciation", "vocalization", "weight", "root", "category", "meaning", "englishMeaning", "example"]) {
@@ -174,7 +175,7 @@ class FakeElement {
     remove() {}
 }
 
-function loadBrowserApp({ state, storageFails = false } = {}) {
+function loadBrowserApp({ state, rawStorage, storageFails = false } = {}) {
     const elementIds = [
         "main-word", "date-display", "word-vocalization", "word-weight", "word-root", "word-category",
         "word-meaning", "word-pronunciation", "word-meaning-en", "word-example-text", "countdown-timer",
@@ -196,7 +197,7 @@ function loadBrowserApp({ state, storageFails = false } = {}) {
             for (const listener of documentListeners.get(type) || []) await listener(event);
         }
     };
-    const values = new Map(state ? [["arabic_words_state", JSON.stringify(state)]] : []);
+    const values = new Map(rawStorage !== undefined ? [["arabic_words_state", rawStorage]] : state ? [["arabic_words_state", JSON.stringify(state)]] : []);
     const localStorage = {
         getItem(key) { if (storageFails) throw new Error("storage unavailable"); return values.get(key) || null; },
         setItem(key, value) { if (storageFails) throw new Error("storage unavailable"); values.set(key, value); },
@@ -248,6 +249,10 @@ assert.equal(archive.elements["archive-preview-note"].hidden, true, "returning t
 const corruptStorage = loadBrowserApp({ state: { schemaVersion: 2, history: {}, preferences: { showEnglish: true } } });
 assert.equal(corruptStorage.localStorage.value("arabic_words_state").includes('"schemaVersion":2'), true, "unsupported stored data must not be overwritten");
 assert.equal(corruptStorage.elements["storage-warning"].hidden, false, "blocked persistence must be explained");
+
+const invalidStorage = loadBrowserApp({ rawStorage: "{not-json" });
+assert.equal(invalidStorage.localStorage.value("arabic_words_state"), "{not-json", "invalid stored JSON must not be overwritten");
+assert.equal(invalidStorage.elements["storage-warning"].hidden, false, "invalid stored JSON must be explained");
 
 const importer = loadBrowserApp({ state: savedState });
 const countBeforeImport = importer.elements["history-count"].textContent;
