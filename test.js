@@ -74,6 +74,8 @@ assert.equal(wordsScript >= 0 && wordsScript < coreScript && coreScript < appScr
 for (const id of ["word-pronunciation", "word-meaning-en", "btn-toggle-english", "history-dialog", "btn-export-history", "btn-import-history", "input-import-history", "storage-warning"]) {
     assert.equal(wordPage.includes(`id="${id}"`), true, `word.html must include ${id}`);
 }
+assert.match(wordPage, /id="btn-toggle-menu"[^>]*aria-expanded="false"/, "menu trigger must expose its collapsed state");
+assert.match(wordPage, /<div class="app-menu-dropdown" id="app-menu-dropdown" hidden>/, "menu must be hidden before it is opened");
 for (const word of words) {
     assert.equal(Number.isInteger(word.id), true);
     for (const field of ["word", "pronunciation", "vocalization", "weight", "root", "category", "meaning", "englishMeaning", "example"]) {
@@ -189,6 +191,13 @@ assert.equal(storageFailure.elements["btn-speak"].disabled, true, "missing speec
 
 const savedState = { schemaVersion: 1, history: { 1: { firstSeen: "2099-01-01" } }, preferences: { showEnglish: true } };
 const archive = loadBrowserApp({ state: savedState });
+archive.elements["app-menu-dropdown"].hidden = true;
+await archive.elements["btn-toggle-menu"].emit("click");
+assert.equal(archive.elements["app-menu-dropdown"].hidden, false, "menu trigger must reveal the menu");
+assert.equal(archive.elements["btn-toggle-menu"].getAttribute("aria-expanded"), "true", "menu trigger must expose its expanded state");
+await archive.document.emit("click");
+assert.equal(archive.elements["app-menu-dropdown"].hidden, true, "outside click must hide the menu");
+assert.equal(archive.elements["btn-toggle-menu"].getAttribute("aria-expanded"), "false", "outside click must reset the menu state");
 const archiveButton = archive.elements["history-list"].children[0].children[0];
 assert.equal(archiveButton.tagName, "BUTTON", "archive entries must contain native buttons");
 archive.elements["history-dialog"].open = true;

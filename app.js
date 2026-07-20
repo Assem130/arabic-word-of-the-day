@@ -208,10 +208,10 @@ function setupEventListeners() {
     btnCloseHistory.addEventListener("click", () => historyDialog.close());
     btnToggleMenu.addEventListener("click", event => {
         event.stopPropagation();
-        dropdownMenu.classList.toggle("open");
+        setMenuOpen(dropdownMenu.hidden);
     });
     document.addEventListener("click", event => {
-        if (!dropdownMenu.contains(event.target) && !btnToggleMenu.contains(event.target)) dropdownMenu.classList.remove("open");
+        if (!dropdownMenu.contains(event.target) && !btnToggleMenu.contains(event.target)) setMenuOpen(false);
     });
     btnToggleEnglish.addEventListener("click", () => {
         appState.preferences.showEnglish = !appState.preferences.showEnglish;
@@ -227,12 +227,12 @@ function setupEventListeners() {
     });
     btnCopyLink.addEventListener("click", () => {
         if (currentWord) copyToClipboard(getShareText(currentWord));
-        dropdownMenu.classList.remove("open");
+        setMenuOpen(false);
     });
     btnShare.addEventListener("click", () => {
         if (!currentWord) return;
         const shareText = getShareText(currentWord);
-        dropdownMenu.classList.remove("open");
+        setMenuOpen(false);
         if (navigator.share) {
             navigator.share({ title: `كَلِمات | كلمة اليوم: ${currentWord.word}`, text: shareText })
                 .then(() => showToast("تمت المشاركة بنجاح!"))
@@ -241,6 +241,11 @@ function setupEventListeners() {
             copyToClipboard(shareText);
         }
     });
+}
+
+function setMenuOpen(isOpen) {
+    dropdownMenu.hidden = !isOpen;
+    btnToggleMenu.setAttribute("aria-expanded", String(isOpen));
 }
 
 function getShareText(word) {
