@@ -681,4 +681,4 @@ Expected: no output.
 
 Run: `git status --short`
 
-Expected: only the pre-existing untracked `kalimat-minimal/` directory; no current-app implementation files remain modified or untracked.
+Expected: no output. The isolated worktree does not contain the original checkout's untracked `kalimat-minimal/` directory.
