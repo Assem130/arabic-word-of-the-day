@@ -110,6 +110,7 @@ for (const page of [wordPage, homePage]) {
 assert.match(css, /@media \(hover: none\)/, "touch users must be able to read accordion details");
 assert.match(css, /button:focus-visible, a:focus-visible, \[tabindex\]:focus-visible \{ outline: 3px solid var\(--ink\)/, "focus must remain visible on light surfaces");
 assert.match(css, /\.nav :is\(button, a\):focus-visible, \.word-identity :is\(button, a\):focus-visible \{ outline: 3px solid var\(--lime\)/, "focus must remain visible on dark surfaces");
+assert.match(css, /\.hero a:focus-visible, \.horizontal-accordion article:nth-child\(-n\+2\):focus-visible \{ outline-color: var\(--lime\)/, "all dark homepage surfaces need a light focus ring");
 for (const word of words) {
     assert.equal(Number.isInteger(word.id), true);
     for (const field of ["word", "pronunciation", "vocalization", "weight", "root", "category", "meaning", "englishMeaning", "example"]) {
