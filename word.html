@@ -80,6 +80,8 @@
                 <div class="meaning-panel">
                     <p>المعنى</p>
                     <div class="meaning-text" id="word-meaning">...</div>
+                    <p class="word-pronunciation" id="word-pronunciation" dir="ltr">...</p>
+                    <p class="meaning-english" id="word-meaning-en" dir="ltr" lang="en">...</p>
                 </div>
 
                 <blockquote class="example-panel" id="word-example-text">...</blockquote>
@@ -87,10 +89,10 @@
         </section>
     </main>
 
-    <aside class="history-drawer" id="history-drawer" aria-label="أرشيف الكلمات">
+    <dialog class="history-dialog" id="history-dialog" aria-labelledby="history-title">
         <header>
-            <div><p>مخزونك اللغوي</p><h2>الكلمات التي مرّت من هنا</h2></div>
-            <button class="icon-button" id="btn-close-drawer" title="إغلاق" aria-label="إغلاق">
+            <div><p>مخزونك اللغوي</p><h2 id="history-title">الكلمات التي مرّت من هنا</h2></div>
+            <button class="icon-button" id="btn-close-history" type="button" aria-label="إغلاق المخزون">
                 <svg class="icon"><use href="#i-xmark"/></svg>
             </button>
         </header>
@@ -98,15 +100,21 @@
             <p class="drawer-empty-msg" id="drawer-empty-msg">لم تفتح أي كلمات بعد.</p>
             <ul class="history-list" id="history-list"></ul>
         </div>
-    </aside>
+    </dialog>
 
     <div class="app-menu-dropdown" id="app-menu-dropdown">
         <button id="btn-share"><svg class="icon"><use href="#i-share"/></svg> مشاركة الكلمة</button>
         <button id="btn-copy-link"><svg class="icon"><use href="#i-copy"/></svg> نسخ تفاصيلها</button>
+        <button id="btn-toggle-english" type="button" aria-pressed="true">إخفاء الإنجليزية</button>
+        <button id="btn-export-history" type="button">تصدير المخزون</button>
+        <button id="btn-import-history" type="button">استيراد المخزون</button>
+        <input id="input-import-history" type="file" accept="application/json,.json" hidden>
+        <p id="storage-warning" class="storage-warning" role="alert" hidden>تعذّر حفظ المخزون على هذا الجهاز؛ ستبقى الجلسة الحالية متاحة.</p>
     </div>
 
-    <div class="toast" id="toast" role="status">تم نسخ الكلمة بنجاح.</div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
     <script src="words.js" charset="utf-8"></script>
+    <script src="app-core.js" charset="utf-8"></script>
     <script src="app.js" charset="utf-8"></script>
 </body>
 </html>

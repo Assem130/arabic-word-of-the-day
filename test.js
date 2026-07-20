@@ -68,8 +68,12 @@ assert.equal(browser.globalThis.WORDS_DB.length, 60);
 assert.deepEqual(Array.from(browser.globalThis.WORDS_DB, word => word.id), Array.from({ length: 60 }, (_, index) => index + 1));
 const wordPage = fs.readFileSync("word.html", "utf8");
 const wordsScript = wordPage.indexOf('<script src="words.js"');
+const coreScript = wordPage.indexOf('<script src="app-core.js"');
 const appScript = wordPage.indexOf('<script src="app.js"');
-assert.equal(wordsScript >= 0 && wordsScript < appScript, true, "word.html must load words.js before app.js");
+assert.equal(wordsScript >= 0 && wordsScript < coreScript && coreScript < appScript, true, "word.html must load words.js, app-core.js, then app.js");
+for (const id of ["word-pronunciation", "word-meaning-en", "btn-toggle-english", "history-dialog", "btn-export-history", "btn-import-history", "input-import-history", "storage-warning"]) {
+    assert.equal(wordPage.includes(`id="${id}"`), true, `word.html must include ${id}`);
+}
 for (const word of words) {
     assert.equal(Number.isInteger(word.id), true);
     for (const field of ["word", "pronunciation", "vocalization", "weight", "root", "category", "meaning", "englishMeaning", "example"]) {
@@ -78,5 +82,15 @@ for (const word of words) {
     }
     assert.equal(word.englishMeaning.length <= 180, true, `Word ${word.id} English gloss is too long`);
 }
+
+const todayKey = Core.getLocalDateKey(new Date(2026, 6, 20));
+const todayWord = words[Core.getDailyWordIndex(todayKey, words.length)];
+assert.equal(words.includes(todayWord), true);
+
+const viewed = Core.createDefaultState();
+viewed.history[todayWord.id] = { firstSeen: todayKey };
+const viewedAgain = Core.mergeStates(viewed, viewed, new Set(words.map(word => word.id)));
+assert.equal(Object.keys(viewedAgain.history).length, 1);
+assert.equal(viewedAgain.history[todayWord.id].firstSeen, todayKey);
 
 console.log("All checks passed.");
