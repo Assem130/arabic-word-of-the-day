@@ -1,70 +1,25 @@
-<div align="center" dir="rtl">
+# كَلِمات — Arabic Word of the Day
 
-# كَلِمات
+A calm, Arabic-first daily reading experience for one word at a time.
 
-### كلمة واحدة. بكل ما فيها.
+## What it does
 
-تجربة يومية هادئة تعيد للكلمة العربية معناها، موسيقاها، ومكانها في الذاكرة.
+- Selects the same word for everyone on a given local calendar day, deterministically from the bundled word list.
+- Shows the Arabic word, vocalization, pattern, root, category, meaning, pronunciation, English gloss, example, and a countdown to the next word.
+- Saves opened words and the optional English-gloss preference automatically in this browser's local storage.
+- Keeps the English gloss concise and optional; it is visible by default and its setting persists after a reload.
+- Provides browser speech when available, plus copy/share fallbacks and an accessible archive dialog.
+- Exports the local archive as JSON and imports compatible JSON by merging records rather than replacing them. When the same word exists in both places, the earliest first-seen date wins—ready for a future sync layer without adding one now.
 
-<br>
+## Privacy and transfer
 
-[![HTML](https://img.shields.io/badge/HTML-14211B?style=for-the-badge&logo=html5&logoColor=D9FF76)](#التقنية)
-[![CSS](https://img.shields.io/badge/CSS-14211B?style=for-the-badge&logo=css3&logoColor=D9FF76)](#التقنية)
-[![JavaScript](https://img.shields.io/badge/JavaScript-14211B?style=for-the-badge&logo=javascript&logoColor=D9FF76)](#التقنية)
-[![RTL](https://img.shields.io/badge/RTL-D9FF76?style=for-the-badge&labelColor=14211B&color=D9FF76)](#التجربة)
+There is no account, backend, analytics pipeline, or server-side history store. The local server only serves the static files during development. Your reading history stays in your browser unless you explicitly export it.
 
-**واجهة تحريرية للاكتشاف** &nbsp;·&nbsp; **مساحة مركّزة للكلمة** &nbsp;·&nbsp; **لا حسابات ولا تتبّع**
+Cross-device transfer is manual: export a JSON backup on one device, then import it on another. Importing does not erase the existing archive; compatible histories merge.
 
-</div>
+## Run locally
 
-<br>
-
-<div dir="rtl">
-
-## الفكرة
-
-**كَلِمات** ليست قاموسًا سريعًا. إنها موعد يومي قصير مع لفظة عربية واحدة؛ تتأملها، تسمعها، تفهم بنيتها، ثم تحتفظ بها في مخزونك اللغوي.
-
-صُمّمت التجربة في مسارين واضحين:
-
-| البداية | كلمة اليوم |
-|---|---|
-| واجهة تحريرية تحتفي بجمال العربية وتقدّم فكرة المشروع | مساحة نظيفة ومركّزة تعرض الكلمة من دون أي تشتيت |
-| حركة هادئة، تكوين بصري واسع، وهوية داكنة جريئة | المعنى، الضبط، الوزن، الجذر، التصنيف، النطق، والسياق |
-
-## التجربة
-
-1. تبدأ من صفحة افتتاحية تحكي روح المشروع.
-2. تنتقل إلى مساحة مستقلة مخصّصة لكلمة اليوم.
-3. تستمع إلى اللفظة وتستكشف معناها وبنيتها وسياقها.
-4. تُحفظ الكلمة محليًا في مخزونك اللغوي لتعود إليها لاحقًا.
-
-## ما الذي يقدمه التطبيق؟
-
-| الميزة | التفاصيل |
-|---|---|
-| كلمة يومية ثابتة | لا تتغير عند تحديث الصفحة خلال اليوم نفسه |
-| سياق لغوي متكامل | المعنى، الضبط، الوزن، الجذر، التصنيف، ومثال الاستخدام |
-| نطق عربي | قراءة صوتية عبر واجهة النطق المدمجة في المتصفح |
-| مخزون لغوي | أرشيف محلي للكلمات التي مرّت بك |
-| مشاركة ونسخ | مشاركة تفاصيل الكلمة أو نسخها مع مسار احتياطي للمتصفحات المقيدة |
-| موعد الكلمة التالية | عدّاد حي حتى منتصف الليل |
-| خصوصية افتراضية | لا تسجيل دخول، لا قاعدة بيانات، ولا إرسال لسجل التعلّم |
-
-## الهوية البصرية
-
-تعتمد الواجهة على تباين مستوحى من الحبر والورق:
-
-- `#14211B` — أخضر حبري عميق
-- `#D9FF76` — لون مضيء للحركة والدعوة إلى الفعل
-- `#F3EFE5` — ورق دافئ للقراءة الطويلة
-- **Amiri** للنص العربي و **Outfit** للتفاصيل الوظيفية
-
-المساحات الواسعة، الحرف العربي الكبير، والحركة المقيدة تخدم فكرة واحدة: أن تحصل كل كلمة على الوقت والمساحة اللذين تستحقهما.
-
-## التشغيل المحلي
-
-يتطلب المشروع **Python 3** فقط لتقديم الملفات بترميز UTF-8:
+Python 3 is the only requirement:
 
 ```powershell
 git clone https://github.com/Assem130/arabic-word-of-the-day.git
@@ -72,50 +27,26 @@ cd arabic-word-of-the-day
 python server.py
 ```
 
-ثم افتح:
+Open <http://localhost:8000>. The included server sends UTF-8 headers for the Arabic HTML, CSS, and JavaScript files.
 
-```text
-http://localhost:8000
-```
-
-## بنية المشروع
+## Project structure
 
 ```text
 arabic-word-of-the-day/
-├── index.html      # الواجهة الافتتاحية
-├── word.html       # مساحة كلمة اليوم
-├── revamp.css      # الهوية البصرية والتجاوب
-├── revamp.js       # حركة الواجهة الافتتاحية
-├── app.js          # قاعدة الكلمات ومنطق التطبيق
-└── server.py       # خادم محلي بسيط بترميز UTF-8
+├── index.html       # Landing page
+├── word.html        # Daily-word experience and controls
+├── revamp.css       # Responsive RTL presentation
+├── revamp.js        # Landing-page motion
+├── words.js         # Bundled Arabic-word dataset
+├── app-core.js      # Deterministic selection and backup-state logic
+├── app.js           # Rendering, local history, speech, sharing, import/export
+├── test.js          # Dependency-free deterministic and UI-state checks
+└── server.py        # Local UTF-8 development server
 ```
 
-## التقنية
+## Verify
 
-- HTML دلالي وواجهة عربية من اليمين إلى اليسار
-- CSS متجاوب من دون إطار تصميم
-- JavaScript أصلي لإدارة الكلمة والحالة المحلية
-- `localStorage` لحفظ المخزون اللغوي
-- Web Speech API للنطق
-- Web Share API وClipboard API للمشاركة والنسخ
-- GSAP وScrollTrigger لحركة الصفحة الافتتاحية
-
-## الخصوصية
-
-كل شيء يبقى في المتصفح. لا يحتاج التطبيق إلى حساب، ولا يرسل الكلمات التي شاهدتها إلى أي خادم. يمكن حذف السجل بالكامل بمسح بيانات الموقع.
-
-</div>
-
-<br>
-
----
-
-<div align="center" dir="rtl">
-
-### العربية كما لم تتأملها من قبل.
-
-صُمّمت **كَلِمات** لتجعل التعلّم اليومي أبطأ قليلًا، وأعمق كثيرًا.
-
-<sub>© ٢٠٢٦ كَلِمات</sub>
-
-</div>
+```powershell
+node test.js
+git diff --check
+```
