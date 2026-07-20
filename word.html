@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="revamp.css">
 </head>
 <body class="word-page">
+    <a class="skip-link" href="#main-content">تخطَّ إلى المحتوى</a>
     <svg class="svg-sprite" aria-hidden="true">
         <defs>
             <symbol id="i-book-open" viewBox="0 0 24 24"><path d="M12 7v14M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></symbol>
@@ -26,7 +27,7 @@
         </defs>
     </svg>
 
-    <main class="page-shell">
+    <main class="page-shell" id="main-content" tabindex="-1">
         <header class="nav-wrap">
             <nav class="nav" aria-label="التنقل الرئيسي">
                 <a class="brand" href="index.html" aria-label="كلمات، الصفحة الرئيسية">
@@ -82,6 +83,8 @@
                         <p>أضفها إلى ذاكرتك بالعودة إلى معناها وصوتها في أي وقت.</p>
                         <p class="next-word">الكلمة التالية خلال <b id="countdown-timer">--:--:--</b></p>
                         <p class="archive-notice">يُحفَظ ما تقرؤه تلقائياً في مخزونك اللغوي.</p>
+                        <p class="archive-preview-note" id="archive-preview-note" hidden>أنت تستعرض كلمة من مخزونك، وليست كلمة اليوم.</p>
+                        <button class="return-today-button" id="btn-return-today" type="button" hidden>العودة إلى كلمة اليوم</button>
                     </aside>
                 </div>
                 <div class="app-menu-dropdown" id="app-menu-dropdown" hidden>

@@ -35,6 +35,25 @@
         return { schemaVersion: SCHEMA_VERSION, history: {}, preferences: { showEnglish: true } };
     }
 
+    function isHistoryRecord(record) {
+        return !!record && typeof record === "object" && !Array.isArray(record) && isDateKey(record.firstSeen);
+    }
+
+    function isCurrentState(raw) {
+        return !!raw && typeof raw === "object" && !Array.isArray(raw)
+            && raw.schemaVersion === SCHEMA_VERSION
+            && raw.history && typeof raw.history === "object" && !Array.isArray(raw.history)
+            && raw.preferences && typeof raw.preferences === "object" && !Array.isArray(raw.preferences)
+            && typeof raw.preferences.showEnglish === "boolean"
+            && Object.entries(raw.history).every(([id, record]) => Number.isInteger(Number(id)) && isHistoryRecord(record));
+    }
+
+    function isLegacyState(raw) {
+        return !!raw && typeof raw === "object" && !Array.isArray(raw)
+            && !Object.hasOwn(raw, "schemaVersion") && Array.isArray(raw.learnedWords)
+            && raw.learnedWords.every(item => item && typeof item === "object" && Number.isInteger(item.id));
+    }
+
     function normalizeState(raw, validIds, fallbackDate) {
         const state = createDefaultState();
         if (!raw || typeof raw !== "object") return state;
@@ -57,6 +76,14 @@
         return state;
     }
 
+    function inspectStoredState(raw, validIds, fallbackDate) {
+        if (raw === null) return { state: createDefaultState(), canPersist: true };
+        if (isCurrentState(raw) || isLegacyState(raw)) {
+            return { state: normalizeState(raw, validIds, fallbackDate), canPersist: true };
+        }
+        return { state: createDefaultState(), canPersist: false };
+    }
+
     function mergeStates(local, incoming, validIds) {
         const merged = normalizeState(local, validIds, getLocalDateKey(new Date()));
         const other = normalizeState(incoming, validIds, getLocalDateKey(new Date()));
@@ -71,10 +98,7 @@
         let raw;
         try { raw = JSON.parse(text); } catch { throw new Error("Invalid backup file."); }
         if (!raw || raw.schemaVersion !== SCHEMA_VERSION) throw new Error("Unsupported backup version.");
-        if (!raw.history || typeof raw.history !== "object" || Array.isArray(raw.history)
-            || !raw.preferences || typeof raw.preferences !== "object" || Array.isArray(raw.preferences)) {
-            throw new Error("Invalid backup file.");
-        }
+        if (!isCurrentState(raw)) throw new Error("Invalid backup file.");
         return normalizeState(raw, validIds, getLocalDateKey(new Date()));
     }
 
@@ -82,5 +106,5 @@
         return `${JSON.stringify(state, null, 2)}\n`;
     }
 
-    return { SCHEMA_VERSION, getLocalDateKey, getDailyWordIndex, createDefaultState, normalizeState, mergeStates, parseBackup, serializeBackup };
+    return { SCHEMA_VERSION, getLocalDateKey, getDailyWordIndex, createDefaultState, normalizeState, inspectStoredState, mergeStates, parseBackup, serializeBackup };
 });

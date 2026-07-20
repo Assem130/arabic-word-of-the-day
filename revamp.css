@@ -19,7 +19,9 @@ body { margin: 0; background: var(--paper-light); color: var(--ink); font-family
 button, a { color: inherit; font: inherit; }
 button { border: 0; cursor: pointer; }
 a { text-decoration: none; }
-button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 3px solid var(--ink); outline-offset: 4px; }
+button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 3px solid var(--lime); outline-offset: 4px; }
+.skip-link { position: fixed; z-index: 100; top: 10px; right: 10px; padding: 10px 14px; background: var(--lime); color: var(--ink); font: 600 .8rem var(--sans); transform: translateY(-160%); }
+.skip-link:focus { transform: none; }
 body:has(.history-dialog[open]) { overflow: hidden; }
 .page-shell { overflow: clip; }
 .svg-sprite { position: absolute; width: 0; height: 0; }
@@ -98,6 +100,8 @@ body:has(.history-dialog[open]) { overflow: hidden; }
 .reading-sidebar .next-word { color: var(--ink-soft); }
 .next-word b { color: var(--ink); font-weight: 600; }
 .archive-notice { padding-top: 18px; border-top: 1px solid var(--line-dark); color: var(--ink-soft); font-size: .95rem; }
+.archive-preview-note { margin: 18px 0 0; color: var(--ink-soft); font-size: .95rem; }
+.return-today-button { min-height: 42px; margin-top: 12px; padding: 0 14px; background: var(--ink); color: var(--paper-light); font: 600 .75rem var(--sans); }
 
 .app-menu-dropdown { position: fixed; z-index: 30; top: 87px; left: max(20px, calc((100vw - 1180px) / 2)); min-width: 244px; padding: 6px; border: 1px solid var(--line-dark); background: var(--paper-light); box-shadow: 0 18px 45px rgb(20 33 27 / 20%); }
 .app-menu-dropdown[hidden] { display: none; }
@@ -144,6 +148,10 @@ body:has(.history-dialog[open]) { overflow: hidden; }
     .reading-grid { grid-template-columns: 1fr; }
     .meaning-text { max-width: none; }
     .footer { flex-direction: column; align-items: flex-start; }
+}
+
+@media (hover: none) {
+    .horizontal-accordion article div { opacity: 1; transform: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

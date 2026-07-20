@@ -39,6 +39,26 @@ assert.deepEqual(migrated.history, {
     3: { firstSeen: "2026-07-21" }
 });
 
+const inspectedCurrent = Core.inspectStoredState({
+    schemaVersion: 1,
+    history: { 1: { firstSeen: "2026-07-20" } },
+    preferences: { showEnglish: true }
+}, ids, "2026-07-21");
+assert.equal(inspectedCurrent.canPersist, true);
+assert.deepEqual(inspectedCurrent.state.history, { 1: { firstSeen: "2026-07-20" } });
+const inspectedLegacy = Core.inspectStoredState({ learnedWords: [{ id: 2 }] }, ids, "2026-07-21");
+assert.equal(inspectedLegacy.canPersist, true);
+assert.deepEqual(inspectedLegacy.state.history, { 2: { firstSeen: "2026-07-21" } });
+for (const raw of [
+    { schemaVersion: 2, history: {}, preferences: { showEnglish: true } },
+    { schemaVersion: 1, history: { 1: { firstSeen: "not-a-date" } }, preferences: { showEnglish: true } },
+    { history: {} }
+]) {
+    const inspected = Core.inspectStoredState(raw, ids, "2026-07-21");
+    assert.equal(inspected.canPersist, false, "unrecognized stored state must block overwrites");
+    assert.deepEqual(inspected.state, Core.createDefaultState());
+}
+
 const merged = Core.mergeStates(
     { schemaVersion: 1, history: { 1: { firstSeen: "2026-07-20" } }, preferences: { showEnglish: false } },
     { schemaVersion: 1, history: { 1: { firstSeen: "2026-07-18" }, 2: { firstSeen: "2026-07-19" } }, preferences: { showEnglish: true } },
@@ -55,6 +75,11 @@ assert.deepEqual(Core.parseBackup(exported, ids), merged);
 assert.throws(() => Core.parseBackup("not json", ids), /Invalid backup file/);
 assert.throws(() => Core.parseBackup('{"schemaVersion":1}'), /Invalid backup file/);
 assert.throws(() => Core.parseBackup('{"schemaVersion":2}', ids), /Unsupported backup version/);
+assert.throws(() => Core.parseBackup('{"schemaVersion":1,"history":{"1":{"firstSeen":"not-a-date"}},"preferences":{"showEnglish":true}}', ids), /Invalid backup file/);
+assert.throws(() => Core.parseBackup('{"schemaVersion":1,"history":{},"preferences":{"showEnglish":"false"}}', ids), /Invalid backup file/);
+assert.deepEqual(Core.parseBackup('{"schemaVersion":1,"history":{"99":{"firstSeen":"2026-07-20"}},"preferences":{"showEnglish":false}}', ids), {
+    schemaVersion: 1, history: {}, preferences: { showEnglish: false }
+});
 
 const words = require("./words.js");
 assert.equal(words.length, 60);
@@ -67,6 +92,8 @@ assert.equal(Array.isArray(browser.globalThis.WORDS_DB), true);
 assert.equal(browser.globalThis.WORDS_DB.length, 60);
 assert.deepEqual(Array.from(browser.globalThis.WORDS_DB, word => word.id), Array.from({ length: 60 }, (_, index) => index + 1));
 const wordPage = fs.readFileSync("word.html", "utf8");
+const homePage = fs.readFileSync("index.html", "utf8");
+const css = fs.readFileSync("revamp.css", "utf8");
 const wordsScript = wordPage.indexOf('<script src="words.js"');
 const coreScript = wordPage.indexOf('<script src="app-core.js"');
 const appScript = wordPage.indexOf('<script src="app.js"');
@@ -76,6 +103,12 @@ for (const id of ["word-pronunciation", "word-meaning-en", "btn-toggle-english",
 }
 assert.match(wordPage, /id="btn-toggle-menu"[^>]*aria-expanded="false"/, "menu trigger must expose its collapsed state");
 assert.match(wordPage, /<div class="app-menu-dropdown" id="app-menu-dropdown" hidden>/, "menu must be hidden before it is opened");
+for (const page of [wordPage, homePage]) {
+    assert.match(page, /class="skip-link" href="#main-content"/, "each page needs a skip link");
+    assert.match(page, /<main class="page-shell" id="main-content" tabindex="-1">/, "each page needs a main target");
+}
+assert.match(css, /@media \(hover: none\)/, "touch users must be able to read accordion details");
+assert.match(css, /outline: 3px solid var\(--lime\)/, "focus must remain visible on dark surfaces");
 for (const word of words) {
     assert.equal(Number.isInteger(word.id), true);
     for (const field of ["word", "pronunciation", "vocalization", "weight", "root", "category", "meaning", "englishMeaning", "example"]) {
@@ -136,6 +169,8 @@ class FakeElement {
     showModal() { this.open = true; }
     close() { this.open = false; }
     select() {}
+    focus() { this.focused = true; }
+    querySelector() { return null; }
     remove() {}
 }
 
@@ -145,7 +180,8 @@ function loadBrowserApp({ state, storageFails = false } = {}) {
         "word-meaning", "word-pronunciation", "word-meaning-en", "word-example-text", "countdown-timer",
         "btn-speak", "btn-share", "btn-copy-link", "btn-toggle-history", "btn-close-history", "btn-toggle-menu",
         "btn-toggle-english", "btn-export-history", "btn-import-history", "input-import-history", "history-dialog",
-        "history-list", "history-count", "drawer-empty-msg", "app-menu-dropdown", "storage-warning", "toast"
+        "history-list", "history-count", "drawer-empty-msg", "app-menu-dropdown", "storage-warning", "toast",
+        "archive-preview-note", "btn-return-today"
     ];
     const elements = Object.fromEntries(elementIds.map(id => [id, new FakeElement(id === "input-import-history" ? "input" : "div")]));
     elements["storage-warning"].hidden = true;
@@ -204,6 +240,14 @@ archive.elements["history-dialog"].open = true;
 archiveButton.emit("click");
 assert.equal(archive.elements["main-word"].textContent, words[0].word, "archive button must preview its word");
 assert.equal(archive.elements["history-dialog"].open, false, "archive preview must close the dialog");
+assert.equal(archive.elements["archive-preview-note"].hidden, false, "archive preview must identify itself");
+assert.equal(archive.elements["btn-return-today"].hidden, false, "archive preview must offer a return to today");
+await archive.elements["btn-return-today"].emit("click");
+assert.equal(archive.elements["archive-preview-note"].hidden, true, "returning to today must clear the archive state");
+
+const corruptStorage = loadBrowserApp({ state: { schemaVersion: 2, history: {}, preferences: { showEnglish: true } } });
+assert.equal(corruptStorage.localStorage.value("arabic_words_state").includes('"schemaVersion":2'), true, "unsupported stored data must not be overwritten");
+assert.equal(corruptStorage.elements["storage-warning"].hidden, false, "blocked persistence must be explained");
 
 const importer = loadBrowserApp({ state: savedState });
 const countBeforeImport = importer.elements["history-count"].textContent;
@@ -222,6 +266,12 @@ const preferences = loadBrowserApp({ state: savedState });
 await preferences.elements["btn-toggle-english"].emit("click");
 assert.equal(JSON.parse(preferences.localStorage.value("arabic_words_state")).preferences.showEnglish, false, "English toggle must persist its preference");
 assert.equal(preferences.elements["word-meaning-en"].hidden, true, "English toggle must hide the gloss");
+
+const speaking = loadBrowserApp({ state: savedState });
+speaking.elements["btn-speak"].textContent = "استمع إلى النطق";
+speaking.context.window.speechSynthesis = { cancel() {}, getVoices: () => [], speak() {} };
+speaking.context.window.SpeechSynthesisUtterance = function () {};
+assert.equal(fs.readFileSync("app.js", "utf8").includes("btnSpeak.innerHTML"), false, "speech state must not replace the visible button label");
 
 const clipboard = loadBrowserApp({ state: savedState });
 let unhandled;

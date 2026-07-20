@@ -5,6 +5,8 @@ const VALID_WORD_IDS = new Set(WORDS_DB.map(word => word.id));
 let appState = Core.createDefaultState();
 let currentWord = null;
 let activeDateKey = "";
+let persistenceBlocked = false;
+const MAX_BACKUP_BYTES = 1024 * 1024;
 
 const elMainWord = document.getElementById("main-word");
 const elDateDisplay = document.getElementById("date-display");
@@ -31,11 +33,13 @@ const countHistoryBadge = document.getElementById("history-count");
 const drawerEmptyMsg = document.getElementById("drawer-empty-msg");
 const dropdownMenu = document.getElementById("app-menu-dropdown");
 const toast = document.getElementById("toast");
+const archivePreviewNote = document.getElementById("archive-preview-note");
+const btnReturnToday = document.getElementById("btn-return-today");
 
 document.addEventListener("DOMContentLoaded", () => {
     loadState();
     activeDateKey = Core.getLocalDateKey(new Date());
-    renderWord(determineTodayWord());
+    renderTodayWord();
     setupSpeech();
     setupEventListeners();
     startCountdown();
@@ -45,8 +49,11 @@ function loadState() {
     const fallbackDate = Core.getLocalDateKey(new Date());
     try {
         const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-        appState = Core.normalizeState(raw, VALID_WORD_IDS, fallbackDate);
-        saveState();
+        const stored = Core.inspectStoredState(raw, VALID_WORD_IDS, fallbackDate);
+        appState = stored.state;
+        persistenceBlocked = !stored.canPersist;
+        if (persistenceBlocked) document.getElementById("storage-warning").hidden = false;
+        else saveState();
     } catch {
         appState = Core.createDefaultState();
         document.getElementById("storage-warning").hidden = false;
@@ -54,10 +61,13 @@ function loadState() {
 }
 
 function saveState() {
+    if (persistenceBlocked) return false;
     try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+        return true;
     } catch {
         document.getElementById("storage-warning").hidden = false;
+        return false;
     }
 }
 
@@ -69,7 +79,11 @@ function determineTodayWord(now = new Date()) {
     return word;
 }
 
-function renderWord(word) {
+function renderTodayWord() {
+    renderWord(determineTodayWord(), null);
+}
+
+function renderWord(word, archiveDateKey) {
     currentWord = word;
     elMainWord.textContent = word.word;
     elVocalization.textContent = word.vocalization;
@@ -85,7 +99,10 @@ function renderWord(word) {
     btnToggleEnglish.textContent = appState.preferences.showEnglish ? "إخفاء الإنجليزية" : "إظهار الإنجليزية";
 
     renderExample(word);
-    elDateDisplay.textContent = getFormattedArabicDate(new Date());
+    const isArchivePreview = Boolean(archiveDateKey);
+    elDateDisplay.textContent = isArchivePreview ? getArabicDateFromKey(archiveDateKey) : getFormattedArabicDate(new Date());
+    archivePreviewNote.hidden = !isArchivePreview;
+    btnReturnToday.hidden = !isArchivePreview;
     updateHistoryUI();
 }
 
@@ -132,7 +149,7 @@ function setupSpeech() {
 
 function setSpeaking(isSpeaking) {
     const icon = isSpeaking ? "i-waveform" : "i-volume-high";
-    btnSpeak.innerHTML = `<svg class="icon"><use href="#${icon}"/></svg>`;
+    btnSpeak.querySelector("use")?.setAttribute("href", `#${icon}`);
     btnSpeak.classList.toggle("speaking", isSpeaking);
 }
 
@@ -164,7 +181,7 @@ function updateHistoryUI() {
         header.append(wordEl, dateEl);
         button.append(header, meaningEl);
         button.addEventListener("click", () => {
-            renderWord(item.word);
+            renderWord(item.word, item.firstSeen);
             historyDialog.close();
         });
         li.appendChild(button);
@@ -185,11 +202,13 @@ function exportHistory() {
 
 async function importHistory(file) {
     try {
+        if (file.size > MAX_BACKUP_BYTES) throw new Error("Backup file is too large.");
         const incoming = Core.parseBackup(await file.text(), VALID_WORD_IDS);
         appState = Core.mergeStates(appState, incoming, VALID_WORD_IDS);
-        saveState();
+        persistenceBlocked = false;
+        const saved = saveState();
         updateHistoryUI();
-        showToast("تم دمج المخزون بنجاح.");
+        showToast(saved ? "تم دمج المخزون بنجاح." : "تم دمج المخزون لهذه الجلسة، لكن تعذّر حفظه.");
     } catch (error) {
         showToast(error.message === "Unsupported backup version."
             ? "إصدار ملف المخزون غير مدعوم."
@@ -206,12 +225,19 @@ function showToast(message) {
 function setupEventListeners() {
     btnToggleHistory.addEventListener("click", () => historyDialog.showModal());
     btnCloseHistory.addEventListener("click", () => historyDialog.close());
+    btnReturnToday.addEventListener("click", renderTodayWord);
     btnToggleMenu.addEventListener("click", event => {
         event.stopPropagation();
         setMenuOpen(dropdownMenu.hidden);
     });
     document.addEventListener("click", event => {
         if (!dropdownMenu.contains(event.target) && !btnToggleMenu.contains(event.target)) setMenuOpen(false);
+    });
+    document.addEventListener("keydown", event => {
+        if (event.key === "Escape" && !dropdownMenu.hidden) {
+            setMenuOpen(false);
+            btnToggleMenu.focus();
+        }
     });
     btnToggleEnglish.addEventListener("click", () => {
         appState.preferences.showEnglish = !appState.preferences.showEnglish;
@@ -246,6 +272,7 @@ function setupEventListeners() {
 function setMenuOpen(isOpen) {
     dropdownMenu.hidden = !isOpen;
     btnToggleMenu.setAttribute("aria-expanded", String(isOpen));
+    if (isOpen) dropdownMenu.querySelector("button")?.focus();
 }
 
 function getShareText(word) {
@@ -297,7 +324,7 @@ function updateTimer() {
     const dateKey = Core.getLocalDateKey(now);
     if (dateKey !== activeDateKey) {
         activeDateKey = dateKey;
-        renderWord(determineTodayWord(now));
+        renderTodayWord();
     }
     const tomorrow = new Date(now);
     tomorrow.setHours(24, 0, 0, 0);
