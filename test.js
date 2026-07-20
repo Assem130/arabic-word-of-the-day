@@ -54,4 +54,16 @@ assert.throws(() => Core.parseBackup("not json", ids), /Invalid backup file/);
 assert.throws(() => Core.parseBackup('{"schemaVersion":1}'), /Invalid backup file/);
 assert.throws(() => Core.parseBackup('{"schemaVersion":2}', ids), /Unsupported backup version/);
 
+const words = require("./words.js");
+assert.equal(words.length, 60);
+assert.equal(new Set(words.map(word => word.id)).size, words.length);
+for (const word of words) {
+    assert.equal(Number.isInteger(word.id), true);
+    for (const field of ["word", "pronunciation", "vocalization", "weight", "root", "category", "meaning", "englishMeaning", "example"]) {
+        assert.equal(typeof word[field], "string", `Word ${word.id} ${field} must be a string`);
+        assert.equal(word[field].trim().length > 0, true, `Word ${word.id} ${field} must not be empty`);
+    }
+    assert.equal(word.englishMeaning.length <= 180, true, `Word ${word.id} English gloss is too long`);
+}
+
 console.log("All checks passed.");
