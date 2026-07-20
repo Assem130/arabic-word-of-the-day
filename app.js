@@ -56,10 +56,8 @@ function loadState() {
 function saveState() {
     try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
-        return true;
     } catch {
         document.getElementById("storage-warning").hidden = false;
-        return false;
     }
 }
 
@@ -150,6 +148,8 @@ function updateHistoryUI() {
     for (const item of history) {
         const li = document.createElement("li");
         li.className = "history-item";
+        const button = document.createElement("button");
+        button.type = "button";
         const header = document.createElement("div");
         header.className = "history-item-header";
         const wordEl = document.createElement("span");
@@ -162,11 +162,12 @@ function updateHistoryUI() {
         meaningEl.className = "history-meaning";
         meaningEl.textContent = item.word.meaning;
         header.append(wordEl, dateEl);
-        li.append(header, meaningEl);
-        li.addEventListener("click", () => {
+        button.append(header, meaningEl);
+        button.addEventListener("click", () => {
             renderWord(item.word);
             historyDialog.close();
         });
+        li.appendChild(button);
         listHistory.appendChild(li);
     }
 }
@@ -270,7 +271,12 @@ function copyToClipboard(text) {
             textarea.style.opacity = "0";
             document.body.appendChild(textarea);
             textarea.select();
-            const copied = document.execCommand("copy");
+            let copied = false;
+            if (typeof document.execCommand === "function") {
+                try {
+                    copied = document.execCommand("copy");
+                } catch {}
+            }
             textarea.remove();
             showToast(copied ? "تم نسخ تفاصيل الكلمة إلى الحافظة!" : "تعذّر النسخ؛ يرجى المحاولة مجدداً.");
         });

@@ -93,4 +93,133 @@ const viewedAgain = Core.mergeStates(viewed, viewed, new Set(words.map(word => w
 assert.equal(Object.keys(viewedAgain.history).length, 1);
 assert.equal(viewedAgain.history[todayWord.id].firstSeen, todayKey);
 
-console.log("All checks passed.");
+class FakeElement {
+    constructor(tagName = "div") {
+        this.tagName = tagName.toUpperCase();
+        this.children = [];
+        this.listeners = new Map();
+        this.classList = {
+            values: new Set(),
+            add: (...names) => names.forEach(name => this.classList.values.add(name)),
+            remove: (...names) => names.forEach(name => this.classList.values.delete(name)),
+            toggle: name => this.classList.values.has(name)
+                ? (this.classList.values.delete(name), false)
+                : (this.classList.values.add(name), true)
+        };
+        this.style = {};
+        this.attributes = new Map();
+        this.hidden = false;
+        this.disabled = false;
+        this.value = "";
+        this.files = [];
+        this.textContent = "";
+        this.innerHTML = "";
+    }
+
+    addEventListener(type, listener) {
+        this.listeners.set(type, [...(this.listeners.get(type) || []), listener]);
+    }
+
+    async emit(type, event = { target: this, stopPropagation() {} }) {
+        for (const listener of this.listeners.get(type) || []) await listener(event);
+    }
+
+    click() { return this.emit("click"); }
+    append(...children) { this.children.push(...children); }
+    appendChild(child) { this.children.push(child); return child; }
+    replaceChildren(...children) { this.children = children; }
+    setAttribute(name, value) { this.attributes.set(name, String(value)); }
+    getAttribute(name) { return this.attributes.get(name); }
+    contains(target) { return target === this || this.children.some(child => child.contains?.(target)); }
+    showModal() { this.open = true; }
+    close() { this.open = false; }
+    select() {}
+    remove() {}
+}
+
+function loadBrowserApp({ state, storageFails = false } = {}) {
+    const elementIds = [
+        "main-word", "date-display", "word-vocalization", "word-weight", "word-root", "word-category",
+        "word-meaning", "word-pronunciation", "word-meaning-en", "word-example-text", "countdown-timer",
+        "btn-speak", "btn-share", "btn-copy-link", "btn-toggle-history", "btn-close-history", "btn-toggle-menu",
+        "btn-toggle-english", "btn-export-history", "btn-import-history", "input-import-history", "history-dialog",
+        "history-list", "history-count", "drawer-empty-msg", "app-menu-dropdown", "storage-warning", "toast"
+    ];
+    const elements = Object.fromEntries(elementIds.map(id => [id, new FakeElement(id === "input-import-history" ? "input" : "div")]));
+    const documentListeners = new Map();
+    const document = {
+        body: new FakeElement("body"),
+        getElementById: id => elements[id],
+        createElement: tagName => new FakeElement(tagName),
+        addEventListener(type, listener) { documentListeners.set(type, [...(documentListeners.get(type) || []), listener]); },
+        async emit(type, event = { target: document, stopPropagation() {} }) {
+            for (const listener of documentListeners.get(type) || []) await listener(event);
+        }
+    };
+    const values = new Map(state ? [["arabic_words_state", JSON.stringify(state)]] : []);
+    const localStorage = {
+        getItem(key) { if (storageFails) throw new Error("storage unavailable"); return values.get(key) || null; },
+        setItem(key, value) { if (storageFails) throw new Error("storage unavailable"); values.set(key, value); },
+        value: key => values.get(key)
+    };
+    const context = {
+        Array, Blob, Boolean, Date, JSON, Map, Math, Number, Object, Promise, RegExp, Set, String, URL,
+        console, document, localStorage, navigator: {}, setInterval: () => 0, setTimeout: () => 0
+    };
+    context.globalThis = context;
+    context.window = context;
+    vm.createContext(context);
+    for (const file of ["words.js", "app-core.js", "app.js"]) {
+        vm.runInContext(fs.readFileSync(file, "utf8"), context, { filename: file });
+    }
+    document.emit("DOMContentLoaded");
+    return { context, document, elements, localStorage };
+}
+
+async function browserChecks() {
+const menuMarkup = wordPage.match(/<div class="app-menu-dropdown"[^>]*>([\s\S]*?)<\/div>/);
+assert.equal(menuMarkup[1].includes("storage-warning"), false, "storage warning must not be hidden inside the menu");
+
+const storageFailure = loadBrowserApp({ storageFails: true });
+assert.equal(storageFailure.elements["storage-warning"].hidden, false, "storage failures must reveal the warning");
+assert.equal(storageFailure.elements["btn-speak"].disabled, true, "missing speech APIs must disable speech");
+
+const savedState = { schemaVersion: 1, history: { 1: { firstSeen: "2099-01-01" } }, preferences: { showEnglish: true } };
+const archive = loadBrowserApp({ state: savedState });
+const archiveButton = archive.elements["history-list"].children[0].children[0];
+assert.equal(archiveButton.tagName, "BUTTON", "archive entries must contain native buttons");
+archive.elements["history-dialog"].open = true;
+archiveButton.emit("click");
+assert.equal(archive.elements["main-word"].textContent, words[0].word, "archive button must preview its word");
+assert.equal(archive.elements["history-dialog"].open, false, "archive preview must close the dialog");
+
+const importer = loadBrowserApp({ state: savedState });
+const countBeforeImport = importer.elements["history-count"].textContent;
+const itemsBeforeImport = importer.elements["history-list"].children.length;
+const stateBeforeImport = importer.localStorage.value("arabic_words_state");
+importer.elements["input-import-history"].files = [{ text: async () => "not json" }];
+await importer.elements["input-import-history"].emit("change");
+assert.equal(importer.elements["history-count"].textContent, countBeforeImport, "invalid import must keep the history count");
+assert.equal(importer.elements["history-list"].children.length, itemsBeforeImport, "invalid import must keep history UI intact");
+assert.equal(importer.localStorage.value("arabic_words_state"), stateBeforeImport, "invalid import must not replace saved state");
+
+const preferences = loadBrowserApp({ state: savedState });
+await preferences.elements["btn-toggle-english"].emit("click");
+assert.equal(JSON.parse(preferences.localStorage.value("arabic_words_state")).preferences.showEnglish, false, "English toggle must persist its preference");
+assert.equal(preferences.elements["word-meaning-en"].hidden, true, "English toggle must hide the gloss");
+
+const clipboard = loadBrowserApp({ state: savedState });
+let unhandled;
+const onUnhandled = error => { unhandled = error; };
+process.once("unhandledRejection", onUnhandled);
+await clipboard.elements["btn-copy-link"].emit("click");
+await new Promise(resolve => setImmediate(resolve));
+process.removeListener("unhandledRejection", onUnhandled);
+assert.equal(unhandled, undefined, "missing clipboard APIs must not create an unhandled rejection");
+assert.equal(clipboard.elements.toast.textContent, "تعذّر النسخ؛ يرجى المحاولة مجدداً.", "missing clipboard APIs must show the failure toast");
+
+}
+
+browserChecks()
+    .then(() => console.log("All checks passed."))
+    .catch(error => { console.error(error); process.exitCode = 1; });
