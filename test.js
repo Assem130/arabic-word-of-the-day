@@ -146,6 +146,8 @@ function loadBrowserApp({ state, storageFails = false } = {}) {
         "history-list", "history-count", "drawer-empty-msg", "app-menu-dropdown", "storage-warning", "toast"
     ];
     const elements = Object.fromEntries(elementIds.map(id => [id, new FakeElement(id === "input-import-history" ? "input" : "div")]));
+    elements["storage-warning"].hidden = true;
+    const initialWarningHidden = elements["storage-warning"].hidden;
     const documentListeners = new Map();
     const document = {
         body: new FakeElement("body"),
@@ -173,7 +175,7 @@ function loadBrowserApp({ state, storageFails = false } = {}) {
         vm.runInContext(fs.readFileSync(file, "utf8"), context, { filename: file });
     }
     document.emit("DOMContentLoaded");
-    return { context, document, elements, localStorage };
+    return { context, document, elements, initialWarningHidden, localStorage };
 }
 
 async function browserChecks() {
@@ -181,6 +183,7 @@ const menuMarkup = wordPage.match(/<div class="app-menu-dropdown"[^>]*>([\s\S]*?
 assert.equal(menuMarkup[1].includes("storage-warning"), false, "storage warning must not be hidden inside the menu");
 
 const storageFailure = loadBrowserApp({ storageFails: true });
+assert.equal(storageFailure.initialWarningHidden, true, "storage warning must start hidden before initialization");
 assert.equal(storageFailure.elements["storage-warning"].hidden, false, "storage failures must reveal the warning");
 assert.equal(storageFailure.elements["btn-speak"].disabled, true, "missing speech APIs must disable speech");
 
@@ -197,11 +200,14 @@ const importer = loadBrowserApp({ state: savedState });
 const countBeforeImport = importer.elements["history-count"].textContent;
 const itemsBeforeImport = importer.elements["history-list"].children.length;
 const stateBeforeImport = importer.localStorage.value("arabic_words_state");
+importer.elements["input-import-history"].value = "invalid-backup.json";
 importer.elements["input-import-history"].files = [{ text: async () => "not json" }];
 await importer.elements["input-import-history"].emit("change");
 assert.equal(importer.elements["history-count"].textContent, countBeforeImport, "invalid import must keep the history count");
 assert.equal(importer.elements["history-list"].children.length, itemsBeforeImport, "invalid import must keep history UI intact");
 assert.equal(importer.localStorage.value("arabic_words_state"), stateBeforeImport, "invalid import must not replace saved state");
+assert.equal(importer.elements.toast.textContent, "ملف المخزون غير صالح.", "invalid import must show the failure toast");
+assert.equal(importer.elements["input-import-history"].value, "", "invalid import must reset the file input");
 
 const preferences = loadBrowserApp({ state: savedState });
 await preferences.elements["btn-toggle-english"].emit("click");
