@@ -395,7 +395,7 @@ const words = [
         root: "غ ب ط",
         category: "مشاعر وعاطفة",
         meaning: "تمني مثل نعمة الآخرين وسعادتهم دون أن تزول عنهم، وفرح وسرور النفس بنعم الله الجزيلة.",
-        englishMeaning: "Wishing for the blessings and happiness of others without their loss, with rejoicing in abundant divine gifts.",
+        englishMeaning: "Wishing for a similar blessing for oneself without wanting it removed from another person.",
         example: "فِي غَبْطَةٍ وَسُرُورٍ لا انْقِطَاعَ لَهُ... مَعَ الأَحِبَّةِ فِي رَغْدٍ مِنَ العُمُرِ — ابن معتوق"
     },
     {

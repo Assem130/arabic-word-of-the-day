@@ -1,4 +1,4 @@
-// ponytail: embedded word list database directly in code to avoid fetch/CORS errors when running from a local file protocol (file://)
+// ponytail: shared word data loads locally from words.js before this script, avoiding fetch/CORS issues under file://
 
 
 // App State Management (ponytail: native localStorage state to manage daily assignment & learned history)

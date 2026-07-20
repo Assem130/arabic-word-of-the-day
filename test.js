@@ -1,6 +1,8 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const vm = require("node:vm");
 const Core = require("./app-core.js");
 
 const ids = new Set([1, 2, 3]);
@@ -57,6 +59,17 @@ assert.throws(() => Core.parseBackup('{"schemaVersion":2}', ids), /Unsupported b
 const words = require("./words.js");
 assert.equal(words.length, 60);
 assert.equal(new Set(words.map(word => word.id)).size, words.length);
+assert.deepEqual(words.map(word => word.id), Array.from({ length: 60 }, (_, index) => index + 1));
+assert.equal(words[32].englishMeaning, "Wishing for a similar blessing for oneself without wanting it removed from another person.");
+const browser = { globalThis: {} };
+vm.runInNewContext(fs.readFileSync(require.resolve("./words.js"), "utf8"), browser);
+assert.equal(Array.isArray(browser.globalThis.WORDS_DB), true);
+assert.equal(browser.globalThis.WORDS_DB.length, 60);
+assert.deepEqual(Array.from(browser.globalThis.WORDS_DB, word => word.id), Array.from({ length: 60 }, (_, index) => index + 1));
+const wordPage = fs.readFileSync("word.html", "utf8");
+const wordsScript = wordPage.indexOf('<script src="words.js"');
+const appScript = wordPage.indexOf('<script src="app.js"');
+assert.equal(wordsScript >= 0 && wordsScript < appScript, true, "word.html must load words.js before app.js");
 for (const word of words) {
     assert.equal(Number.isInteger(word.id), true);
     for (const field of ["word", "pronunciation", "vocalization", "weight", "root", "category", "meaning", "englishMeaning", "example"]) {
