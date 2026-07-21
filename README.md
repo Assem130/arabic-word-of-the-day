@@ -1,25 +1,37 @@
-# كَلِمات — Arabic Word of the Day
+<div align="center" dir="rtl">
 
-A calm, Arabic-first daily reading experience for one word at a time.
+<img src="assets/readme-hero.svg" alt="كلمات - تجربة يومية لتأمل كلمة عربية واحدة" width="1200">
 
-## What it does
+# كَلِمات
 
-- Selects the same word for everyone on a given local calendar day, deterministically from the bundled word list.
-- Shows the Arabic word, vocalization, pattern, root, category, meaning, pronunciation, English gloss, example, and a countdown to the next word.
-- Saves opened words and the optional English-gloss preference automatically in this browser's local storage.
-- Keeps the English gloss concise and optional; it is visible by default and its setting persists after a reload.
-- Provides browser speech when available, plus copy/share fallbacks and an accessible archive dialog.
-- Exports the local archive as JSON and imports compatible JSON by merging records rather than replacing them. When the same word exists in both places, the earliest first-seen date wins—ready for a future sync layer without adding one now.
+### كلمة عربية واحدة كل يوم، تُقرأ على مهل.
 
-## Privacy and transfer
+تجربة خفيفة لعشّاق العربية: معنى، ضبط، جذر، مثال، ونطق في صفحة واحدة هادئة.
 
-There is no account, backend, analytics pipeline, or server-side history store. The local server only serves the static files during development. Your reading history stays in your browser unless you explicitly export it.
+*A calm, Arabic-first daily reading experience for one word at a time.*
 
-Cross-device transfer is manual: export a JSON backup on one device, then import it on another. Importing does not erase the existing archive; compatible histories merge.
+<kbd>HTML</kbd> <kbd>CSS</kbd> <kbd>JavaScript</kbd> <kbd>No build step</kbd> <kbd>Local-first privacy</kbd>
 
-## Run locally
+[ابدأ من الصفحة الرئيسية](index.html) · [افتح كلمة اليوم](word.html) · English below
 
-Python 3 is the only requirement:
+</div>
+
+## ما الذي تقرؤه؟
+
+| في اللحظة | ما وراء الكلمة |
+| --- | --- |
+| **كلمة اليوم**<br>اختيار ثابت للجميع في التاريخ المحلي نفسه. | **بنيتها**<br>الضبط، الوزن، الجذر، والتصنيف. |
+| **صوتها وسياقها**<br>نطق المتصفح، معنى موجز، ومثال حي. | **أثرك الشخصي**<br>سجل محلي للكلمات التي مررت بها، مع مشاركة ونسخ. |
+
+## الخصوصية وسجل التعلّم
+
+لا حسابات، ولا قاعدة بيانات، ولا تحليلات. يبقى سجلّك وتفضيل إظهار المعنى الإنجليزي في `localStorage` داخل متصفحك.
+
+يمكنك تصدير السجل إلى ملف JSON ثم استيراده على جهاز آخر. الاستيراد يدمج السجلين ولا يحذف ما لديك، ويحتفظ بأقدم تاريخ ظهور للكلمة المشتركة.
+
+## تشغيل محليًا
+
+يتطلب المشروع Python 3 فقط:
 
 ```powershell
 git clone https://github.com/Assem130/arabic-word-of-the-day.git
@@ -27,26 +39,32 @@ cd arabic-word-of-the-day
 python server.py
 ```
 
-Open <http://localhost:8000>. The included server sends UTF-8 headers for the Arabic HTML, CSS, and JavaScript files.
+افتح <http://localhost:8000>. الخادم المرفق يضيف ترويسات UTF-8 لملفات التطبيق النصية على Windows.
 
-## Project structure
-
-```text
-arabic-word-of-the-day/
-├── index.html       # Landing page
-├── word.html        # Daily-word experience and controls
-├── revamp.css       # Responsive RTL presentation
-├── revamp.js        # Landing-page motion
-├── words.js         # Bundled Arabic-word dataset
-├── app-core.js      # Deterministic selection and backup-state logic
-├── app.js           # Rendering, local history, speech, sharing, import/export
-├── test.js          # Dependency-free deterministic and UI-state checks
-└── server.py        # Local UTF-8 development server
-```
-
-## Verify
+للتأكد من السلوك الأساسي:
 
 ```powershell
 node test.js
 git diff --check
 ```
+
+## خريطة المشروع
+
+```text
+index.html       صفحة البداية التحريرية
+word.html        تجربة كلمة اليوم وعناصر التحكم
+words.js         قاعدة الكلمات العربية المضمّنة
+app-core.js      اختيار الكلمة وحالة النسخ الاحتياطي
+app.js           العرض والسجل والنطق والمشاركة والاستيراد والتصدير
+revamp.css       الواجهة المتجاوبة من اليمين إلى اليسار
+revamp.js        حركة صفحة البداية
+server.py        خادم تطوير محلي بترويسات UTF-8
+test.js          اختبارات بلا اعتماديات
+assets/          أصول العرض الخاصة بالمستودع
+```
+
+## Kalimat - Arabic Word of the Day
+
+Kalimat is a no-build, two-page Arabic learning experience. The landing page leads into a daily word with its vocalization, pattern, root, category, meaning, pronunciation, example, and a countdown to tomorrow.
+
+Everything personal stays in the browser. Exported JSON archives are portable and merge safely on import, so a learner can move their reading history without creating an account.
