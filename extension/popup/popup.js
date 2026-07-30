@@ -3,7 +3,7 @@
 
   const ExtApi = globalThis.browser ?? globalThis.chrome;
   const byId = (id) => document.getElementById(id);
-  const state = { word: null, dateKey: null };
+  const state = { word: null, dateKey: null, reminderError: "" };
   let elements;
 
   function show(name) {
@@ -20,7 +20,10 @@
 
   function renderReminder(reminder) {
     if (!reminder || typeof reminder.enabled !== "boolean" || !/^\d{2}:\d{2}$/.test(reminder.time)) return false;
+    state.reminderError = "";
     elements.reminderTime.value = reminder.time;
+    elements.reminderTime.disabled = false;
+    elements.reminder.disabled = false;
     elements.reminder.setAttribute("aria-pressed", String(reminder.enabled));
     elements.reminder.textContent = reminder.enabled ? "أوقف" : "فعّل";
     return true;
@@ -30,7 +33,15 @@
     try {
       const settings = await ExtApi.runtime.sendMessage({ type: "settings.get" });
       if (!settings || settings.kind !== "settings" || !renderReminder(settings.reminder)) throw new Error("Invalid settings.");
-    } catch (_) { status("تعذّر تحميل إعدادات التذكير."); }
+    } catch (_) {
+      state.reminderError = "تعذّر تحميل إعدادات التذكير.";
+      elements.reminderTime.value = "";
+      elements.reminderTime.disabled = true;
+      elements.reminder.disabled = true;
+      elements.reminder.setAttribute("aria-pressed", "false");
+      elements.reminder.textContent = "غير متاح";
+      status(state.reminderError);
+    }
   }
 
   function collectElements() {
@@ -93,7 +104,7 @@
   }
 
   async function loadAssignment() {
-    status("نحضّر كلمتك…");
+    if (!state.reminderError) status("نحضّر كلمتك…");
     try {
       const result = await ExtApi.runtime.sendMessage({ type: "assignment.get" });
       if (result.kind === "recovery") return renderRecovery();
@@ -104,8 +115,8 @@
       }
       renderAssigned(await assignedWord(result));
     } catch (_) {
-      status("تعذّر تحميل الكلمة. افتح النافذة مجددًا.");
-    }
+      if (!state.reminderError) status("تعذّر تحميل الكلمة. افتح النافذة مجددًا.");
+    } finally { if (state.reminderError) status(state.reminderError); }
   }
 
   function renderRecovery() {
@@ -150,6 +161,7 @@
   }
 
   function requestReminder() {
+    if (state.reminderError) return Promise.resolve();
     const enabled = elements.reminder.getAttribute("aria-pressed") !== "true";
     const time = elements.reminderTime.value || "09:00";
     if (!enabled) return ExtApi.runtime.sendMessage({ type: "reminder.configure", enabled: false, time }).then((reminder) => {

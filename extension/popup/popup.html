@@ -29,23 +29,24 @@
         <label><input type="checkbox" name="interest" value="language"> اللغة</label>
         <label><input type="checkbox" name="interest" value="travel"> السفر</label>
       </fieldset>
-      <div class="actions"><button id="onboarding-submit" type="button">ابدأ</button><button id="onboarding-skip" type="button" class="quiet">تخطي الآن</button></div>
+      <div class="actions"><button id="onboarding-submit" type="button" class="continue">متابعة</button><button id="onboarding-skip" type="button" class="quiet">تخطي الآن</button></div>
     </section>
 
     <section id="assigned" aria-labelledby="word" hidden>
-      <p id="fixed-label" class="fixed">ثابتة لليوم</p>
       <article class="word-card">
+        <p id="fixed-label" class="fixed">ثابتة لليوم</p>
         <h2 id="word" lang="ar" tabindex="-1"></h2>
         <p id="meaning-ar" class="meaning" lang="ar"></p>
         <p id="meaning-en" class="english" lang="en"></p>
-        <p id="example" class="example" lang="ar"></p>
         <p id="pronunciation" class="pronunciation" dir="ltr"></p>
-        <button id="speak" type="button">استمع للنطق</button>
+        <button id="speak" type="button" class="speak" aria-label="استمع للنطق"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10v4h4l5 4V6L8 10H4Z"/><path d="M16 9a4 4 0 0 1 0 6"/><path d="M18.5 6.5a7 7 0 0 1 0 11"/></svg><span class="visually-hidden">استمع للنطق</span></button>
       </article>
+      <section class="example-card" aria-labelledby="example-label"><p id="example-label">مثال</p><p id="example" lang="ar"></p></section>
+      <p class="feedback-prompt">كيف كانت الكلمة اليوم؟</p>
       <div class="feedback" aria-label="تقييم الكلمة">
-        <button id="known" type="button" aria-pressed="false">معروف</button>
-        <button id="difficult" type="button" aria-pressed="false">صعب</button>
-        <button id="save" type="button" aria-pressed="false">حفظ</button>
+        <button id="known" type="button" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6"/></svg><span>معروف</span></button>
+        <button id="difficult" type="button" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14c3-4 5 4 8 0s5 4 8 0"/></svg><span>صعب</span></button>
+        <button id="save" type="button" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h12v16l-6-4-6 4V4Z"/></svg><span>حفظ</span></button>
       </div>
       <button id="explore" type="button" class="explore">استكشف</button>
       <div class="reminder-row"><label for="reminder-time">تذكير يومي</label><input id="reminder-time" type="time" value="09:00"><button id="reminder" type="button" class="quiet" aria-pressed="false">فعّل</button></div>

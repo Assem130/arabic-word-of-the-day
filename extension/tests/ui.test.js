@@ -76,6 +76,12 @@ test("popup exposes RTL accessible onboarding and assigned-word controls", () =>
   assert.match(html, /<button[^>]+id="reminder"[^>]+aria-pressed="false"/);
   assert.match(source("popup.css"), /grid-template-columns:\s*repeat\(4, 1fr\)/);
   assert.match(source("popup.css"), /width:\s*380px/);
+  assert.match(html, /<button id="onboarding-submit"[^>]+class="continue"/);
+  assert.match(html, /<article class="word-card">\s*<p id="fixed-label"/);
+  assert.match(html, /<section class="example-card"/);
+  assert.match(html, /<button id="speak"[^>]+aria-label="استمع للنطق"/);
+  assert.match(html, /<p class="feedback-prompt">كيف كانت الكلمة اليوم؟<\/p>/);
+  assert.match(html, /<svg[^>]+viewBox=/);
 });
 
 test("popup renders hostile assigned-word content as text and caps interests", () => {
@@ -145,4 +151,16 @@ test("a rejected reminder disable keeps the visible enabled state and reports th
   await assert.doesNotReject(api.requestReminder());
   assert.equal(elements.get("reminder").getAttribute("aria-pressed"), "true");
   assert.match(elements.get("status").textContent, /تعذّر إيقاف التذكير/);
+});
+
+test("failed reminder hydration keeps controls disabled and its error survives assignment loading", async () => {
+  const { api, elements, calls } = popupApi({
+    "settings.get": new Error("settings unavailable"),
+    "assignment.get": { kind: "no-new-word" },
+  });
+  await api.initialize();
+  assert.equal(elements.get("reminder").disabled, true);
+  assert.equal(elements.get("reminder-time").disabled, true);
+  assert.match(elements.get("status").textContent, /تعذّر تحميل إعدادات التذكير/);
+  assert.ok(calls.some((message) => message.type === "assignment.get"));
 });
