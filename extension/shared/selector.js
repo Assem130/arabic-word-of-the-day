@@ -74,6 +74,7 @@
   }
 
   function assignmentCount(profile) {
+    if (Number.isSafeInteger(profile.assignmentOrdinal) && profile.assignmentOrdinal >= 0) return profile.assignmentOrdinal;
     return profile.assignments && typeof profile.assignments === "object" ? Object.keys(profile.assignments).length : 0;
   }
 

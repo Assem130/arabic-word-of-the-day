@@ -27,10 +27,12 @@ function word(id, overrides = {}) {
 
 function profile(overrides = {}) {
   const base = createProfile({ seedHex, level: 1, interests: ["language"] });
+  const assignments = { ...base.assignments, ...overrides.assignments };
   return {
     ...base,
     ...overrides,
-    assignments: { ...base.assignments, ...overrides.assignments },
+    assignments,
+    assignmentOrdinal: overrides.assignmentOrdinal ?? Object.keys(assignments).length,
     wordStates: { ...base.wordStates, ...overrides.wordStates },
     recentIds: overrides.recentIds ?? base.recentIds,
   };
@@ -60,11 +62,14 @@ test("all-known corpus terminates explicitly", async () => {
 
 test("existing local dates survive timezone travel, DST, leap day, forward jumps, and rollback", async () => {
   const vocabulary = [word("w1"), word("w2")];
-  const zoneDate = (zone) => childProcess.execFileSync(process.execPath, ["-e", "process.stdout.write(require('./extension/shared/date.js').getLocalDateKey(new Date('2026-07-30T00:30:00Z')))"], { cwd: require("node:path").join(__dirname, "..", ".."), env: { ...process.env, TZ: zone } }).toString();
+  const zoneDate = (zone, instant = "2026-07-30T00:30:00Z") => childProcess.execFileSync(process.execPath, ["-e", `process.stdout.write(require('./extension/shared/date.js').getLocalDateKey(new Date('${instant}')))`], { cwd: require("node:path").join(__dirname, "..", ".."), env: { ...process.env, TZ: zone } }).toString();
   const losAngeles = zoneDate("America/Los_Angeles");
   const tokyo = zoneDate("Asia/Tokyo");
   assert.equal(losAngeles, "2026-07-29");
   assert.equal(tokyo, "2026-07-30");
+  assert.equal(zoneDate("Europe/Berlin", "2026-03-29T00:30:00Z"), "2026-03-29");
+  assert.equal(zoneDate("Europe/Berlin", "2026-03-29T01:30:00Z"), "2026-03-29");
+  assert.equal(zoneDate("Europe/Berlin", "2024-02-29T12:00:00Z"), "2024-02-29");
   const fixed = profile({ assignments: { "2024-02-29": { wordId: "w2" }, "2026-11-01": { wordId: "w1" }, [losAngeles]: { wordId: "w1" }, [tokyo]: { wordId: "w2" }, "2026-08-15": { wordId: "w2" } } });
   assert.deepEqual(await selected(vocabulary, fixed, "2024-02-29"), { kind: "assigned", wordId: "w2" });
   assert.deepEqual(await selected(vocabulary, fixed, "2026-11-01"), { kind: "assigned", wordId: "w1" });
@@ -72,6 +77,17 @@ test("existing local dates survive timezone travel, DST, leap day, forward jumps
   assert.deepEqual(await selected(vocabulary, fixed, tokyo), { kind: "assigned", wordId: "w2" });
   assert.deepEqual(await selected(vocabulary, fixed, getLocalDateKey(new Date(2026, 7, 15))), { kind: "assigned", wordId: "w2" });
   assert.equal((await selected(vocabulary, fixed, "2026-07-30")).kind, "assigned");
+});
+
+test("forward clock jumps and rollback keep the original local-day assignment", async () => {
+  const vocabulary = [word("w1"), word("w2")];
+  const originalDate = getLocalDateKey(new Date(2026, 6, 30));
+  const jumpedDate = getLocalDateKey(new Date(2026, 7, 15));
+  const original = profile({ assignments: { [originalDate]: { wordId: "w1" } } });
+  const afterJump = await selected(vocabulary, original, jumpedDate);
+  assert.equal(afterJump.kind, "assigned");
+  const persistedJump = { ...original, assignments: { ...original.assignments, [jumpedDate]: { wordId: afterJump.wordId } } };
+  assert.deepEqual(await selected(vocabulary, persistedJump, originalDate), { kind: "assigned", wordId: "w1" });
 });
 
 test("exact ability beats more useful farther difficulty", async () => {
@@ -140,6 +156,12 @@ test("every seventh new assignment broadens beyond the learner interests", async
   assert.deepEqual(await selected(vocabulary), { kind: "assigned", wordId: "interest" });
   const assignments = Object.fromEntries(Array.from({ length: 6 }, (_, index) => [`2026-07-${String(index + 1).padStart(2, "0")}`, { wordId: "interest" }]));
   assert.deepEqual(await selected(vocabulary, profile({ assignments })), { kind: "assigned", wordId: "outside" });
+});
+
+test("lifetime assignment ordinal keeps every-seventh broadening after assignment pruning", async () => {
+  const vocabulary = [word("interest", { topics: ["language"], usefulnessBand: "high" }), word("outside", { topics: ["food"], usefulnessBand: "low" })];
+  const assignments = Object.fromEntries(Array.from({ length: 5000 }, (_, index) => [`2026-01-${String((index % 28) + 1).padStart(2, "0")}-${index}`, { wordId: "interest" }]));
+  assert.deepEqual(await selected(vocabulary, profile({ assignments, assignmentOrdinal: 5004 })), { kind: "assigned", wordId: "outside" });
 });
 
 test("usefulness orders otherwise equal candidates and optional metadata is optional", async () => {

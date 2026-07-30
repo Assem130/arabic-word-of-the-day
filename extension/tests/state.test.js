@@ -15,7 +15,8 @@ const seed = "a".repeat(32);
 
 function profileWithAssignment(dateKey, wordId = "w1", overrides = {}) {
   const profile = createProfile({ seedHex: seed, level: 2, interests: ["travel"] });
-  return { ...profile, ...overrides, assignments: { ...profile.assignments, ...overrides.assignments, [dateKey]: { wordId } } };
+  const assignments = { ...profile.assignments, ...overrides.assignments, [dateKey]: { wordId } };
+  return { ...profile, ...overrides, assignments, assignmentOrdinal: Math.max(overrides.assignmentOrdinal ?? 0, Object.keys(assignments).length) };
 }
 
 function feedbackFor(profile, dateKey) {
@@ -46,6 +47,19 @@ test("clear-data defaults create a bounded canonical profile", () => {
   assert.equal(Object.getPrototypeOf(profile.wordStates), null);
   assert.equal(Object.getPrototypeOf(profile.assignments), null);
   assert.equal(profile.evidenceCutoff, null);
+  assert.equal(profile.assignmentOrdinal, 0);
+});
+
+test("legacy profiles migrate a bounded lifetime assignment ordinal without recovery mode", () => {
+  const legacy = profileWithAssignment("2026-07-30");
+  delete legacy.assignmentOrdinal;
+  const migrated = validateStoredProfile(legacy, vocabulary);
+  assert.equal(migrated.canPersist, true);
+  assert.equal(migrated.profile.assignmentOrdinal, 1);
+
+  const explicit = validateStoredProfile({ ...legacy, assignmentOrdinal: 5004 }, vocabulary);
+  assert.equal(explicit.profile.assignmentOrdinal, 5004);
+  assert.equal(validateStoredProfile({ ...legacy, assignmentOrdinal: -1 }, vocabulary).canPersist, false);
 });
 
 test("stored profiles reject unknown, dangerous, malformed, and invalid enum data without changing it", () => {

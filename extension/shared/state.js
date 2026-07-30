@@ -16,7 +16,7 @@
   const encoder = new TextEncoder();
   const INTERESTS = new Set(["classical-arabic", "daily-life", "family", "food", "language", "travel"]);
   const STATUSES = new Set(["known", "difficult"]);
-  const PROFILE_KEYS = new Set(["schemaVersion", "algorithmVersion", "seedHex", "level", "interests", "wordStates", "assignments", "recentIds", "evidenceCutoff"]);
+  const PROFILE_KEYS = new Set(["schemaVersion", "algorithmVersion", "seedHex", "level", "interests", "wordStates", "assignments", "recentIds", "evidenceCutoff", "assignmentOrdinal"]);
   const WORD_STATE_KEYS = new Set(["status", "dateKey", "saved"]);
   const ASSIGNMENT_KEYS = new Set(["wordId", "status"]);
   const DANGEROUS_KEYS = new Set(["__proto__", "constructor", "prototype"]);
@@ -95,7 +95,7 @@
 
   function copyProfile(raw, vocabulary, assignmentMaximum = MAX_ASSIGNMENTS) {
     safeKeys(raw, PROFILE_KEYS, "profile");
-    for (const key of PROFILE_KEYS) if (!Object.hasOwn(raw, key)) fail(`profile ${key}`);
+    for (const key of PROFILE_KEYS) if (key !== "assignmentOrdinal" && !Object.hasOwn(raw, key)) fail(`profile ${key}`);
     if (raw.schemaVersion !== SCHEMA_VERSION || raw.algorithmVersion !== ALGORITHM_VERSION) fail("schema version");
     if (typeof raw.seedHex !== "string" || !/^[0-9a-f]{32}$/.test(raw.seedHex)) fail("seedHex");
     if (!Number.isInteger(raw.level) || raw.level < 1 || raw.level > 4) fail("level");
@@ -123,6 +123,8 @@
       if (allowedIds && !allowedIds.has(copy.wordId)) fail("assignment wordId");
       assignments[dateKey] = copy;
     }
+    const assignmentOrdinal = Object.hasOwn(raw, "assignmentOrdinal") ? raw.assignmentOrdinal : assignmentEntries.length;
+    if (!Number.isSafeInteger(assignmentOrdinal) || assignmentOrdinal < assignmentEntries.length) fail("assignment ordinal");
     return {
       schemaVersion: SCHEMA_VERSION,
       algorithmVersion: ALGORITHM_VERSION,
@@ -131,6 +133,7 @@
       interests: [...raw.interests],
       wordStates,
       assignments,
+      assignmentOrdinal,
       recentIds,
       evidenceCutoff: raw.evidenceCutoff,
     };
@@ -145,6 +148,7 @@
       interests,
       wordStates: nullMap(),
       assignments: nullMap(),
+      assignmentOrdinal: 0,
       recentIds: [],
       evidenceCutoff: null,
     });
