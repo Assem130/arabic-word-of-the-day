@@ -51,7 +51,7 @@
     return 0;
   }
 
-  async function rankCandidates({ candidates, profile, dateKey, recentWords = [], broaden = false, digestHex = sha256Hex }) {
+  async function rankCandidates({ candidates, profile, dateKey, recentWords = [], broaden = false, digestHex = sha256Hex, explain = false }) {
     const algorithmVersion = profile.algorithmVersion;
     const ranked = await Promise.all(candidates.map(async (candidate) => {
       const digest = await digestHex(`${algorithmVersion}\u001f${profile.seedHex}\u001f${dateKey}\u001f${candidate.id}`);
@@ -70,7 +70,7 @@
       };
     }));
     ranked.sort((left, right) => compareTuples(left.tuple, right.tuple));
-    return ranked.map(({ candidate }) => candidate);
+    return explain ? ranked : ranked.map(({ candidate }) => candidate);
   }
 
   function assignmentCount(profile) {
@@ -87,34 +87,40 @@
     return [];
   }
 
-  async function selectDaily({ vocabulary, profile, dateKey, digestHex = sha256Hex }) {
+  async function selectDaily({ vocabulary, profile, dateKey, digestHex = sha256Hex, explain = false }) {
     const existing = profile.assignments && profile.assignments[dateKey];
     if (existing && typeof existing.wordId === "string" && vocabulary.some((word) => word && word.id === existing.wordId)) {
       return { kind: "assigned", wordId: existing.wordId };
     }
 
     const states = profile.wordStates || {};
-    const eligible = vocabulary.filter((word) => validCandidate(word) && states[word.id]?.status !== "known");
+    const reviewed = vocabulary.filter(validCandidate);
+    const eligible = reviewed.filter((word) => states[word.id]?.status !== "known");
     if (!eligible.length) return { kind: "no-new-word" };
 
     const recentIds = Array.isArray(profile.recentIds) ? profile.recentIds : [];
-    const byId = new Map(eligible.map((word) => [word.id, word]));
+    const byId = new Map(reviewed.map((word) => [word.id, word]));
     const recentWords = recentIds.map((id) => byId.get(id)).filter(Boolean);
     const cooldown = Math.min(14, Math.floor(eligible.length / 3));
     const level = Number.isInteger(profile.level) ? profile.level : 1;
     let candidates = pickBand(eligible, level, recentIds, cooldown);
-    if (!candidates.length) candidates = pickBand(eligible, level, [], 0);
+    const cooldownRelaxed = !candidates.length;
+    if (cooldownRelaxed) candidates = pickBand(eligible, level, [], 0);
     if (!candidates.length) return { kind: "no-new-word" };
 
+    const broaden = (assignmentCount(profile) + 1) % 7 === 0;
     const ranked = await rankCandidates({
       candidates,
       profile,
       dateKey,
       recentWords,
-      broaden: (assignmentCount(profile) + 1) % 7 === 0,
+      broaden,
       digestHex,
+      explain,
     });
-    return { kind: "assigned", wordId: ranked[0].id };
+    const winner = explain ? ranked[0].candidate : ranked[0];
+    if (!explain) return { kind: "assigned", wordId: winner.id };
+    return { kind: "assigned", wordId: winner.id, explanation: { cooldown, cooldownRelaxed, abilityDistance: Math.abs(DIFFICULTY[winner.difficultyBand] - level), broaden, tuple: ranked[0].tuple } };
   }
 
   return { sha256Hex, rankCandidates, selectDaily };

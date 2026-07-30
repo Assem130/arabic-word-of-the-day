@@ -33,7 +33,6 @@ $runtimeFiles = @(
     "popup/popup.html",
     "shared/api.js",
     "shared/date.js",
-    "shared/selector.js",
     "shared/state.js",
     "shared/vocabulary.js"
 )
