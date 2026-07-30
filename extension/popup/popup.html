@@ -1,5 +1,58 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
-<meta charset="utf-8">
-<title>Kalimat</title>
-<p>كلمات</p>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>كلمات</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">تجاوز إلى المحتوى</a>
+  <main id="main" tabindex="-1">
+    <header class="masthead"><h1>كلمات</h1><p>كلمة عربية واحدة، كل يوم.</p></header>
+    <p id="status" class="status" aria-live="polite"></p>
+
+    <section id="onboarding" aria-labelledby="onboarding-title" hidden>
+      <h2 id="onboarding-title">لنبدأ من مكانك</h2>
+      <fieldset><legend aria-label="المستوى">مستواك</legend>
+        <label><input type="radio" name="level" value="1" checked> أتعلم الأساسيات</label>
+        <label><input type="radio" name="level" value="2"> أقرأ كلمات مألوفة</label>
+        <label><input type="radio" name="level" value="3"> أفهم نصوصًا قصيرة</label>
+        <label><input type="radio" name="level" value="4"> أبحث عن مفردات أعمق</label>
+      </fieldset>
+      <fieldset><legend>ما الذي يهمك؟ <span>اختر حتى ثلاثة</span></legend>
+        <label><input type="checkbox" name="interest" value="classical-arabic"> العربية الكلاسيكية</label>
+        <label><input type="checkbox" name="interest" value="daily-life"> الحياة اليومية</label>
+        <label><input type="checkbox" name="interest" value="family"> العائلة</label>
+        <label><input type="checkbox" name="interest" value="food"> الطعام</label>
+        <label><input type="checkbox" name="interest" value="language"> اللغة</label>
+        <label><input type="checkbox" name="interest" value="travel"> السفر</label>
+      </fieldset>
+      <div class="actions"><button id="onboarding-submit" type="button">ابدأ</button><button id="onboarding-skip" type="button" class="quiet">تخطي الآن</button></div>
+    </section>
+
+    <section id="assigned" aria-labelledby="word" hidden>
+      <p id="fixed-label" class="fixed">ثابتة لليوم</p>
+      <article class="word-card">
+        <h2 id="word" lang="ar"></h2>
+        <p id="meaning-ar" class="meaning" lang="ar"></p>
+        <p id="meaning-en" class="english" lang="en"></p>
+        <p id="example" class="example" lang="ar"></p>
+        <p id="pronunciation" class="pronunciation" dir="ltr"></p>
+        <button id="speak" type="button">استمع للنطق</button>
+      </article>
+      <div class="feedback" aria-label="تقييم الكلمة">
+        <button id="known" type="button" aria-pressed="false">معروف</button>
+        <button id="difficult" type="button" aria-pressed="false">صعب</button>
+        <button id="save" type="button" aria-pressed="false">حفظ</button>
+      </div>
+      <div class="actions"><button id="explore" type="button" class="quiet">استكشف</button><button id="reminder" type="button" class="quiet">تذكير يومي</button></div>
+    </section>
+
+    <section id="empty" aria-labelledby="empty-title" hidden><h2 id="empty-title">لا توجد كلمة جديدة اليوم</h2><p>أتممت الكلمات المتاحة لك. عُد غدًا.</p><button id="explore-empty" type="button">استكشف الأطلس</button></section>
+    <section id="recovery" aria-labelledby="recovery-title" hidden><h2 id="recovery-title">نحتاج إلى بداية جديدة</h2><p>تعذّر قراءة بياناتك المحلية بأمان.</p><button id="recovery-reset" type="button">إعادة البدء</button></section>
+    <p id="warning" class="warning" role="status" hidden>تُعرض كلمتك، لكن لم نتمكن من حفظ تغييراتك بعد.</p>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>
