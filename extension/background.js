@@ -130,7 +130,9 @@ async function assignment() {
   if (loaded.recoveryRaw !== undefined) return recovery(loaded);
   const dateKey = dependencies.date.getLocalDateKey(new Date());
   const selected = await dependencies.selector.selectDaily({ vocabulary, profile: loaded.profile, dateKey });
-  if (selected.kind !== "assigned" || Object.hasOwn(loaded.profile.assignments, dateKey)) return warning(selected, loaded.warning);
+  if (selected.kind !== "assigned") return warning(selected, loaded.warning);
+  const result = { kind: "assigned", wordId: selected.wordId, dateKey };
+  if (Object.hasOwn(loaded.profile.assignments, dateKey)) return warning(result, loaded.warning);
   if (loaded.profile.assignmentOrdinal === Number.MAX_SAFE_INTEGER) throw new RangeError("Assignment counter exhausted.");
   const profile = dependencies.state.pruneAssignments({
     ...loaded.profile,
@@ -138,7 +140,7 @@ async function assignment() {
     assignmentOrdinal: loaded.profile.assignmentOrdinal + 1,
     recentIds: [selected.wordId, ...loaded.profile.recentIds.filter((id) => id !== selected.wordId)].slice(0, 16),
   });
-  return warning(selected, await persistProfile(profile, loaded));
+  return warning(result, await persistProfile(profile, loaded));
 }
 
 async function updateProfile(change) {

@@ -116,7 +116,9 @@ test("Firefox browser APIs use the same background message adapter", async () =>
   await withBackground({ api: "browser" }, async ({ background, extension }) => {
     assert.equal(extension.runtime.onMessage.listeners.length, 1);
     await withLocalDay("2026-07-30", async () => {
-      assert.equal((await background.handleMessage({ type: "assignment.get" })).kind, "assigned");
+      const result = await background.handleMessage({ type: "assignment.get" });
+      assert.equal(result.kind, "assigned");
+      assert.equal(result.dateKey, "2026-07-30");
     });
   });
 });
@@ -127,7 +129,7 @@ test("an existing assignment survives feedback and settings changes", async () =
     await background.handleMessage({ type: "word.feedback", dateKey: "2026-07-30", wordId: "w1", status: "known" });
     await background.handleMessage({ type: "settings.update", level: 2, interests: ["travel"] });
     await withLocalDay("2026-07-30", async () => {
-      assert.deepEqual(await background.handleMessage({ type: "assignment.get" }), { kind: "assigned", wordId: "w1" });
+      assert.deepEqual(await background.handleMessage({ type: "assignment.get" }), { kind: "assigned", wordId: "w1", dateKey: "2026-07-30" });
     });
   });
 });
@@ -343,7 +345,7 @@ test("a new valid-date assignment prunes 5,001 records while lifetime cadence co
   const existing = profile({ assignments, assignmentOrdinal: 5004 });
   await withBackground({ profile: existing, vocabulary: [word("interest"), word("outside", { topics: ["food"], usefulnessBand: "low" })] }, async ({ background, values }) => {
     await withLocalDay("2026-07-30", async () => {
-      assert.deepEqual(await background.handleMessage({ type: "assignment.get" }), { kind: "assigned", wordId: "outside" });
+      assert.deepEqual(await background.handleMessage({ type: "assignment.get" }), { kind: "assigned", wordId: "outside", dateKey: "2026-07-30" });
     });
     assert.equal(Object.keys(values["kalimat.profile"].assignments).length, 5000);
     assert.equal(values["kalimat.profile"].assignmentOrdinal, 5005);

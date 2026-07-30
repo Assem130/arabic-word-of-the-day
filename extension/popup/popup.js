@@ -6,11 +6,6 @@
   const state = { word: null, dateKey: null };
   let elements;
 
-  function localDateKey() {
-    const date = new Date();
-    return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-");
-  }
-
   function show(name) {
     for (const section of ["onboarding", "assigned", "empty", "recovery"]) elements[section].hidden = section !== name;
   }
@@ -27,7 +22,7 @@
     return {
       onboarding: byId("onboarding"), assigned: byId("assigned"), empty: byId("empty"), recovery: byId("recovery"), warning: byId("warning"), status: byId("status"),
       word: byId("word"), meaningAr: byId("meaning-ar"), meaningEn: byId("meaning-en"), example: byId("example"), pronunciation: byId("pronunciation"),
-      known: byId("known"), difficult: byId("difficult"), save: byId("save"), speak: byId("speak"), reminder: byId("reminder"), onboardingSubmit: byId("onboarding-submit"),
+      known: byId("known"), difficult: byId("difficult"), save: byId("save"), speak: byId("speak"), reminder: byId("reminder"), reminderTime: byId("reminder-time"), onboardingSubmit: byId("onboarding-submit"),
       interests: document.querySelectorAll('input[name="interest"]'), levels: document.querySelectorAll('input[name="level"]'),
     };
   }
@@ -36,7 +31,7 @@
     elements ??= collectElements();
     const word = result.word;
     state.word = word;
-    state.dateKey = result.dateKey ?? localDateKey();
+    state.dateKey = result.dateKey;
     elements.word.textContent = word.word;
     elements.meaningAr.textContent = word.meaningAr;
     elements.meaningEn.textContent = word.meaningEn ?? "";
@@ -47,6 +42,7 @@
     elements.difficult.setAttribute("aria-pressed", "false");
     elements.save.setAttribute("aria-pressed", "false");
     show("assigned");
+    elements.word.focus();
     status("كلمتك جاهزة.");
   }
 
@@ -117,7 +113,7 @@
 
   async function toggleSave() {
     if (!state.word) return;
-    const saved = elements.save.attributes["aria-pressed"] !== "true";
+    const saved = elements.save.getAttribute("aria-pressed") !== "true";
     try {
       const result = await ExtApi.runtime.sendMessage({ type: "word.save", wordId: state.word.id, saved });
       elements.save.setAttribute("aria-pressed", String(saved));
@@ -139,11 +135,22 @@
   }
 
   function requestReminder() {
+    const enabled = elements.reminder.getAttribute("aria-pressed") !== "true";
+    const time = elements.reminderTime.value || "09:00";
+    if (!enabled) return ExtApi.runtime.sendMessage({ type: "reminder.configure", enabled: false, time }).then(() => {
+      elements.reminder.setAttribute("aria-pressed", "false");
+      elements.reminder.textContent = "فعّل";
+      status("أوقفنا التذكير اليومي.");
+    });
     const permission = ExtApi.permissions.request({ permissions: ["alarms", "notifications"] });
     return Promise.resolve(permission).then((granted) => {
       if (!granted) throw new Error("Permission denied.");
-      return ExtApi.runtime.sendMessage({ type: "reminder.configure", enabled: true, time: "09:00" });
-    }).then(() => status("سيصلك تذكير يومي في 09:00."), () => status("لم نفعّل التذكير."));
+      return ExtApi.runtime.sendMessage({ type: "reminder.configure", enabled: true, time });
+    }).then(() => {
+      elements.reminder.setAttribute("aria-pressed", "true");
+      elements.reminder.textContent = "أوقف";
+      status(`سيصلك تذكير يومي في ${time}.`);
+    }, () => status("لم نفعّل التذكير."));
   }
 
   async function resetRecovery() {
@@ -178,7 +185,7 @@
     await loadAssignment();
   }
 
-  globalThis.KalimatPopup = { renderAssigned, limitInterests, requestReminder };
+  globalThis.KalimatPopup = { renderAssigned, limitInterests, requestReminder, toggleSave, completeOnboarding, sendFeedback };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initialize, { once: true });
   else initialize();
 })();

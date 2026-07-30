@@ -14,13 +14,14 @@
 
     <section id="onboarding" aria-labelledby="onboarding-title" hidden>
       <h2 id="onboarding-title">لنبدأ من مكانك</h2>
-      <fieldset><legend aria-label="المستوى">مستواك</legend>
-        <label><input type="radio" name="level" value="1" checked> أتعلم الأساسيات</label>
-        <label><input type="radio" name="level" value="2"> أقرأ كلمات مألوفة</label>
-        <label><input type="radio" name="level" value="3"> أفهم نصوصًا قصيرة</label>
-        <label><input type="radio" name="level" value="4"> أبحث عن مفردات أعمق</label>
+      <fieldset class="level-set"><legend aria-label="المستوى">مستواك</legend><div class="levels">
+        <label><input type="radio" name="level" value="1" checked><span>مبتدئ</span></label>
+        <label><input type="radio" name="level" value="2"><span>متوسط</span></label>
+        <label><input type="radio" name="level" value="3"><span>متقدم</span></label>
+        <label><input type="radio" name="level" value="4"><span>خبير</span></label>
+      </div>
       </fieldset>
-      <fieldset><legend>ما الذي يهمك؟ <span>اختر حتى ثلاثة</span></legend>
+      <fieldset class="interests"><legend>ما الذي يهمك؟ <span>اختر حتى ثلاثة</span></legend>
         <label><input type="checkbox" name="interest" value="classical-arabic"> العربية الكلاسيكية</label>
         <label><input type="checkbox" name="interest" value="daily-life"> الحياة اليومية</label>
         <label><input type="checkbox" name="interest" value="family"> العائلة</label>
@@ -34,7 +35,7 @@
     <section id="assigned" aria-labelledby="word" hidden>
       <p id="fixed-label" class="fixed">ثابتة لليوم</p>
       <article class="word-card">
-        <h2 id="word" lang="ar"></h2>
+        <h2 id="word" lang="ar" tabindex="-1"></h2>
         <p id="meaning-ar" class="meaning" lang="ar"></p>
         <p id="meaning-en" class="english" lang="en"></p>
         <p id="example" class="example" lang="ar"></p>
@@ -46,7 +47,8 @@
         <button id="difficult" type="button" aria-pressed="false">صعب</button>
         <button id="save" type="button" aria-pressed="false">حفظ</button>
       </div>
-      <div class="actions"><button id="explore" type="button" class="quiet">استكشف</button><button id="reminder" type="button" class="quiet">تذكير يومي</button></div>
+      <button id="explore" type="button" class="explore">استكشف</button>
+      <div class="reminder-row"><label for="reminder-time">تذكير يومي</label><input id="reminder-time" type="time" value="09:00"><button id="reminder" type="button" class="quiet" aria-pressed="false">فعّل</button></div>
     </section>
 
     <section id="empty" aria-labelledby="empty-title" hidden><h2 id="empty-title">لا توجد كلمة جديدة اليوم</h2><p>أتممت الكلمات المتاحة لك. عُد غدًا.</p><button id="explore-empty" type="button">استكشف الأطلس</button></section>
