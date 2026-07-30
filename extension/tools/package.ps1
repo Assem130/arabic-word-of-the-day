@@ -13,9 +13,11 @@ $sourceAllowlist = @(
     "popup/popup.html",
     "shared/api.js",
     "shared/date.js",
+    "shared/selector.js",
     "shared/state.js",
     "shared/vocabulary.js",
     "tests/package.test.js",
+    "tests/selector.test.js",
     "tests/state.test.js",
     "tests/vocabulary.test.js",
     "tools/convert-vocabulary.js",
@@ -31,6 +33,7 @@ $runtimeFiles = @(
     "popup/popup.html",
     "shared/api.js",
     "shared/date.js",
+    "shared/selector.js",
     "shared/state.js",
     "shared/vocabulary.js"
 )
