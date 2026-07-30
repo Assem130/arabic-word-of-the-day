@@ -25,7 +25,7 @@
     elements.reminderTime.disabled = false;
     elements.reminder.disabled = false;
     elements.reminder.setAttribute("aria-pressed", String(reminder.enabled));
-    elements.reminder.textContent = reminder.enabled ? "أوقف" : "فعّل";
+    elements.reminder.setAttribute("aria-label", reminder.enabled ? "إيقاف التذكير اليومي" : "تفعيل التذكير اليومي");
     return true;
   }
 
@@ -39,7 +39,7 @@
       elements.reminderTime.disabled = true;
       elements.reminder.disabled = true;
       elements.reminder.setAttribute("aria-pressed", "false");
-      elements.reminder.textContent = "غير متاح";
+      elements.reminder.setAttribute("aria-label", "التذكير غير متاح");
       status(state.reminderError);
     }
   }
@@ -211,7 +211,7 @@
       const stored = await ExtApi.storage.local.get("kalimat.profile");
       if (stored["kalimat.profile"] === undefined) {
         show("onboarding");
-        return status("اختر ما يناسبك.");
+        return status(state.reminderError || "اختر ما يناسبك.");
       }
     } catch (_) { warning(true); }
     await loadAssignment();

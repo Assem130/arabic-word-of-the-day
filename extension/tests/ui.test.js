@@ -22,7 +22,7 @@ function element() {
   };
 }
 
-function popupApi(responses = {}) {
+function popupApi(responses = {}, options = {}) {
   const elements = new Map();
   const ids = ["status", "onboarding", "assigned", "empty", "recovery", "warning", "word", "meaning-ar", "meaning-en", "example", "pronunciation", "fixed-label", "save", "speak", "reminder", "reminder-time", "onboarding-submit", "onboarding-skip", "explore", "explore-empty", "recovery-reset", "known", "difficult"];
   for (const id of ids) elements.set(id, element());
@@ -38,7 +38,7 @@ function popupApi(responses = {}) {
     runtime: { sendMessage(message) { calls.push(message); const response = responses[message.type]; return response instanceof Error ? Promise.reject(response) : Promise.resolve(response ?? {}); }, getURL(value) { return `extension://kalimat/${value}`; } },
     permissions: { request(value) { calls.push({ permission: value }); return Promise.resolve(true); } },
     tabs: { create(value) { calls.push({ tab: value }); return Promise.resolve(); } },
-    storage: { local: { get() { return Promise.resolve({ "kalimat.profile": {} }); } } },
+    storage: { local: { get() { return Promise.resolve({ "kalimat.profile": Object.hasOwn(options, "profile") ? options.profile : {} }); } } },
   };
   const context = { document, chrome: extension, Promise, console, globalThis: null };
   context.globalThis = context;
@@ -74,6 +74,7 @@ test("popup exposes RTL accessible onboarding and assigned-word controls", () =>
   assert.match(html, /<h2 id="word"[^>]+tabindex="-1"/);
   assert.match(html, /<input[^>]+id="reminder-time"[^>]+type="time"[^>]+value="09:00"/);
   assert.match(html, /<button[^>]+id="reminder"[^>]+aria-pressed="false"/);
+  assert.match(html, /<button[^>]+id="reminder"[^>]+aria-label="تفعيل التذكير اليومي"/);
   assert.match(source("popup.css"), /grid-template-columns:\s*repeat\(4, 1fr\)/);
   assert.match(source("popup.css"), /width:\s*380px/);
   assert.match(html, /<button id="onboarding-submit"[^>]+class="continue"/);
@@ -82,6 +83,8 @@ test("popup exposes RTL accessible onboarding and assigned-word controls", () =>
   assert.match(html, /<button id="speak"[^>]+aria-label="استمع للنطق"/);
   assert.match(html, /<p class="feedback-prompt">كيف كانت الكلمة اليوم؟<\/p>/);
   assert.match(html, /<svg[^>]+viewBox=/);
+  assert.match(source("popup.css"), /\.reminder-row button::before/);
+  assert.match(source("popup.css"), /\.reminder-row button\[aria-pressed="true"\]::after/);
 });
 
 test("popup renders hostile assigned-word content as text and caps interests", () => {
@@ -163,4 +166,12 @@ test("failed reminder hydration keeps controls disabled and its error survives a
   assert.equal(elements.get("reminder-time").disabled, true);
   assert.match(elements.get("status").textContent, /تعذّر تحميل إعدادات التذكير/);
   assert.ok(calls.some((message) => message.type === "assignment.get"));
+});
+
+test("failed reminder hydration keeps its error through first-time onboarding", async () => {
+  const { api, elements, calls } = popupApi({ "settings.get": new Error("settings unavailable") }, { profile: undefined });
+  await api.initialize();
+  assert.equal(elements.get("onboarding").hidden, false);
+  assert.match(elements.get("status").textContent, /تعذّر تحميل إعدادات التذكير/);
+  assert.equal(calls.some((message) => message.type === "assignment.get"), false);
 });

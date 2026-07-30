@@ -58,8 +58,11 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 .reminder-row { align-items: center; border-top: 1px solid #d8d6cc; display: grid; gap: 8px; grid-template-columns: 1fr auto auto; margin-top: 18px; padding-top: 13px; }
 .reminder-row label { font-weight: 700; padding: 0; }
 .reminder-row input { border: 0; background: transparent; color: #28271f; font: inherit; width: 66px; }
-.reminder-row button { border-radius: 999px; min-width: 54px; padding: 8px 10px; }
-.reminder-row button[aria-pressed="true"] { background: #bddc39; border-color: #a7c62d; color: #28271f; }
+.reminder-row button { background: transparent; border: 0; color: transparent; height: 28px; min-width: 48px; padding: 0; position: relative; }
+.reminder-row button::before { background: #cfcdc4; border: 1px solid #aaa89f; border-radius: 999px; content: ""; inset: 0; position: absolute; }
+.reminder-row button::after { background: #fff; border-radius: 50%; box-shadow: 0 1px 2px rgb(40 39 31 / 24%); content: ""; height: 22px; inset-block-start: 3px; inset-inline-start: 3px; position: absolute; transition: transform 160ms ease-out; width: 22px; }
+.reminder-row button[aria-pressed="true"]::before { background: #bddc39; border-color: #a7c62d; }
+.reminder-row button[aria-pressed="true"]::after { transform: translateX(-20px); }
 .visually-hidden { height: 1px; margin: -1px; overflow: hidden; position: absolute; width: 1px; clip: rect(0 0 0 0); white-space: nowrap; }
 .warning { border-top: 1px solid #d8d6cc; color: #7a4d0b; font-size: 12px; line-height: 1.5; margin-top: 17px; padding-top: 12px; }
 @keyframes appear { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
