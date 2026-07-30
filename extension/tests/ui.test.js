@@ -85,6 +85,9 @@ test("popup exposes RTL accessible onboarding and assigned-word controls", () =>
   assert.match(html, /<svg[^>]+viewBox=/);
   assert.match(source("popup.css"), /\.reminder-row button::before/);
   assert.match(source("popup.css"), /\.reminder-row button\[aria-pressed="true"\]::after/);
+  assert.match(source("popup.css"), /\.reminder-row\s*\{[^}]*direction:\s*ltr/);
+  assert.match(source("popup.css"), /\.reminder-row button\s*\{[^}]*grid-column:\s*3/);
+  assert.match(source("popup.css"), /\.reminder-row button\[aria-pressed="true"\]::after\s*\{[^}]*translateX\(20px\)/);
 });
 
 test("popup renders hostile assigned-word content as text and caps interests", () => {

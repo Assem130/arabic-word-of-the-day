@@ -55,14 +55,14 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 .feedback button[aria-pressed="true"] { background: #28271f; color: white; }
 .explore { display: block; width: 100%; background: #bddc39; border-color: #a7c62d; color: #28271f; margin-top: 16px; }
 .explore:hover { background: #cce94b; }
-.reminder-row { align-items: center; border-top: 1px solid #d8d6cc; display: grid; gap: 8px; grid-template-columns: 1fr auto auto; margin-top: 18px; padding-top: 13px; }
-.reminder-row label { font-weight: 700; padding: 0; }
-.reminder-row input { border: 0; background: transparent; color: #28271f; font: inherit; width: 66px; }
-.reminder-row button { background: transparent; border: 0; color: transparent; height: 28px; min-width: 48px; padding: 0; position: relative; }
+.reminder-row { align-items: center; border-top: 1px solid #d8d6cc; direction: ltr; display: grid; gap: 8px; grid-template-columns: auto 1fr auto; margin-top: 18px; padding-top: 13px; }
+.reminder-row label { direction: rtl; font-weight: 700; grid-column: 2; padding: 0; }
+.reminder-row input { background: transparent; border: 0; color: #28271f; font: inherit; grid-column: 1; width: 66px; }
+.reminder-row button { background: transparent; border: 0; color: transparent; grid-column: 3; height: 28px; min-width: 48px; padding: 0; position: relative; }
 .reminder-row button::before { background: #cfcdc4; border: 1px solid #aaa89f; border-radius: 999px; content: ""; inset: 0; position: absolute; }
 .reminder-row button::after { background: #fff; border-radius: 50%; box-shadow: 0 1px 2px rgb(40 39 31 / 24%); content: ""; height: 22px; inset-block-start: 3px; inset-inline-start: 3px; position: absolute; transition: transform 160ms ease-out; width: 22px; }
 .reminder-row button[aria-pressed="true"]::before { background: #bddc39; border-color: #a7c62d; }
-.reminder-row button[aria-pressed="true"]::after { transform: translateX(-20px); }
+.reminder-row button[aria-pressed="true"]::after { transform: translateX(20px); }
 .visually-hidden { height: 1px; margin: -1px; overflow: hidden; position: absolute; width: 1px; clip: rect(0 0 0 0); white-space: nowrap; }
 .warning { border-top: 1px solid #d8d6cc; color: #7a4d0b; font-size: 12px; line-height: 1.5; margin-top: 17px; padding-top: 12px; }
 @keyframes appear { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
