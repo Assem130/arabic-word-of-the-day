@@ -92,6 +92,15 @@ test("feedback shifts ability only for six matching distinct post-cutoff daily r
   assert.equal(reversed.evidenceCutoff, null);
   assert.equal(reversed.assignments["2026-07-01"].status, "difficult");
 
+  const afterCutoff = applyFeedback(profileWithAssignment("2026-07-09", "w1", rising), {
+    dateKey: "2026-07-09", wordId: "w1", status: "known",
+  });
+  const editedAfterCutoff = applyFeedback(afterCutoff, {
+    dateKey: "2026-07-09", wordId: "w1", status: "difficult",
+  });
+  assert.equal(editedAfterCutoff.level, 3);
+  assert.equal(editedAfterCutoff.evidenceCutoff, "2026-07-08");
+
   let mixed = createProfile({ seedHex: seed, level: 2, interests: [] });
   for (let day = 1; day <= 6; day += 1) {
     const dateKey = `2026-06-${String(day).padStart(2, "0")}`;

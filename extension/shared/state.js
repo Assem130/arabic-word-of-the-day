@@ -174,7 +174,8 @@
     if (responses.length !== 8) return null;
     const known = responses.filter(([, response]) => response.status === "known").length;
     const difficult = responses.filter(([, response]) => response.status === "difficult").length;
-    return known >= 6 ? "known" : difficult >= 6 ? "difficult" : null;
+    const status = known >= 6 ? "known" : difficult >= 6 ? "difficult" : null;
+    return status && { status, dates: new Set(responses.map(([dateKey]) => dateKey)) };
   }
 
   function applyFeedback(profile, input) {
@@ -188,8 +189,8 @@
     const previous = current.wordStates[input.wordId] || {};
     current.wordStates[input.wordId] = { ...previous, status: input.status, dateKey: input.dateKey };
     current.assignments[input.dateKey] = { ...assignment, status: input.status };
-    if (priorShift === assignment.status && assignment.status !== input.status) {
-      current.level += priorShift === "known" ? -1 : 1;
+    if (priorShift && priorShift.dates.has(input.dateKey) && priorShift.status === assignment.status && assignment.status !== input.status) {
+      current.level += priorShift.status === "known" ? -1 : 1;
       current.evidenceCutoff = null;
     }
     const responses = evidence(current);
