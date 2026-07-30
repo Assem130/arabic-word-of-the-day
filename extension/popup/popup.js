@@ -18,6 +18,21 @@
     elements.warning.hidden = !visible;
   }
 
+  function renderReminder(reminder) {
+    if (!reminder || typeof reminder.enabled !== "boolean" || !/^\d{2}:\d{2}$/.test(reminder.time)) return false;
+    elements.reminderTime.value = reminder.time;
+    elements.reminder.setAttribute("aria-pressed", String(reminder.enabled));
+    elements.reminder.textContent = reminder.enabled ? "أوقف" : "فعّل";
+    return true;
+  }
+
+  async function loadReminder() {
+    try {
+      const settings = await ExtApi.runtime.sendMessage({ type: "settings.get" });
+      if (!settings || settings.kind !== "settings" || !renderReminder(settings.reminder)) throw new Error("Invalid settings.");
+    } catch (_) { status("تعذّر تحميل إعدادات التذكير."); }
+  }
+
   function collectElements() {
     return {
       onboarding: byId("onboarding"), assigned: byId("assigned"), empty: byId("empty"), recovery: byId("recovery"), warning: byId("warning"), status: byId("status"),
@@ -137,20 +152,24 @@
   function requestReminder() {
     const enabled = elements.reminder.getAttribute("aria-pressed") !== "true";
     const time = elements.reminderTime.value || "09:00";
-    if (!enabled) return ExtApi.runtime.sendMessage({ type: "reminder.configure", enabled: false, time }).then(() => {
-      elements.reminder.setAttribute("aria-pressed", "false");
-      elements.reminder.textContent = "فعّل";
+    if (!enabled) return ExtApi.runtime.sendMessage({ type: "reminder.configure", enabled: false, time }).then((reminder) => {
+      if (!renderReminder(reminder) || reminder.enabled) throw new Error("Reminder unchanged.");
       status("أوقفنا التذكير اليومي.");
+    }).catch(() => {
+      renderReminder({ enabled: true, time });
+      status("تعذّر إيقاف التذكير.");
     });
     const permission = ExtApi.permissions.request({ permissions: ["alarms", "notifications"] });
     return Promise.resolve(permission).then((granted) => {
       if (!granted) throw new Error("Permission denied.");
       return ExtApi.runtime.sendMessage({ type: "reminder.configure", enabled: true, time });
-    }).then(() => {
-      elements.reminder.setAttribute("aria-pressed", "true");
-      elements.reminder.textContent = "أوقف";
+    }).then((reminder) => {
+      if (!renderReminder(reminder) || !reminder.enabled) throw new Error("Reminder unchanged.");
       status(`سيصلك تذكير يومي في ${time}.`);
-    }, () => status("لم نفعّل التذكير."));
+    }).catch(() => {
+      renderReminder({ enabled: false, time });
+      status("لم نفعّل التذكير.");
+    });
   }
 
   async function resetRecovery() {
@@ -175,6 +194,7 @@
     byId("explore-empty").addEventListener("click", openAtlas);
     byId("recovery-reset").addEventListener("click", resetRecovery);
     elements.speak.disabled = !globalThis.speechSynthesis || typeof globalThis.SpeechSynthesisUtterance !== "function";
+    await loadReminder();
     try {
       const stored = await ExtApi.storage.local.get("kalimat.profile");
       if (stored["kalimat.profile"] === undefined) {
@@ -185,7 +205,7 @@
     await loadAssignment();
   }
 
-  globalThis.KalimatPopup = { renderAssigned, limitInterests, requestReminder, toggleSave, completeOnboarding, sendFeedback };
+  globalThis.KalimatPopup = { renderAssigned, limitInterests, requestReminder, toggleSave, completeOnboarding, sendFeedback, initialize };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initialize, { once: true });
   else initialize();
 })();

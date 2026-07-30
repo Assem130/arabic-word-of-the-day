@@ -3,22 +3,22 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>كلمات</title>
+  <title>كلمة اليوم</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
   <a class="skip-link" href="#main">تجاوز إلى المحتوى</a>
   <main id="main" tabindex="-1">
-    <header class="masthead"><h1>كلمات</h1><p>كلمة عربية واحدة، كل يوم.</p></header>
+    <header class="masthead"><h1>كلمة اليوم</h1><p>كلمات</p></header>
     <p id="status" class="status" aria-live="polite"></p>
 
     <section id="onboarding" aria-labelledby="onboarding-title" hidden>
       <h2 id="onboarding-title">لنبدأ من مكانك</h2>
       <fieldset class="level-set"><legend aria-label="المستوى">مستواك</legend><div class="levels">
-        <label><input type="radio" name="level" value="1" checked><span>مبتدئ</span></label>
-        <label><input type="radio" name="level" value="2"><span>متوسط</span></label>
-        <label><input type="radio" name="level" value="3"><span>متقدم</span></label>
-        <label><input type="radio" name="level" value="4"><span>خبير</span></label>
+        <label><input type="radio" name="level" value="1" checked><span class="level-mark" aria-hidden="true">●</span><strong>مبتدئ</strong><small>A1–A2</small></label>
+        <label><input type="radio" name="level" value="2"><span class="level-mark" aria-hidden="true">○</span><strong>متوسط</strong><small>B1–B2</small></label>
+        <label><input type="radio" name="level" value="3"><span class="level-mark" aria-hidden="true">△</span><strong>متقدم</strong><small>C1</small></label>
+        <label><input type="radio" name="level" value="4"><span class="level-mark" aria-hidden="true">◆</span><strong>خبير</strong><small>C2</small></label>
       </div>
       </fieldset>
       <fieldset class="interests"><legend>ما الذي يهمك؟ <span>اختر حتى ثلاثة</span></legend>

@@ -249,6 +249,10 @@ function handleMessage(message) {
       if (!exactMessage(message, new Set(["type"]))) throw new TypeError("Invalid assignment.");
       return assignment();
     }
+    if (message.type === "settings.get") {
+      if (!exactMessage(message, new Set(["type"]))) throw new TypeError("Invalid settings.");
+      return { kind: "settings", reminder: await readReminder() };
+    }
     if (message.type === "onboarding.complete") {
       if (!exactMessage(message, new Set(["type", "level", "interests"]))) throw new TypeError("Invalid onboarding.");
       const vocabulary = await getVocabulary();

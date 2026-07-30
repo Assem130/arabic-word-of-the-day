@@ -145,7 +145,14 @@ test("feedback rejects unknown message fields before changing profile state", as
 test("read-only messages reject unknown fields", async () => {
   await withBackground({}, async ({ background }) => {
     await assert.rejects(background.handleMessage({ type: "assignment.get", extra: true }), /Invalid assignment/);
+    await assert.rejects(background.handleMessage({ type: "settings.get", extra: true }), /Invalid settings/);
     await assert.rejects(background.handleMessage({ type: "state.export", extra: true }), /Invalid export/);
+  });
+});
+
+test("settings snapshot returns only the current validated reminder", async () => {
+  await withBackground({ reminder: { enabled: true, time: "18:45" } }, async ({ background }) => {
+    assert.deepEqual(await background.handleMessage({ type: "settings.get" }), { kind: "settings", reminder: { enabled: true, time: "18:45" } });
   });
 });
 

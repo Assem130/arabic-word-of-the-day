@@ -24,7 +24,7 @@ function element() {
 
 function popupApi(responses = {}) {
   const elements = new Map();
-  const ids = ["status", "onboarding", "assigned", "empty", "recovery", "warning", "word", "meaning-ar", "meaning-en", "example", "pronunciation", "fixed-label", "save", "speak", "reminder", "reminder-time", "onboarding-submit", "onboarding-skip", "explore", "known", "difficult"];
+  const ids = ["status", "onboarding", "assigned", "empty", "recovery", "warning", "word", "meaning-ar", "meaning-en", "example", "pronunciation", "fixed-label", "save", "speak", "reminder", "reminder-time", "onboarding-submit", "onboarding-skip", "explore", "explore-empty", "recovery-reset", "known", "difficult"];
   for (const id of ids) elements.set(id, element());
   elements.get("reminder-time").value = "09:00";
   const inputs = ["classical-arabic", "daily-life", "family", "food", "language", "travel"].map((value) => ({ ...element(), value, name: "interest" }));
@@ -35,9 +35,10 @@ function popupApi(responses = {}) {
   };
   const calls = [];
   const extension = {
-    runtime: { sendMessage(message) { calls.push(message); return Promise.resolve(responses[message.type] ?? {}); }, getURL(value) { return `extension://kalimat/${value}`; } },
+    runtime: { sendMessage(message) { calls.push(message); const response = responses[message.type]; return response instanceof Error ? Promise.reject(response) : Promise.resolve(response ?? {}); }, getURL(value) { return `extension://kalimat/${value}`; } },
     permissions: { request(value) { calls.push({ permission: value }); return Promise.resolve(true); } },
     tabs: { create(value) { calls.push({ tab: value }); return Promise.resolve(); } },
+    storage: { local: { get() { return Promise.resolve({ "kalimat.profile": {} }); } } },
   };
   const context = { document, chrome: extension, Promise, console, globalThis: null };
   context.globalThis = context;
@@ -63,7 +64,7 @@ test("popup exposes RTL accessible onboarding and assigned-word controls", () =>
   const html = source("popup.html");
   assert.match(html, /href="#main"[^>]*>تجاوز إلى المحتوى/);
   assert.match(html, /<main id="main"/);
-  assert.match(html, /<h1[^>]*>كلمات<\/h1>/);
+  assert.match(html, /<h1[^>]*>كلمة اليوم<\/h1>/);
   assert.match(html, /id="status"[^>]+aria-live="polite"/);
   assert.match(html, /aria-label="المستوى"/);
   assert.equal((html.match(/name="level"/g) || []).length, 4);
@@ -74,6 +75,7 @@ test("popup exposes RTL accessible onboarding and assigned-word controls", () =>
   assert.match(html, /<input[^>]+id="reminder-time"[^>]+type="time"[^>]+value="09:00"/);
   assert.match(html, /<button[^>]+id="reminder"[^>]+aria-pressed="false"/);
   assert.match(source("popup.css"), /grid-template-columns:\s*repeat\(4, 1fr\)/);
+  assert.match(source("popup.css"), /width:\s*380px/);
 });
 
 test("popup renders hostile assigned-word content as text and caps interests", () => {
@@ -88,7 +90,7 @@ test("popup renders hostile assigned-word content as text and caps interests", (
 });
 
 test("reminder requests optional permissions in the click handler before configuration", async () => {
-  const { api, calls } = popupApi();
+  const { api, calls } = popupApi({ "reminder.configure": { enabled: true, time: "09:00" } });
   api.renderAssigned({ kind: "assigned", word: { id: "w1", word: "كلمة", meaningAr: "معنى", exampleAr: "مثال", pronunciation: "/test/" } });
   const pending = api.requestReminder();
   assert.deepEqual(JSON.parse(JSON.stringify(calls[0])), { permission: { permissions: ["alarms", "notifications"] } });
@@ -117,4 +119,30 @@ test("onboarding focuses the assigned word and feedback retains the authoritativ
   assert.equal(elements.get("word").focuses, 1);
   await api.sendFeedback("known", elements.get("known"));
   assert.deepEqual(JSON.parse(JSON.stringify(calls.at(-1))), { type: "word.feedback", dateKey: "2026-07-30", wordId: "w1", status: "known" });
+});
+
+test("popup hydrates an active authoritative reminder on reopen and toggles it off", async () => {
+  const { api, elements, calls } = popupApi({
+    "settings.get": { kind: "settings", reminder: { enabled: true, time: "18:45" } },
+    "assignment.get": { kind: "no-new-word" },
+    "reminder.configure": { enabled: false, time: "18:45" },
+  });
+  await api.initialize();
+  assert.equal(elements.get("reminder").getAttribute("aria-pressed"), "true");
+  assert.equal(elements.get("reminder-time").value, "18:45");
+  await api.requestReminder();
+  assert.deepEqual(JSON.parse(JSON.stringify(calls.at(-1))), { type: "reminder.configure", enabled: false, time: "18:45" });
+  assert.equal(elements.get("reminder").getAttribute("aria-pressed"), "false");
+});
+
+test("a rejected reminder disable keeps the visible enabled state and reports the error", async () => {
+  const { api, elements } = popupApi({
+    "settings.get": { kind: "settings", reminder: { enabled: true, time: "09:00" } },
+    "assignment.get": { kind: "no-new-word" },
+    "reminder.configure": new Error("storage unavailable"),
+  });
+  await api.initialize();
+  await assert.doesNotReject(api.requestReminder());
+  assert.equal(elements.get("reminder").getAttribute("aria-pressed"), "true");
+  assert.match(elements.get("status").textContent, /تعذّر إيقاف التذكير/);
 });
