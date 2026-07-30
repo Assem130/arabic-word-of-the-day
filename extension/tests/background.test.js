@@ -28,7 +28,7 @@ function fakeEvent() {
   return { listeners: [], addListener(listener) { this.listeners.push(listener); } };
 }
 
-function fakeExtension({ profile, reminder, vocabulary = [word("w1"), word("w2")], storageFailure = false, storageSetFailures = 0, permissions = true, alarm, api = "chrome" } = {}) {
+function fakeExtension({ profile, reminder, vocabulary = [word("w1"), word("w2")], storageFailure = false, storageSetFailures = 0, permissions = true, alarm, notificationFailure = false, tabFailure = false, api = "chrome" } = {}) {
   const values = Object.create(null);
   if (profile !== undefined) values["kalimat.profile"] = profile;
   if (reminder !== undefined) values["kalimat.reminder"] = reminder;
@@ -36,12 +36,13 @@ function fakeExtension({ profile, reminder, vocabulary = [word("w1"), word("w2")
   if (alarm) alarms.set(alarm.name, alarm);
   const calls = { set: 0, clear: 0, create: [], notifications: [], tabs: [], permissionRequests: 0 };
   let remainingSetFailures = storageSetFailures;
+  let storageAvailable = !storageFailure;
   let permissionsGranted = permissions;
   const runtime = { onMessage: fakeEvent(), onStartup: fakeEvent(), onInstalled: fakeEvent(), getURL: (path) => `extension://kalimat/${path}` };
   const extension = {
     storage: { local: {
-      async get(key) { if (storageFailure) throw new Error("storage unavailable"); return { [key]: values[key] }; },
-      async set(next) { if (storageFailure || remainingSetFailures-- > 0) throw new Error("storage unavailable"); calls.set += 1; Object.assign(values, next); },
+      async get(key) { if (!storageAvailable) throw new Error("storage unavailable"); return { [key]: values[key] }; },
+      async set(next) { if (!storageAvailable || remainingSetFailures-- > 0) throw new Error("storage unavailable"); calls.set += 1; Object.assign(values, next); },
     } },
     alarms: {
       onAlarm: fakeEvent(),
@@ -49,12 +50,12 @@ function fakeExtension({ profile, reminder, vocabulary = [word("w1"), word("w2")
       async create(name, details) { calls.create.push({ name, details }); alarms.set(name, { name, ...details }); },
       async clear(name) { calls.clear += 1; return alarms.delete(name); },
     },
-    notifications: { onClicked: fakeEvent(), async create(id, options) { calls.notifications.push({ id, options }); } },
+    notifications: { onClicked: fakeEvent(), async create(id, options) { if (notificationFailure) throw new Error("notification unavailable"); calls.notifications.push({ id, options }); } },
     permissions: { onRemoved: fakeEvent(), async contains() { return permissionsGranted; }, async request() { calls.permissionRequests += 1; return permissionsGranted; } },
     runtime,
-    tabs: { async create(details) { calls.tabs.push(details); } },
+    tabs: { async create(details) { if (tabFailure) throw new Error("tab unavailable"); calls.tabs.push(details); } },
   };
-  return { extension, values, alarms, calls, vocabulary, api, setPermissions(value) { permissionsGranted = value; } };
+  return { extension, values, alarms, calls, vocabulary, api, setPermissions(value) { permissionsGranted = value; }, setStorageAvailable(value) { storageAvailable = value; } };
 }
 
 function loadBackground(options = {}) {
@@ -198,6 +199,49 @@ test("a newer persisted profile wins over a stale session fallback", async () =>
   });
 });
 
+test("a transient import write retries against its original storage baseline", async () => {
+  const imported = profile({ level: 3 });
+  await withBackground({ profile: profile(), storageSetFailures: 1 }, async ({ background, values }) => {
+    const result = await background.handleMessage({ type: "state.import", text: JSON.stringify(imported) });
+    assert.equal(result.storageWarning, true);
+    const exported = await background.handleMessage({ type: "state.export" });
+    assert.equal(JSON.parse(exported.text).level, 3);
+    assert.equal(values["kalimat.profile"].level, 3);
+  });
+});
+
+test("a transient clear write retries against its original storage baseline", async () => {
+  const original = profile({ wordStates: { w1: { saved: true } } });
+  await withBackground({ profile: original, storageSetFailures: 1 }, async ({ background, values }) => {
+    const result = await background.handleMessage({ type: "state.clear" });
+    assert.equal(result.storageWarning, true);
+    const exported = await background.handleMessage({ type: "state.export" });
+    assert.deepEqual(JSON.parse(exported.text).wordStates, {});
+    assert.deepEqual(Object.keys(values["kalimat.profile"].wordStates), []);
+  });
+});
+
+test("a newer profile wins after a transient import write failure", async () => {
+  const newer = profile({ level: 4 });
+  await withBackground({ profile: profile(), storageSetFailures: 1 }, async ({ background, values }) => {
+    await background.handleMessage({ type: "state.import", text: JSON.stringify(profile({ level: 3 })) });
+    values["kalimat.profile"] = newer;
+    const exported = await background.handleMessage({ type: "state.export" });
+    assert.equal(JSON.parse(exported.text).level, 4);
+  });
+});
+
+test("an import after a failed read retains the session profile until storage returns", async () => {
+  await withBackground({ storageFailure: true }, async ({ background, values, setStorageAvailable }) => {
+    const result = await background.handleMessage({ type: "state.import", text: JSON.stringify(profile({ level: 3 })) });
+    assert.equal(result.storageWarning, true);
+    setStorageAvailable(true);
+    const exported = await background.handleMessage({ type: "state.export" });
+    assert.equal(JSON.parse(exported.text).level, 3);
+    assert.equal(values["kalimat.profile"].level, 3);
+  });
+});
+
 test("invalid stored state remains untouched and returns recovery mode", async () => {
   const invalid = { schemaVersion: 999, marker: "keep" };
   await withBackground({ profile: invalid }, async ({ background, values, calls }) => {
@@ -256,6 +300,32 @@ test("revoked permissions disable reminders without changing assignments", async
     assert.deepEqual(values["kalimat.reminder"], { enabled: false, time: "09:00" });
     assert.equal(values["kalimat.profile"].assignments["2026-07-30"].wordId, "w1");
     assert.ok(calls.clear >= 1);
+  });
+});
+
+test("permission revocation clears alarms even when disabling settings fails", async () => {
+  await withBackground({ reminder: { enabled: true, time: "09:00" }, permissions: true, storageSetFailures: 1 }, async ({ extension, values, alarms, calls, setPermissions }) => {
+    await new Promise(setImmediate);
+    setPermissions(false);
+    await assert.doesNotReject(extension.permissions.onRemoved.listeners[0]({ permissions: ["notifications"] }));
+    assert.equal(alarms.has("kalimat.reminder"), false);
+    assert.ok(calls.clear >= 1);
+    assert.deepEqual(values["kalimat.reminder"], { enabled: true, time: "09:00" });
+  });
+});
+
+test("alarm and notification event listeners consume failing side effects", async () => {
+  await withBackground({ reminder: { enabled: true, time: "09:00" }, notificationFailure: true, tabFailure: true }, async ({ extension }) => {
+    await new Promise(setImmediate);
+    await assert.doesNotReject(extension.alarms.onAlarm.listeners[0]({ name: "kalimat.reminder" }));
+    await assert.doesNotReject(extension.notifications.onClicked.listeners[0]("kalimat.reminder"));
+  });
+});
+
+test("startup and install listeners consume reminder storage failures", async () => {
+  await withBackground({ storageFailure: true }, async ({ extension }) => {
+    await assert.doesNotReject(extension.runtime.onStartup.listeners[0]());
+    await assert.doesNotReject(extension.runtime.onInstalled.listeners[0]());
   });
 });
 

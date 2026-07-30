@@ -108,6 +108,14 @@ async function saveProfile(profile, base = null) {
   }
 }
 
+async function persistProfile(profile, loaded) {
+  if (loaded.warning) {
+    sessionFallback = { profile, base: loaded.base };
+    return true;
+  }
+  return saveProfile(profile, loaded.base);
+}
+
 function recovery(loaded) {
   return { kind: "recovery", recoveryRaw: loaded.recoveryRaw };
 }
@@ -130,7 +138,7 @@ async function assignment() {
     assignmentOrdinal: loaded.profile.assignmentOrdinal + 1,
     recentIds: [selected.wordId, ...loaded.profile.recentIds.filter((id) => id !== selected.wordId)].slice(0, 16),
   });
-  return warning(selected, loaded.warning || await saveProfile(profile, loaded.base));
+  return warning(selected, await persistProfile(profile, loaded));
 }
 
 async function updateProfile(change) {
@@ -138,7 +146,7 @@ async function updateProfile(change) {
   const loaded = await loadProfile(vocabulary);
   if (loaded.recoveryRaw !== undefined) return recovery(loaded);
   const profile = await change(loaded.profile, vocabulary);
-  return warning({ kind: "ok" }, loaded.warning || await saveProfile(profile, loaded.base));
+  return warning({ kind: "ok" }, await persistProfile(profile, loaded));
 }
 
 function exactMessage(message, keys) {
@@ -151,10 +159,7 @@ async function configureReminder(message) {
   const current = await readReminder();
   const requested = { enabled: message.enabled, time: message.time ?? current.time };
   if (!requested.enabled || !await reminderPermissions()) {
-    const disabled = { enabled: false, time: requested.time };
-    await ExtApi.storage.local.set({ [REMINDER_KEY]: disabled });
-    await clearReminder();
-    return disabled;
+    return disableReminder(requested.time);
   }
   await ExtApi.storage.local.set({ [REMINDER_KEY]: requested });
   await clearReminder();
@@ -179,6 +184,16 @@ async function clearReminder() {
   if (ExtApi.alarms) await ExtApi.alarms.clear(REMINDER_ALARM);
 }
 
+async function disableReminder(time) {
+  const disabled = { enabled: false, time };
+  try {
+    await ExtApi.storage.local.set({ [REMINDER_KEY]: disabled });
+  } finally {
+    await clearReminder().catch(() => undefined);
+  }
+  return disabled;
+}
+
 async function ensureReminderNow() {
   const settings = await readReminder();
   if (!settings.enabled) {
@@ -186,10 +201,7 @@ async function ensureReminderNow() {
     return settings;
   }
   if (!await reminderPermissions()) {
-    const disabled = { enabled: false, time: settings.time };
-    await ExtApi.storage.local.set({ [REMINDER_KEY]: disabled });
-    await clearReminder();
-    return disabled;
+    return disableReminder(settings.time);
   }
   const when = nextOccurrence(settings.time);
   const existing = await ExtApi.alarms.get(REMINDER_ALARM);
@@ -202,6 +214,10 @@ async function ensureReminderNow() {
 
 function ensureReminder() {
   return serialized(ensureReminderNow);
+}
+
+function eventEntry(work) {
+  return (...args) => serialized(() => work(...args)).catch(() => undefined);
 }
 
 async function notificationClick(notificationId) {
@@ -238,7 +254,7 @@ function handleMessage(message) {
       if (loaded.recoveryRaw !== undefined) return recovery(loaded);
       const checked = dependencies.state.validateStoredProfile({ ...loaded.profile, level: message.level ?? 1, interests: message.interests ?? [] }, vocabulary);
       if (!checked.canPersist) throw new TypeError("Invalid onboarding.");
-      return warning({ kind: "ok" }, loaded.warning || await saveProfile(checked.profile, loaded.base));
+      return warning({ kind: "ok" }, await persistProfile(checked.profile, loaded));
     }
     if (message.type === "word.feedback") {
       if (!exactMessage(message, new Set(["type", "dateKey", "wordId", "status"]))) throw new TypeError("Invalid feedback.");
@@ -263,11 +279,16 @@ function handleMessage(message) {
     if (message.type === "state.import") {
       if (!exactMessage(message, new Set(["type", "text"]))) throw new TypeError("Invalid import.");
       const vocabulary = await getVocabulary();
-      return warning({ kind: "ok" }, await saveProfile(dependencies.state.parseImport(message.text, vocabulary)));
+      const loaded = await loadProfile(vocabulary);
+      const profile = dependencies.state.parseImport(message.text, vocabulary);
+      return warning({ kind: "ok" }, loaded.recoveryRaw !== undefined ? await saveProfile(profile) : await persistProfile(profile, loaded));
     }
     if (message.type === "state.clear") {
       if (!exactMessage(message, new Set(["type"]))) throw new TypeError("Invalid clear.");
-      return warning({ kind: "ok" }, await saveProfile(dependencies.state.createProfile({ seedHex: randomSeed() })));
+      const vocabulary = await getVocabulary();
+      const loaded = await loadProfile(vocabulary);
+      const profile = dependencies.state.createProfile({ seedHex: randomSeed() });
+      return warning({ kind: "ok" }, loaded.recoveryRaw !== undefined ? await saveProfile(profile) : await persistProfile(profile, loaded));
     }
     if (message.type === "reminder.configure") return configureReminder(message);
     throw new TypeError("Unknown message.");
@@ -275,13 +296,13 @@ function handleMessage(message) {
 }
 
 ExtApi.runtime.onMessage.addListener(handleMessage);
-ExtApi.runtime.onStartup.addListener(ensureReminder);
-ExtApi.runtime.onInstalled.addListener(ensureReminder);
-ExtApi.alarms.onAlarm.addListener((alarm) => serialized(() => alarmFired(alarm)));
-ExtApi.notifications.onClicked.addListener((notificationId) => serialized(() => notificationClick(notificationId)));
-if (ExtApi.permissions?.onRemoved) ExtApi.permissions.onRemoved.addListener((removed) => {
-  if (removed?.permissions?.some((permission) => permission === "alarms" || permission === "notifications")) return ensureReminder();
-});
-ensureReminder().catch(() => undefined);
+ExtApi.runtime.onStartup.addListener(eventEntry(ensureReminderNow));
+ExtApi.runtime.onInstalled.addListener(eventEntry(ensureReminderNow));
+ExtApi.alarms.onAlarm.addListener(eventEntry(alarmFired));
+ExtApi.notifications.onClicked.addListener(eventEntry(notificationClick));
+if (ExtApi.permissions?.onRemoved) ExtApi.permissions.onRemoved.addListener(eventEntry(async (removed) => {
+  if (removed?.permissions?.some((permission) => permission === "alarms" || permission === "notifications")) await ensureReminderNow();
+}));
+eventEntry(ensureReminderNow)();
 
 if (typeof module === "object" && module.exports) module.exports = { handleMessage, ensureReminder };
