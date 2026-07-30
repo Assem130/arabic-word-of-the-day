@@ -29,7 +29,7 @@ test("Firefox manifest uses ordered event-page scripts with no unsafe permission
   const firefox = manifest("firefox");
   assertSafeManifest(firefox);
   assert.deepEqual(Object.keys(firefox.background), ["scripts"]);
-  assert.deepEqual(firefox.background.scripts, ["shared/api.js", "shared/date.js", "shared/vocabulary.js", "background.js"]);
+  assert.deepEqual(firefox.background.scripts, ["shared/api.js", "shared/date.js", "shared/vocabulary.js", "shared/state.js", "shared/selector.js", "background.js"]);
 });
 
 test("packages only the runtime allowlist for both browsers", () => {
@@ -40,7 +40,7 @@ test("packages only the runtime allowlist for both browsers", () => {
     assert.equal(files.includes("manifest.firefox.json"), false);
     assert.equal(files.some((file) => file.startsWith("tests") || file.startsWith("tools")), false);
     assert.equal(files.includes("shared/state.js"), true);
-    assert.equal(files.includes("shared/selector.js"), false);
+    assert.equal(files.includes("shared/selector.js"), true);
     assert.doesNotThrow(() => JSON.parse(fs.readFileSync(path.join(__dirname, "..", "dist", browser, "manifest.json"), "utf8")));
   }
 });

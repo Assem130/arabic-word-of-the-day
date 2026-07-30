@@ -17,6 +17,7 @@ $sourceAllowlist = @(
     "shared/state.js",
     "shared/vocabulary.js",
     "tests/package.test.js",
+    "tests/background.test.js",
     "tests/selector.test.js",
     "tests/state.test.js",
     "tests/vocabulary.test.js",
@@ -34,6 +35,7 @@ $runtimeFiles = @(
     "shared/api.js",
     "shared/date.js",
     "shared/state.js",
+    "shared/selector.js",
     "shared/vocabulary.js"
 )
 
