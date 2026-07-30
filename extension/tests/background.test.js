@@ -28,17 +28,20 @@ function fakeEvent() {
   return { listeners: [], addListener(listener) { this.listeners.push(listener); } };
 }
 
-function fakeExtension({ profile, reminder, vocabulary = [word("w1"), word("w2")], storageFailure = false, permissions = true, api = "chrome" } = {}) {
+function fakeExtension({ profile, reminder, vocabulary = [word("w1"), word("w2")], storageFailure = false, storageSetFailures = 0, permissions = true, alarm, api = "chrome" } = {}) {
   const values = Object.create(null);
   if (profile !== undefined) values["kalimat.profile"] = profile;
   if (reminder !== undefined) values["kalimat.reminder"] = reminder;
   const alarms = new Map();
+  if (alarm) alarms.set(alarm.name, alarm);
   const calls = { set: 0, clear: 0, create: [], notifications: [], tabs: [], permissionRequests: 0 };
+  let remainingSetFailures = storageSetFailures;
+  let permissionsGranted = permissions;
   const runtime = { onMessage: fakeEvent(), onStartup: fakeEvent(), onInstalled: fakeEvent(), getURL: (path) => `extension://kalimat/${path}` };
   const extension = {
     storage: { local: {
       async get(key) { if (storageFailure) throw new Error("storage unavailable"); return { [key]: values[key] }; },
-      async set(next) { if (storageFailure) throw new Error("storage unavailable"); calls.set += 1; Object.assign(values, next); },
+      async set(next) { if (storageFailure || remainingSetFailures-- > 0) throw new Error("storage unavailable"); calls.set += 1; Object.assign(values, next); },
     } },
     alarms: {
       onAlarm: fakeEvent(),
@@ -47,11 +50,11 @@ function fakeExtension({ profile, reminder, vocabulary = [word("w1"), word("w2")
       async clear(name) { calls.clear += 1; return alarms.delete(name); },
     },
     notifications: { onClicked: fakeEvent(), async create(id, options) { calls.notifications.push({ id, options }); } },
-    permissions: { async contains() { return permissions; }, async request() { calls.permissionRequests += 1; return permissions; } },
+    permissions: { onRemoved: fakeEvent(), async contains() { return permissionsGranted; }, async request() { calls.permissionRequests += 1; return permissionsGranted; } },
     runtime,
     tabs: { async create(details) { calls.tabs.push(details); } },
   };
-  return { extension, values, alarms, calls, vocabulary, api };
+  return { extension, values, alarms, calls, vocabulary, api, setPermissions(value) { permissionsGranted = value; } };
 }
 
 function loadBackground(options = {}) {
@@ -169,10 +172,45 @@ test("a storage failure keeps one session assignment and reports a warning", asy
   });
 });
 
+test("a transient write failure keeps the session assignment until persistence succeeds", async () => {
+  const original = profile();
+  await withBackground({ profile: original, storageSetFailures: 1 }, async ({ background, values }) => {
+    await withLocalDay("2026-07-30", async () => {
+      assert.equal((await background.handleMessage({ type: "assignment.get" })).storageWarning, true);
+      const exported = await background.handleMessage({ type: "state.export" });
+      assert.ok(JSON.parse(exported.text).assignments["2026-07-30"]);
+      assert.ok(values["kalimat.profile"].assignments["2026-07-30"]);
+    });
+  });
+});
+
+test("a newer persisted profile wins over a stale session fallback", async () => {
+  const original = profile();
+  const newer = profile({ level: 3 });
+  await withBackground({ profile: original, storageSetFailures: 1 }, async ({ background, values }) => {
+    await withLocalDay("2026-07-30", async () => {
+      await background.handleMessage({ type: "assignment.get" });
+      values["kalimat.profile"] = newer;
+      const exported = await background.handleMessage({ type: "state.export" });
+      assert.equal(JSON.parse(exported.text).level, 3);
+      assert.equal(JSON.parse(exported.text).assignments["2026-07-30"], undefined);
+    });
+  });
+});
+
 test("invalid stored state remains untouched and returns recovery mode", async () => {
   const invalid = { schemaVersion: 999, marker: "keep" };
   await withBackground({ profile: invalid }, async ({ background, values, calls }) => {
     assert.deepEqual(await background.handleMessage({ type: "assignment.get" }), { kind: "recovery", recoveryRaw: invalid });
+    assert.deepEqual(values["kalimat.profile"], invalid);
+    assert.equal(calls.set, 0);
+  });
+});
+
+test("onboarding leaves invalid stored state in recovery mode", async () => {
+  const invalid = { schemaVersion: 999, marker: "keep" };
+  await withBackground({ profile: invalid }, async ({ background, values, calls }) => {
+    assert.deepEqual(await background.handleMessage({ type: "onboarding.complete", level: 2, interests: ["travel"] }), { kind: "recovery", recoveryRaw: invalid });
     assert.deepEqual(values["kalimat.profile"], invalid);
     assert.equal(calls.set, 0);
   });
@@ -212,11 +250,20 @@ test("notification clicks open the matching Atlas local-day view", async () => {
 
 test("revoked permissions disable reminders without changing assignments", async () => {
   const existing = profile({ assignments: { "2026-07-30": { wordId: "w1" } }, assignmentOrdinal: 1 });
-  await withBackground({ profile: existing, reminder: { enabled: true, time: "09:00" }, permissions: false }, async ({ background, values, calls }) => {
-    await background.ensureReminder();
+  await withBackground({ profile: existing, reminder: { enabled: true, time: "09:00" }, permissions: true }, async ({ extension, values, calls, setPermissions }) => {
+    setPermissions(false);
+    await extension.permissions.onRemoved.listeners[0]({ permissions: ["notifications"] });
     assert.deepEqual(values["kalimat.reminder"], { enabled: false, time: "09:00" });
     assert.equal(values["kalimat.profile"].assignments["2026-07-30"].wordId, "w1");
-    assert.equal(calls.clear, 1);
+    assert.ok(calls.clear >= 1);
+  });
+});
+
+test("background evaluation realigns an enabled stale reminder alarm", async () => {
+  await withBackground({ reminder: { enabled: true, time: "09:00" }, alarm: { name: "kalimat.reminder", when: 0 } }, async ({ calls }) => {
+    await new Promise(setImmediate);
+    assert.equal(calls.create.length, 1);
+    assert.equal(calls.create[0].name, "kalimat.reminder");
   });
 });
 

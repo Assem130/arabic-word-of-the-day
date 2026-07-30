@@ -16,7 +16,7 @@ const REMINDER_KEY = "kalimat.reminder";
 const REMINDER_ALARM = "kalimat.reminder";
 const DEFAULT_REMINDER = Object.freeze({ enabled: false, time: "09:00" });
 let queue = Promise.resolve();
-let sessionProfile = null;
+let sessionFallback = null;
 let vocabularyPromise = null;
 
 function serialized(work) {
@@ -67,22 +67,43 @@ async function loadProfile(vocabulary) {
   try {
     const stored = await ExtApi.storage.local.get(PROFILE_KEY);
     const raw = stored[PROFILE_KEY];
-    if (raw === undefined) return { profile: dependencies.state.createProfile({ seedHex: randomSeed() }), warning: false };
+    if (raw === undefined) {
+      if (sessionFallback && sessionFallback.base === null) {
+        const fallback = sessionFallback;
+        const storageWarning = await saveProfile(fallback.profile, null);
+        return { profile: fallback.profile, warning: storageWarning, base: null };
+      }
+      sessionFallback = null;
+      return { profile: dependencies.state.createProfile({ seedHex: randomSeed() }), warning: false, base: null };
+    }
     const checked = dependencies.state.validateStoredProfile(raw, vocabulary);
-    return checked.canPersist ? { profile: checked.profile, warning: false } : { recoveryRaw: checked.recoveryRaw };
+    if (!checked.canPersist) return { recoveryRaw: checked.recoveryRaw };
+    if (sessionFallback) {
+      if (sameProfile(checked.profile, sessionFallback.base)) {
+        const fallback = sessionFallback;
+        const storageWarning = await saveProfile(fallback.profile, fallback.base);
+        return { profile: fallback.profile, warning: storageWarning, base: fallback.base };
+      }
+      sessionFallback = null;
+    }
+    return { profile: checked.profile, warning: false, base: checked.profile };
   } catch (_) {
-    sessionProfile ??= dependencies.state.createProfile({ seedHex: randomSeed() });
-    return { profile: sessionProfile, warning: true };
+    sessionFallback ??= { profile: dependencies.state.createProfile({ seedHex: randomSeed() }), base: null };
+    return { profile: sessionFallback.profile, warning: true, base: sessionFallback.base };
   }
 }
 
-async function saveProfile(profile) {
+function sameProfile(left, right) {
+  return !!right && dependencies.state.serializeExport(left) === dependencies.state.serializeExport(right);
+}
+
+async function saveProfile(profile, base = null) {
   try {
     await ExtApi.storage.local.set({ [PROFILE_KEY]: profile });
-    sessionProfile = null;
+    sessionFallback = null;
     return false;
   } catch (_) {
-    sessionProfile = profile;
+    sessionFallback = { profile, base };
     return true;
   }
 }
@@ -109,7 +130,7 @@ async function assignment() {
     assignmentOrdinal: loaded.profile.assignmentOrdinal + 1,
     recentIds: [selected.wordId, ...loaded.profile.recentIds.filter((id) => id !== selected.wordId)].slice(0, 16),
   });
-  return warning(selected, loaded.warning || await saveProfile(profile));
+  return warning(selected, loaded.warning || await saveProfile(profile, loaded.base));
 }
 
 async function updateProfile(change) {
@@ -117,7 +138,7 @@ async function updateProfile(change) {
   const loaded = await loadProfile(vocabulary);
   if (loaded.recoveryRaw !== undefined) return recovery(loaded);
   const profile = await change(loaded.profile, vocabulary);
-  return warning({ kind: "ok" }, loaded.warning || await saveProfile(profile));
+  return warning({ kind: "ok" }, loaded.warning || await saveProfile(profile, loaded.base));
 }
 
 function exactMessage(message, keys) {
@@ -170,8 +191,12 @@ async function ensureReminderNow() {
     await clearReminder();
     return disabled;
   }
+  const when = nextOccurrence(settings.time);
   const existing = await ExtApi.alarms.get(REMINDER_ALARM);
-  if (!existing) await ExtApi.alarms.create(REMINDER_ALARM, { when: nextOccurrence(settings.time) });
+  if (!existing || (existing.scheduledTime ?? existing.when) !== when) {
+    if (existing) await clearReminder();
+    await ExtApi.alarms.create(REMINDER_ALARM, { when });
+  }
   return settings;
 }
 
@@ -208,8 +233,12 @@ function handleMessage(message) {
     }
     if (message.type === "onboarding.complete") {
       if (!exactMessage(message, new Set(["type", "level", "interests"]))) throw new TypeError("Invalid onboarding.");
-      const profile = dependencies.state.createProfile({ seedHex: randomSeed(), level: message.level ?? 1, interests: message.interests ?? [] });
-      return warning({ kind: "ok" }, await saveProfile(profile));
+      const vocabulary = await getVocabulary();
+      const loaded = await loadProfile(vocabulary);
+      if (loaded.recoveryRaw !== undefined) return recovery(loaded);
+      const checked = dependencies.state.validateStoredProfile({ ...loaded.profile, level: message.level ?? 1, interests: message.interests ?? [] }, vocabulary);
+      if (!checked.canPersist) throw new TypeError("Invalid onboarding.");
+      return warning({ kind: "ok" }, loaded.warning || await saveProfile(checked.profile, loaded.base));
     }
     if (message.type === "word.feedback") {
       if (!exactMessage(message, new Set(["type", "dateKey", "wordId", "status"]))) throw new TypeError("Invalid feedback.");
@@ -250,5 +279,9 @@ ExtApi.runtime.onStartup.addListener(ensureReminder);
 ExtApi.runtime.onInstalled.addListener(ensureReminder);
 ExtApi.alarms.onAlarm.addListener((alarm) => serialized(() => alarmFired(alarm)));
 ExtApi.notifications.onClicked.addListener((notificationId) => serialized(() => notificationClick(notificationId)));
+if (ExtApi.permissions?.onRemoved) ExtApi.permissions.onRemoved.addListener((removed) => {
+  if (removed?.permissions?.some((permission) => permission === "alarms" || permission === "notifications")) return ensureReminder();
+});
+ensureReminder().catch(() => undefined);
 
 if (typeof module === "object" && module.exports) module.exports = { handleMessage, ensureReminder };
