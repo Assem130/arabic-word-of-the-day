@@ -87,6 +87,11 @@ test("feedback shifts ability only for six matching distinct post-cutoff daily r
   assert.equal(rising.level, 3);
   assert.equal(rising.evidenceCutoff, "2026-07-08");
 
+  const reversed = applyFeedback(rising, { dateKey: "2026-07-01", wordId: "w1", status: "difficult" });
+  assert.equal(reversed.level, 2);
+  assert.equal(reversed.evidenceCutoff, null);
+  assert.equal(reversed.assignments["2026-07-01"].status, "difficult");
+
   let mixed = createProfile({ seedHex: seed, level: 2, interests: [] });
   for (let day = 1; day <= 6; day += 1) {
     const dateKey = `2026-06-${String(day).padStart(2, "0")}`;
@@ -116,6 +121,13 @@ test("imports reject bounded hostile data before returning a separate profile", 
   const largeVocabulary = Array.from({ length: 10001 }, (_, index) => ({ id: `w${index}` }));
   const wordStates = Object.fromEntries(largeVocabulary.map(({ id }) => [id, { status: "known", dateKey: "2026-07-30", saved: false }]));
   assert.throws(() => parseImport(JSON.stringify({ ...valid, wordStates }), largeVocabulary), /import/i);
+
+  const assignments = {};
+  for (let day = 1; day <= 5001; day += 1) {
+    assignments[new Date(Date.UTC(2000, 0, day)).toISOString().slice(0, 10)] = { wordId: "w1" };
+  }
+  rejected({ ...valid, assignments });
+  assert.throws(() => parseImport(JSON.stringify({ ...valid, assignments }), vocabulary), /import/i);
 });
 
 test("pruning retains the newest 5000 assignments and export is newline-terminated without mutations", () => {

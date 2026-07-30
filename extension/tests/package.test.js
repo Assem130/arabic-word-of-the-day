@@ -35,10 +35,11 @@ test("Firefox manifest uses ordered event-page scripts with no unsafe permission
 test("packages only the runtime allowlist for both browsers", () => {
   childProcess.execFileSync("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", path.join(__dirname, "..", "tools", "package.ps1")], { stdio: "pipe" });
   for (const browser of ["chrome", "firefox"]) {
-    const files = fs.readdirSync(path.join(__dirname, "..", "dist", browser), { recursive: true }).map(String);
+    const files = fs.readdirSync(path.join(__dirname, "..", "dist", browser), { recursive: true }).map((file) => String(file).replaceAll("\\", "/"));
     assert.equal(files.includes("manifest.chrome.json"), false);
     assert.equal(files.includes("manifest.firefox.json"), false);
     assert.equal(files.some((file) => file.startsWith("tests") || file.startsWith("tools")), false);
+    assert.equal(files.includes("shared/state.js"), true);
     assert.doesNotThrow(() => JSON.parse(fs.readFileSync(path.join(__dirname, "..", "dist", browser, "manifest.json"), "utf8")));
   }
 });

@@ -12,7 +12,6 @@
   const MAX_RECORDS = 10000;
   const MAX_ASSIGNMENTS = 5000;
   const MAX_ARRAY = 16;
-  const MAX_TEXT = 2000;
   const MAX_RECORD_BYTES = 16 * 1024;
   const encoder = new TextEncoder();
   const INTERESTS = new Set(["classical-arabic", "daily-life", "family", "food", "language", "travel"]);
@@ -31,11 +30,6 @@
     if (!value || typeof value !== "object" || Array.isArray(value)) return false;
     const prototype = Object.getPrototypeOf(value);
     return prototype === Object.prototype || prototype === null;
-  }
-
-  function text(value, label, maximum = MAX_TEXT) {
-    if (typeof value !== "string" || Array.from(value).length > maximum) fail(label);
-    return value;
   }
 
   function safeKeys(value, allowed, label) {
@@ -99,7 +93,7 @@
     return ids;
   }
 
-  function copyProfile(raw, vocabulary) {
+  function copyProfile(raw, vocabulary, assignmentMaximum = MAX_ASSIGNMENTS) {
     safeKeys(raw, PROFILE_KEYS, "profile");
     for (const key of PROFILE_KEYS) if (!Object.hasOwn(raw, key)) fail(`profile ${key}`);
     if (raw.schemaVersion !== SCHEMA_VERSION || raw.algorithmVersion !== ALGORITHM_VERSION) fail("schema version");
@@ -114,7 +108,7 @@
     if (!plainObject(raw.wordStates) || !plainObject(raw.assignments)) fail("keyed state");
     const wordStateEntries = Object.entries(raw.wordStates);
     const assignmentEntries = Object.entries(raw.assignments);
-    if (wordStateEntries.length > MAX_RECORDS || assignmentEntries.length > MAX_RECORDS) fail("records");
+    if (wordStateEntries.length > MAX_RECORDS || assignmentEntries.length > assignmentMaximum) fail("records");
 
     const wordStates = nullMap();
     for (const [wordId, state] of wordStateEntries) {
@@ -171,6 +165,18 @@
       .slice(-8);
   }
 
+  function shiftAtCutoff(profile) {
+    if (!profile.evidenceCutoff) return null;
+    const responses = Object.entries(profile.assignments)
+      .filter(([dateKey, assignment]) => dateKey <= profile.evidenceCutoff && assignment.status)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .slice(-8);
+    if (responses.length !== 8) return null;
+    const known = responses.filter(([, response]) => response.status === "known").length;
+    const difficult = responses.filter(([, response]) => response.status === "difficult").length;
+    return known >= 6 ? "known" : difficult >= 6 ? "difficult" : null;
+  }
+
   function applyFeedback(profile, input) {
     const current = copyProfile(profile);
     if (!plainObject(input) || Object.keys(input).some((key) => !new Set(["dateKey", "wordId", "status"]).has(key))) fail("feedback");
@@ -178,9 +184,14 @@
     const assignment = current.assignments[input.dateKey];
     if (!assignment || assignment.wordId !== input.wordId) fail("feedback assignment");
 
+    const priorShift = shiftAtCutoff(current);
     const previous = current.wordStates[input.wordId] || {};
     current.wordStates[input.wordId] = { ...previous, status: input.status, dateKey: input.dateKey };
     current.assignments[input.dateKey] = { ...assignment, status: input.status };
+    if (priorShift === assignment.status && assignment.status !== input.status) {
+      current.level += priorShift === "known" ? -1 : 1;
+      current.evidenceCutoff = null;
+    }
     const responses = evidence(current);
     if (responses.length === 8) {
       const known = responses.filter(([, response]) => response.status === "known").length;
@@ -210,7 +221,7 @@
   }
 
   function pruneAssignments(profile) {
-    const copy = copyProfile(profile);
+    const copy = copyProfile(profile, undefined, MAX_RECORDS);
     const newest = Object.keys(copy.assignments).sort().slice(-MAX_ASSIGNMENTS);
     const assignments = nullMap();
     for (const dateKey of newest) assignments[dateKey] = copy.assignments[dateKey];
