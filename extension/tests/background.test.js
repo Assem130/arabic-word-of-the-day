@@ -1,6 +1,9 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { webcrypto } = require("node:crypto");
+const fs = require("node:fs");
+const path = require("node:path");
+const vm = require("node:vm");
 
 globalThis.crypto ??= webcrypto;
 
@@ -28,7 +31,7 @@ function fakeEvent() {
   return { listeners: [], addListener(listener) { this.listeners.push(listener); } };
 }
 
-function fakeExtension({ profile, reminder, vocabulary = [word("w1"), word("w2")], storageFailure = false, storageSetFailures = 0, permissions = true, alarm, alarmCreateFailures = 0, alarmClearFailures = 0, notificationFailure = false, tabFailure = false, api = "chrome" } = {}) {
+function fakeExtension({ profile, reminder, vocabulary = [word("w1"), word("w2")], storageFailure = false, storageSetFailures = 0, reminderWarningSetFailures = 0, permissions = true, reminderApis = true, alarm, alarmGetFailures = 0, alarmCreateFailures = 0, alarmClearFailures = 0, notificationFailure = false, tabFailure = false, api = "chrome" } = {}) {
   const values = Object.create(null);
   if (profile !== undefined) values["kalimat.profile"] = profile;
   if (reminder !== undefined) values["kalimat.reminder"] = reminder;
@@ -36,28 +39,42 @@ function fakeExtension({ profile, reminder, vocabulary = [word("w1"), word("w2")
   if (alarm) alarms.set(alarm.name, alarm);
   const calls = { set: 0, clear: 0, create: [], notifications: [], tabs: [], permissionRequests: 0 };
   let remainingSetFailures = storageSetFailures;
+  let remainingReminderWarningSetFailures = reminderWarningSetFailures;
+  let remainingAlarmGetFailures = alarmGetFailures;
   let remainingAlarmCreateFailures = alarmCreateFailures;
   let remainingAlarmClearFailures = alarmClearFailures;
   let storageAvailable = !storageFailure;
   let permissionsGranted = permissions;
   const runtime = { onMessage: fakeEvent(), onStartup: fakeEvent(), onInstalled: fakeEvent(), getURL: (path) => `extension://kalimat/${path}` };
+  const alarmApi = {
+    onAlarm: fakeEvent(),
+    async get(name) { if (remainingAlarmGetFailures-- > 0) throw new Error("alarm unavailable"); return alarms.get(name); },
+    async create(name, details) { if (remainingAlarmCreateFailures-- > 0) throw new Error("alarm unavailable"); calls.create.push({ name, details }); alarms.set(name, { name, ...details }); },
+    async clear(name) { calls.clear += 1; if (remainingAlarmClearFailures-- > 0) throw new Error("alarm unavailable"); return alarms.delete(name); },
+  };
+  const notificationApi = {
+    onClicked: fakeEvent(),
+    async create(id, options) { if (notificationFailure) throw new Error("notification unavailable"); calls.notifications.push({ id, options }); },
+  };
   const extension = {
     storage: { local: {
       async get(key) { if (!storageAvailable) throw new Error("storage unavailable"); return { [key]: values[key] }; },
-      async set(next) { if (!storageAvailable || remainingSetFailures-- > 0) throw new Error("storage unavailable"); calls.set += 1; Object.assign(values, next); },
+      async set(next) {
+        if (!storageAvailable || remainingSetFailures-- > 0 || (Object.hasOwn(next, "kalimat.reminder.warning") && remainingReminderWarningSetFailures-- > 0)) throw new Error("storage unavailable");
+        calls.set += 1;
+        Object.assign(values, next);
+      },
     } },
-    alarms: {
-      onAlarm: fakeEvent(),
-      async get(name) { return alarms.get(name); },
-      async create(name, details) { if (remainingAlarmCreateFailures-- > 0) throw new Error("alarm unavailable"); calls.create.push({ name, details }); alarms.set(name, { name, ...details }); },
-      async clear(name) { calls.clear += 1; if (remainingAlarmClearFailures-- > 0) throw new Error("alarm unavailable"); return alarms.delete(name); },
-    },
-    notifications: { onClicked: fakeEvent(), async create(id, options) { if (notificationFailure) throw new Error("notification unavailable"); calls.notifications.push({ id, options }); } },
     permissions: { onRemoved: fakeEvent(), async contains() { return permissionsGranted; }, async request() { calls.permissionRequests += 1; return permissionsGranted; } },
     runtime,
     tabs: { async create(details) { if (tabFailure) throw new Error("tab unavailable"); calls.tabs.push(details); } },
   };
-  return { extension, values, alarms, calls, vocabulary, api, setPermissions(value) { permissionsGranted = value; }, setStorageAvailable(value) { storageAvailable = value; } };
+  function installReminderApis() {
+    extension.alarms = alarmApi;
+    extension.notifications = notificationApi;
+  }
+  if (reminderApis) installReminderApis();
+  return { extension, values, alarms, calls, vocabulary, api, installReminderApis, setPermissions(value) { permissionsGranted = value; }, setStorageAvailable(value) { storageAvailable = value; } };
 }
 
 function loadBackground(options = {}) {
@@ -125,13 +142,58 @@ test("Firefox browser APIs use the same background message adapter", async () =>
   });
 });
 
+test("first-run background serves settings and assignments without optional reminder APIs", async () => {
+  let fixture;
+  assert.doesNotThrow(() => { fixture = loadBackground({ permissions: false, reminderApis: false }); });
+  try {
+    assert.deepEqual(await fixture.background.handleMessage({ type: "settings.get" }), { kind: "settings", reminder: { enabled: false, time: "09:00" } });
+    assert.equal((await fixture.background.handleMessage({ type: "assignment.get" })).kind, "assigned");
+  } finally { fixture?.restore(); }
+});
+
+test("browser background bootstrap imports only the four shared domain modules", async () => {
+  const fake = fakeExtension({ permissions: false, reminderApis: false });
+  const imported = [];
+  const context = vm.createContext({ chrome: fake.extension, console, crypto: webcrypto, TextEncoder, fetch: async () => ({ ok: true, async json() { return fake.vocabulary; } }) });
+  context.globalThis = context;
+  context.importScripts = (...relativePaths) => {
+    for (const relative of relativePaths) {
+      imported.push(relative);
+      vm.runInContext(fs.readFileSync(path.join(__dirname, "..", relative), "utf8"), context, { filename: relative });
+    }
+  };
+  assert.doesNotThrow(() => vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "background.js"), "utf8"), context, { filename: "background.js" }));
+  assert.deepEqual(imported, ["shared/date.js", "shared/vocabulary.js", "shared/state.js", "shared/selector.js"]);
+  for (const name of ["KalimatDate", "KalimatVocabulary", "KalimatState", "KalimatSelector"]) assert.equal(typeof context[name], "object");
+  assert.equal((await fake.extension.runtime.onMessage.listeners[0]({ type: "settings.get" })).kind, "settings");
+});
+
+test("reminder configuration registers newly available optional API listeners once", async () => {
+  await withBackground({ permissions: false, reminderApis: false }, async ({ background, extension, installReminderApis, setPermissions }) => {
+    installReminderApis();
+    setPermissions(true);
+    assert.deepEqual(await background.handleMessage({ type: "reminder.configure", enabled: true, time: "09:00" }), { enabled: true, time: "09:00" });
+    await background.handleMessage({ type: "reminder.configure", enabled: true, time: "10:00" });
+    assert.equal(extension.alarms.onAlarm.listeners.length, 1);
+    assert.equal(extension.notifications.onClicked.listeners.length, 1);
+  });
+});
+
+test("available optional reminder APIs register listeners synchronously on worker restart", () => {
+  const fixture = loadBackground({ permissions: true });
+  try {
+    assert.equal(fixture.extension.alarms.onAlarm.listeners.length, 1);
+    assert.equal(fixture.extension.notifications.onClicked.listeners.length, 1);
+  } finally { fixture.restore(); }
+});
+
 test("an existing assignment survives feedback and settings changes", async () => {
   const existing = profile({ assignments: { "2026-07-30": { wordId: "w1" } }, assignmentOrdinal: 1 });
   await withBackground({ profile: existing }, async ({ background }) => {
     await background.handleMessage({ type: "word.feedback", dateKey: "2026-07-30", wordId: "w1", status: "known" });
     await background.handleMessage({ type: "settings.update", level: 2, interests: ["travel"] });
     await withLocalDay("2026-07-30", async () => {
-      assert.deepEqual(await background.handleMessage({ type: "assignment.get" }), { kind: "assigned", wordId: "w1", dateKey: "2026-07-30", status: "known" });
+      assert.deepEqual(await background.handleMessage({ type: "assignment.get" }), { kind: "assigned", wordId: "w1", dateKey: "2026-07-30", word: word("w1"), status: "known" });
     });
   });
 });
@@ -156,7 +218,7 @@ test("read-only messages reject unknown fields", async () => {
 test("Atlas can read a retained date without creating an assignment for another day", async () => {
   const existing = profile({ assignments: { "2026-07-28": { wordId: "w2" } }, assignmentOrdinal: 1 });
   await withBackground({ profile: existing }, async ({ background, values }) => {
-    assert.deepEqual(await background.handleMessage({ type: "assignment.get", dateKey: "2026-07-28" }), { kind: "assigned", wordId: "w2", dateKey: "2026-07-28" });
+    assert.deepEqual(await background.handleMessage({ type: "assignment.get", dateKey: "2026-07-28" }), { kind: "assigned", wordId: "w2", dateKey: "2026-07-28", word: word("w2") });
     assert.deepEqual(await background.handleMessage({ type: "assignment.get", dateKey: "2026-07-29" }), { kind: "no-new-word", dateKey: "2026-07-29" });
     assert.deepEqual(values["kalimat.profile"].assignments, existing.assignments);
   });
@@ -221,7 +283,7 @@ test("assignment response restores validated feedback, save, and English visibil
   await withBackground({ profile: existing }, async ({ background }) => {
     await withLocalDay("2026-07-30", async () => {
       assert.deepEqual(await background.handleMessage({ type: "assignment.get" }), {
-        kind: "assigned", wordId: "w1", dateKey: "2026-07-30", status: "known", saved: true, showEnglish: false,
+        kind: "assigned", wordId: "w1", dateKey: "2026-07-30", word: word("w1"), status: "known", saved: true, showEnglish: false,
       });
     });
   });
@@ -281,6 +343,7 @@ test("a transient clear write retries against its original storage baseline", as
   await withBackground({ profile: original, storageSetFailures: 1 }, async ({ background, values }) => {
     const result = await background.handleMessage({ type: "state.clear" });
     assert.equal(result.storageWarning, true);
+    assert.equal(result.reminderWarning, false);
     const exported = await background.handleMessage({ type: "state.export" });
     assert.deepEqual(JSON.parse(exported.text).wordStates, {});
     assert.deepEqual(Object.keys(values["kalimat.profile"].wordStates), []);
@@ -353,6 +416,7 @@ test("clearing state reports storage warning without clearing an alarm when remi
     const result = await background.handleMessage({ type: "state.clear" });
     assert.equal(result.kind, "ok");
     assert.equal(result.storageWarning, true);
+    assert.equal(result.reminderWarning, true);
     assert.equal(alarms.has("kalimat.reminder"), true);
   });
 });
@@ -401,6 +465,63 @@ test("failed reminder persistence leaves the existing alarm and setting authorit
     assert.deepEqual(result, { enabled: true, time: "09:00", storageWarning: true });
     assert.deepEqual(values["kalimat.reminder"], { enabled: true, time: "09:00" });
     assert.equal(alarms.has("kalimat.reminder"), true);
+  });
+});
+
+test("unknown alarm snapshots never clear an existing alarm during a failed disable rollback", async () => {
+  const alarm = { name: "kalimat.reminder", when: Date.now() + 60000 };
+  await withBackground({ reminder: { enabled: true, time: "09:00" }, alarm, alarmGetFailures: 2, alarmClearFailures: 1 }, async ({ background, values, alarms }) => {
+    const result = await background.handleMessage({ type: "reminder.configure", enabled: false, time: "09:00" });
+    assert.deepEqual(result, { enabled: true, time: "09:00", storageWarning: true });
+    assert.deepEqual(values["kalimat.reminder"], { enabled: true, time: "09:00" });
+    assert.equal(alarms.has("kalimat.reminder"), true);
+  });
+});
+
+test("startup reconciliation create failures are surfaced by settings", async () => {
+  await withBackground({ reminder: { enabled: true, time: "09:00" }, alarmCreateFailures: 1 }, async ({ background }) => {
+    const settings = await background.handleMessage({ type: "settings.get" });
+    assert.deepEqual(settings, { kind: "settings", reminder: { enabled: true, time: "09:00" }, storageWarning: true });
+  });
+});
+
+test("startup reconciliation retains and retries a warning whose marker write fails", async () => {
+  await withBackground({ reminder: { enabled: true, time: "09:00" }, alarmCreateFailures: 2, reminderWarningSetFailures: 2 }, async ({ background, extension, values }) => {
+    await extension.runtime.onStartup.listeners[0]();
+    const settings = await background.handleMessage({ type: "settings.get" });
+    assert.deepEqual(settings, { kind: "settings", reminder: { enabled: true, time: "09:00" }, storageWarning: true });
+    assert.equal(values["kalimat.reminder.warning"], true);
+  });
+});
+
+test("disabled stale-alarm reconciliation failures are surfaced by settings", async () => {
+  const alarm = { name: "kalimat.reminder", when: Date.now() + 60000 };
+  await withBackground({ reminder: { enabled: false, time: "09:00" }, alarm, alarmClearFailures: 1 }, async ({ background }) => {
+    const settings = await background.handleMessage({ type: "settings.get" });
+    assert.deepEqual(settings, { kind: "settings", reminder: { enabled: false, time: "09:00" }, storageWarning: true });
+  });
+});
+
+test("permission revocation clear failures surface a warning without claiming disabled storage", async () => {
+  const alarm = { name: "kalimat.reminder", when: Date.now() + 60000 };
+  await withBackground({ reminder: { enabled: true, time: "09:00" }, alarm, alarmClearFailures: 1 }, async ({ background, extension, setPermissions }) => {
+    await new Promise(setImmediate);
+    setPermissions(false);
+    await extension.permissions.onRemoved.listeners[0]({ permissions: ["notifications"] });
+    const settings = await background.handleMessage({ type: "settings.get" });
+    assert.deepEqual(settings, { kind: "settings", reminder: { enabled: true, time: "09:00" }, storageWarning: true });
+  });
+});
+
+test("permission revocation retains and retries a warning whose marker write fails", async () => {
+  const alarm = { name: "kalimat.reminder", when: Date.now() + 60000 };
+  await withBackground({ reminder: { enabled: true, time: "09:00" }, alarm, alarmClearFailures: 1, reminderWarningSetFailures: 1 }, async ({ background, extension, setPermissions, values }) => {
+    await new Promise(setImmediate);
+    setPermissions(false);
+    await extension.permissions.onRemoved.listeners[0]({ permissions: ["notifications"] });
+    const settings = await background.handleMessage({ type: "settings.get" });
+    assert.deepEqual(settings, { kind: "settings", reminder: { enabled: true, time: "09:00" }, storageWarning: true });
+    assert.equal(values["kalimat.reminder.warning"], true);
   });
 });
 
@@ -457,6 +578,16 @@ test("alarm and notification event listeners consume failing side effects", asyn
   });
 });
 
+test("alarm firing surfaces a reminder warning when clearing the alarm fails", async () => {
+  const alarm = { name: "kalimat.reminder", when: Date.now() + 60000 };
+  await withBackground({ reminder: { enabled: true, time: "09:00" }, alarm, alarmClearFailures: 1 }, async ({ background, extension }) => {
+    await new Promise(setImmediate);
+    await extension.alarms.onAlarm.listeners[0]({ name: "kalimat.reminder" });
+    const settings = await background.handleMessage({ type: "settings.get" });
+    assert.deepEqual(settings, { kind: "settings", reminder: { enabled: true, time: "09:00" }, storageWarning: true });
+  });
+});
+
 test("startup and install listeners consume reminder storage failures", async () => {
   await withBackground({ storageFailure: true }, async ({ extension }) => {
     await assert.doesNotReject(extension.runtime.onStartup.listeners[0]());
@@ -478,7 +609,7 @@ test("a new valid-date assignment prunes 5,001 records while lifetime cadence co
   const existing = profile({ assignments, assignmentOrdinal: 5004 });
   await withBackground({ profile: existing, vocabulary: [word("interest"), word("outside", { topics: ["food"], usefulnessBand: "low" })] }, async ({ background, values }) => {
     await withLocalDay("2026-07-30", async () => {
-      assert.deepEqual(await background.handleMessage({ type: "assignment.get" }), { kind: "assigned", wordId: "outside", dateKey: "2026-07-30" });
+      assert.deepEqual(await background.handleMessage({ type: "assignment.get" }), { kind: "assigned", wordId: "outside", dateKey: "2026-07-30", word: word("outside", { topics: ["food"], usefulnessBand: "low" }) });
     });
     assert.equal(Object.keys(values["kalimat.profile"].assignments).length, 5000);
     assert.equal(values["kalimat.profile"].assignmentOrdinal, 5005);

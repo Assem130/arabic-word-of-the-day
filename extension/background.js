@@ -1,5 +1,5 @@
 if (!globalThis.KalimatVocabulary && typeof importScripts === "function") {
-  importScripts("shared/api.js", "shared/date.js", "shared/vocabulary.js", "shared/state.js", "shared/selector.js");
+  importScripts("shared/date.js", "shared/vocabulary.js", "shared/state.js", "shared/selector.js");
 }
 
 const dependencies = typeof module === "object" && module.exports
@@ -13,11 +13,15 @@ const dependencies = typeof module === "object" && module.exports
 const ExtApi = globalThis.browser ?? globalThis.chrome;
 const PROFILE_KEY = "kalimat.profile";
 const REMINDER_KEY = "kalimat.reminder";
+const REMINDER_WARNING_KEY = "kalimat.reminder.warning";
 const REMINDER_ALARM = "kalimat.reminder";
 const DEFAULT_REMINDER = Object.freeze({ enabled: false, time: "09:00" });
 let queue = Promise.resolve();
 let sessionFallback = null;
 let vocabularyPromise = null;
+let reminderWarningFallback = false;
+let alarmListenerRegistered = false;
+let notificationListenerRegistered = false;
 
 function serialized(work) {
   const result = queue.then(work, work);
@@ -124,8 +128,8 @@ function recovery(loaded) {
   return { kind: "recovery", recoveryRaw: loaded.recoveryRaw };
 }
 
-function assignedResult(profile, dateKey, wordId) {
-  const result = { kind: "assigned", wordId, dateKey };
+function assignedResult(profile, dateKey, wordId, vocabulary) {
+  const result = { kind: "assigned", wordId, dateKey, word: dependencies.vocabulary.findWord(vocabulary, wordId) };
   const wordState = profile.wordStates[wordId];
   const status = profile.assignments[dateKey]?.status ?? wordState?.status;
   if (status) result.status = status;
@@ -147,7 +151,7 @@ async function assignment(requestedDateKey) {
   if (requestedDateKey && !Object.hasOwn(loaded.profile.assignments, dateKey)) return warning({ kind: "no-new-word", dateKey }, loaded.warning);
   const selected = await dependencies.selector.selectDaily({ vocabulary, profile: loaded.profile, dateKey });
   if (selected.kind !== "assigned") return warning(selected, loaded.warning);
-  if (Object.hasOwn(loaded.profile.assignments, dateKey)) return warning(assignedResult(loaded.profile, dateKey, selected.wordId), loaded.warning);
+  if (Object.hasOwn(loaded.profile.assignments, dateKey)) return warning(assignedResult(loaded.profile, dateKey, selected.wordId, vocabulary), loaded.warning);
   if (loaded.profile.assignmentOrdinal === Number.MAX_SAFE_INTEGER) throw new RangeError("Assignment counter exhausted.");
   const profile = dependencies.state.pruneAssignments({
     ...loaded.profile,
@@ -155,7 +159,7 @@ async function assignment(requestedDateKey) {
     assignmentOrdinal: loaded.profile.assignmentOrdinal + 1,
     recentIds: [selected.wordId, ...loaded.profile.recentIds.filter((id) => id !== selected.wordId)].slice(0, 16),
   });
-  return warning(assignedResult(profile, dateKey, selected.wordId), await persistProfile(profile, loaded));
+  return warning(assignedResult(profile, dateKey, selected.wordId, vocabulary), await persistProfile(profile, loaded));
 }
 
 async function updateProfile(change, resultFields = () => ({})) {
@@ -173,6 +177,7 @@ function exactMessage(message, keys) {
 
 async function configureReminder(message) {
   if (!exactMessage(message, new Set(["type", "enabled", "time"])) || typeof message.enabled !== "boolean" || (message.time !== undefined && !timeIsValid(message.time))) throw new TypeError("Invalid reminder.");
+  registerReminderListeners();
   const current = await readReminder();
   const requested = { enabled: message.enabled, time: message.time ?? current.time };
   if (!requested.enabled || !await reminderPermissions()) return disableReminder(requested.time, current);
@@ -180,14 +185,14 @@ async function configureReminder(message) {
   try {
     await ExtApi.storage.local.set({ [REMINDER_KEY]: requested });
   } catch (_) {
-    return { ...current, storageWarning: true };
+    return warningReminder(current);
   }
   try {
     await scheduleReminder(requested);
-    return requested;
+    return (await clearReminderWarning()) ? { ...requested, storageWarning: true } : requested;
   } catch (_) {
-    const rollback = await rollbackReminder(current, snapshot.alarm);
-    return { ...rollback.actual, storageWarning: true };
+    const rollback = await rollbackReminder(current, snapshot);
+    return warningReminder(rollback.actual);
   }
 }
 
@@ -196,7 +201,43 @@ async function readReminder() {
   return validReminder(stored[REMINDER_KEY]) ? stored[REMINDER_KEY] : { ...DEFAULT_REMINDER };
 }
 
+async function readReminderWarning() {
+  try {
+    const stored = await ExtApi.storage.local.get(REMINDER_WARNING_KEY);
+    if (stored[REMINDER_WARNING_KEY] === true) {
+      reminderWarningFallback = false;
+      return true;
+    }
+    if (!reminderWarningFallback) return false;
+    await setReminderWarning(true);
+    return true;
+  } catch (_) {
+    return true;
+  }
+}
+
+async function setReminderWarning(value) {
+  try {
+    await ExtApi.storage.local.set({ [REMINDER_WARNING_KEY]: value });
+    reminderWarningFallback = false;
+    return false;
+  } catch (_) {
+    if (value) reminderWarningFallback = true;
+    return true;
+  }
+}
+
+async function clearReminderWarning() {
+  return (await readReminderWarning()) ? setReminderWarning(false) : false;
+}
+
+async function warningReminder(result) {
+  await setReminderWarning(true);
+  return { ...result, storageWarning: true };
+}
+
 async function reminderPermissions() {
+  if (typeof ExtApi.alarms?.get !== "function" || typeof ExtApi.alarms?.create !== "function" || typeof ExtApi.alarms?.clear !== "function" || typeof ExtApi.notifications?.create !== "function") return false;
   try {
     return await ExtApi.permissions.contains({ permissions: ["alarms", "notifications"] });
   } catch (_) {
@@ -209,10 +250,11 @@ async function clearReminder() {
 }
 
 async function readReminderAlarm() {
+  if (typeof ExtApi.alarms?.get !== "function") return { alarm: null, alarmSnapshotKnown: false };
   try {
-    return { alarm: ExtApi.alarms ? await ExtApi.alarms.get(REMINDER_ALARM) : null };
+    return { alarm: await ExtApi.alarms.get(REMINDER_ALARM), alarmSnapshotKnown: true };
   } catch (_) {
-    return { alarm: null, warning: true };
+    return { alarm: null, alarmSnapshotKnown: false };
   }
 }
 
@@ -233,7 +275,9 @@ async function scheduleReminder(settings) {
   if (!existing || (existing.scheduledTime ?? existing.when) !== when) await ExtApi.alarms.create(REMINDER_ALARM, { when });
 }
 
-async function restoreAlarm(alarm) {
+async function restoreAlarm(snapshot) {
+  if (!snapshot.alarmSnapshotKnown) return false;
+  const alarm = snapshot.alarm;
   let failed = false;
   try { await clearReminder(); } catch (_) { failed = true; }
   if (alarm) {
@@ -246,10 +290,10 @@ async function restoreAlarm(alarm) {
   return failed;
 }
 
-async function rollbackReminder(current, alarm) {
+async function rollbackReminder(current, snapshot) {
   let failed = false;
   try { await ExtApi.storage.local.set({ [REMINDER_KEY]: current }); } catch (_) { failed = true; }
-  failed ||= await restoreAlarm(alarm);
+  failed ||= await restoreAlarm(snapshot);
   let actual = current;
   try { actual = await readReminder(); } catch (_) { /* keep the last authoritative snapshot */ }
   return { actual, failed };
@@ -259,33 +303,41 @@ async function disableReminder(time, currentOverride = null) {
   let current = currentOverride;
   if (!current) {
     try { current = await readReminder(); }
-    catch (_) { return { enabled: false, time, storageWarning: true }; }
+    catch (_) { return warningReminder({ enabled: false, time }); }
   }
   const snapshot = await readReminderAlarm();
   const disabled = { enabled: false, time };
   try {
     await ExtApi.storage.local.set({ [REMINDER_KEY]: disabled });
   } catch (_) {
-    return { ...current, storageWarning: true };
+    return warningReminder(current);
   }
   try {
     await clearReminder();
-    return disabled;
+    return (await clearReminderWarning()) ? { ...disabled, storageWarning: true } : disabled;
   } catch (_) {
-    const rollback = await rollbackReminder(current, snapshot.alarm);
-    return { ...rollback.actual, storageWarning: true };
+    const rollback = await rollbackReminder(current, snapshot);
+    return warningReminder(rollback.actual);
   }
 }
 
 async function ensureReminderNow() {
   const settings = await readReminder();
   if (!settings.enabled) {
-    await clearReminder();
-    return settings;
+    try {
+      await clearReminder();
+      return (await clearReminderWarning()) ? { ...settings, storageWarning: true } : settings;
+    } catch (_) {
+      return warningReminder(settings);
+    }
   }
   if (!await reminderPermissions()) return disableReminder(settings.time, settings);
-  await scheduleReminder(settings);
-  return settings;
+  try {
+    await scheduleReminder(settings);
+    return (await clearReminderWarning()) ? { ...settings, storageWarning: true } : settings;
+  } catch (_) {
+    return warningReminder(settings);
+  }
 }
 
 function ensureReminder() {
@@ -303,15 +355,28 @@ async function notificationClick(notificationId) {
 
 async function alarmFired(alarm) {
   if (!alarm || alarm.name !== REMINDER_ALARM) return;
-  await clearReminder();
+  try { await clearReminder(); }
+  catch (_) { await setReminderWarning(true); return; }
   const settings = await ensureReminderNow();
   if (settings.enabled) {
+    if (typeof ExtApi.notifications?.create !== "function") return warningReminder(settings);
     await ExtApi.notifications.create(REMINDER_ALARM, {
       type: "basic",
       iconUrl: ExtApi.runtime.getURL("icons/icon-128.png"),
       title: "كلمات",
       message: "كلمتك العربية جاهزة.",
     });
+  }
+}
+
+function registerReminderListeners() {
+  if (!alarmListenerRegistered && typeof ExtApi.alarms?.onAlarm?.addListener === "function") {
+    ExtApi.alarms.onAlarm.addListener(eventEntry(alarmFired));
+    alarmListenerRegistered = true;
+  }
+  if (!notificationListenerRegistered && typeof ExtApi.notifications?.onClicked?.addListener === "function") {
+    ExtApi.notifications.onClicked.addListener(eventEntry(notificationClick));
+    notificationListenerRegistered = true;
   }
 }
 
@@ -324,7 +389,9 @@ function handleMessage(message) {
     }
     if (message.type === "settings.get") {
       if (!exactMessage(message, new Set(["type"]))) throw new TypeError("Invalid settings.");
-      return { kind: "settings", reminder: await readReminder() };
+      const reminder = await readReminder();
+      const settings = { kind: "settings", reminder };
+      return (await readReminderWarning()) ? { ...settings, storageWarning: true } : settings;
     }
     if (message.type === "onboarding.complete") {
       if (!exactMessage(message, new Set(["type", "level", "interests"]))) throw new TypeError("Invalid onboarding.");
@@ -376,7 +443,7 @@ function handleMessage(message) {
       try { reminderTime = (await readReminder()).time; } catch (_) { reminderWarning = true; }
       const reminder = await disableReminder(reminderTime);
       reminderWarning ||= reminder.storageWarning === true;
-      return warning({ kind: "ok" }, profileWarning || reminderWarning);
+      return warning({ kind: "ok", reminderWarning }, profileWarning || reminderWarning);
     }
     if (message.type === "reminder.configure") return configureReminder(message);
     throw new TypeError("Unknown message.");
@@ -386,8 +453,7 @@ function handleMessage(message) {
 ExtApi.runtime.onMessage.addListener(handleMessage);
 ExtApi.runtime.onStartup.addListener(eventEntry(ensureReminderNow));
 ExtApi.runtime.onInstalled.addListener(eventEntry(ensureReminderNow));
-ExtApi.alarms.onAlarm.addListener(eventEntry(alarmFired));
-ExtApi.notifications.onClicked.addListener(eventEntry(notificationClick));
+registerReminderListeners();
 if (ExtApi.permissions?.onRemoved) ExtApi.permissions.onRemoved.addListener(eventEntry(async (removed) => {
   if (removed?.permissions?.some((permission) => permission === "alarms" || permission === "notifications")) await ensureReminderNow();
 }));

@@ -4,7 +4,7 @@
   const ExtApi = globalThis.browser ?? globalThis.chrome;
   const byId = (id) => document.getElementById(id);
   const views = ["today", "explore", "history", "settings", "onboarding", "recovery", "empty", "error"];
-  const state = { vocabulary: [], profile: null, today: null, exploreWord: null, reminder: { enabled: false, time: "09:00" }, recoveryRaw: null };
+  const state = { vocabulary: [], profile: null, today: null, exploreWord: null, reminder: { enabled: false, time: "09:00" }, reminderWarning: false, recoveryRaw: null };
   let elements;
   let reminderQueue = Promise.resolve();
 
@@ -102,6 +102,19 @@
     elements["return-today"].hidden = word.id === state.today?.word?.id;
   }
 
+  function mergeAssignment(result) {
+    state.profile.assignments ??= {};
+    state.profile.assignments[result.dateKey] = { ...state.profile.assignments[result.dateKey], wordId: result.wordId, ...(result.status ? { status: result.status } : {}) };
+    if (result.status || result.saved !== undefined) {
+      state.profile.wordStates ??= {};
+      state.profile.wordStates[result.wordId] = {
+        ...state.profile.wordStates[result.wordId],
+        ...(result.status ? { status: result.status, dateKey: result.dateKey } : {}),
+        ...(result.saved !== undefined ? { saved: result.saved === true } : {}),
+      };
+    }
+  }
+
   function search() {
     const query = normalize(elements["atlas-search"].value).trim();
     const matches = query ? state.vocabulary.filter((word) => [word.word, word.normalized, word.meaningAr, word.meaningEn].some((value) => normalize(value).includes(query))).slice(0, 20) : [];
@@ -156,7 +169,7 @@
     const result = await ExtApi.runtime.sendMessage({ type: "settings.update", level, interests, showEnglish: elements["settings-english"].checked });
     if (result?.kind === "recovery") return renderRecovery(result.recoveryRaw);
     if (result?.kind !== "ok") throw new Error("Settings unchanged.");
-    warning(result.storageWarning === true);
+    warning(result.storageWarning === true || state.reminderWarning);
     state.profile = { ...state.profile, level, interests, showEnglish: elements["settings-english"].checked };
     if (wasOnboarding) await loadAssignment();
     else {
@@ -181,7 +194,8 @@
       const reminder = await ExtApi.runtime.sendMessage({ type: "reminder.configure", enabled, time });
       if (!reminder || typeof reminder.enabled !== "boolean" || !validTime(reminder.time)) throw new Error("Invalid reminder.");
       state.reminder = { enabled: reminder.enabled, time: reminder.time };
-      warning(reminder.storageWarning === true);
+      state.reminderWarning = reminder.storageWarning === true;
+      warning(state.reminderWarning);
       hydrateSettings();
       return state.reminder;
     });
@@ -194,7 +208,8 @@
       const reminder = await ExtApi.runtime.sendMessage({ type: "reminder.configure", enabled: state.reminder.enabled, time });
       if (!reminder || typeof reminder.enabled !== "boolean" || !validTime(reminder.time)) throw new Error("Invalid reminder.");
       state.reminder = { enabled: reminder.enabled, time: reminder.time };
-      warning(reminder.storageWarning === true);
+      state.reminderWarning = reminder.storageWarning === true;
+      warning(state.reminderWarning);
       hydrateSettings();
       return state.reminder;
     });
@@ -220,14 +235,18 @@
     const file = input.files?.[0];
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) return status("ملف الاستيراد كبير جدًا.");
+    let committed = false;
     try {
       const text = await file.text();
       const result = await ExtApi.runtime.sendMessage({ type: "state.import", text });
       if (result?.kind !== "ok") throw new Error("Import failed.");
+      committed = true;
       state.recoveryRaw = null;
-      warning(result.storageWarning === true);
+      warning(result.storageWarning === true || state.reminderWarning);
       await load();
-    } catch (_) { status("تعذّر استيراد الملف. لم نغيّر بياناتك."); }
+    } catch (_) {
+      status(committed ? "استوردنا الملف، لكن تعذّر تحديث العرض. افتح الأطلس مجددًا." : "تعذّر استيراد الملف. لم نغيّر بياناتك.");
+    }
     input.value = "";
   }
 
@@ -235,7 +254,8 @@
     if (!globalThis.confirm("هل تريد مسح بيانات كلمات؟ لا يمكن التراجع عن ذلك.")) return;
     const result = await ExtApi.runtime.sendMessage({ type: "state.clear" });
     if (result?.kind !== "ok") throw new Error("Clear failed.");
-    warning(result.storageWarning === true);
+    state.reminderWarning = result.reminderWarning === true;
+    warning(result.storageWarning === true || state.reminderWarning);
     state.profile = null;
     state.today = null;
     state.exploreWord = null;
@@ -249,7 +269,7 @@
     const result = await ExtApi.runtime.sendMessage({ type: "word.feedback", dateKey: state.today.dateKey, wordId: state.today.word.id, status: statusName });
     if (result?.kind === "recovery") return renderRecovery(result.recoveryRaw);
     if (result?.kind !== "ok") throw new Error("Feedback unchanged.");
-    warning(result.storageWarning === true);
+    warning(result.storageWarning === true || state.reminderWarning);
     const authoritativeStatus = result.status ?? statusName;
     const dateKey = result.dateKey ?? state.today.dateKey;
     const wordId = result.wordId ?? state.today.word.id;
@@ -266,7 +286,7 @@
     const result = await ExtApi.runtime.sendMessage({ type: "word.save", wordId: state.today.word.id, saved: !current });
     if (result?.kind === "recovery") return renderRecovery(result.recoveryRaw);
     if (result?.kind !== "ok") throw new Error("Save unchanged.");
-    warning(result.storageWarning === true);
+    warning(result.storageWarning === true || state.reminderWarning);
     const saved = typeof result.saved === "boolean" ? result.saved : !current;
     const wordId = result.wordId ?? state.today.word.id;
     state.profile.wordStates ??= {};
@@ -280,10 +300,9 @@
     if (result?.kind !== "assigned") { show("empty"); return status("لا توجد كلمة محفوظة لهذا التاريخ."); }
     const word = wordById(result.wordId);
     if (!word) { show("error"); return status("الكلمة غير متاحة."); }
-    warning(result.storageWarning === true);
+    warning(result.storageWarning === true || state.reminderWarning);
     if (!dateKey) {
-      state.profile.assignments ??= {};
-      state.profile.assignments[result.dateKey] = { ...state.profile.assignments[result.dateKey], wordId: result.wordId, ...(result.status ? { status: result.status } : {}) };
+      mergeAssignment(result);
       state.today = { ...result, word };
       renderToday();
       show("today");
@@ -324,8 +343,9 @@
     if (exported?.kind !== "export") throw new Error("Profile unavailable.");
     state.profile = JSON.parse(exported.text);
     state.reminder = settings?.reminder ?? state.reminder;
+    state.reminderWarning = settings?.storageWarning === true;
     state.recoveryRaw = null;
-    warning(exported.storageWarning === true || assignment.storageWarning === true);
+    warning(exported.storageWarning === true || assignment.storageWarning === true || state.reminderWarning);
     hydrateSettings();
     if (assignment?.kind === "assigned") {
       const word = wordById(assignment.wordId);
@@ -334,6 +354,7 @@
         viewWord(word);
         show("explore");
       } else {
+        mergeAssignment(assignment);
         state.today = { ...assignment, word };
         renderToday();
         show("today");

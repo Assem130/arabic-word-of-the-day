@@ -46,7 +46,7 @@ function popupApi(responses = {}, options = {}) {
     tabs: { create(value) { calls.push({ tab: value }); return Promise.resolve(); } },
     storage: { local: { get() { return Promise.resolve({ "kalimat.profile": Object.hasOwn(options, "profile") ? options.profile : {} }); } } },
   };
-  const context = { document, chrome: extension, Promise, console, globalThis: null };
+  const context = { document, chrome: extension, Promise, console, confirm: options.confirm, globalThis: null };
   context.globalThis = context;
   vm.runInNewContext(source("popup.js"), context, { filename: files["popup.js"] });
   return { api: context.KalimatPopup, elements, inputs, calls };
@@ -238,6 +238,46 @@ test("popup hydrates an active authoritative reminder on reopen and toggles it o
   assert.equal(elements.get("reminder").getAttribute("aria-pressed"), "false");
 });
 
+test("popup renders the daily word before reminder hydration finishes", async () => {
+  let resolveSettings;
+  const settings = new Promise((resolve) => { resolveSettings = resolve; });
+  const assigned = { kind: "assigned", dateKey: "2026-07-30", word: { id: "w1", word: "كلمة", meaningAr: "معنى", exampleAr: "مثال", pronunciation: "/w1/" } };
+  const { api, elements, calls } = popupApi({
+    "settings.get": () => settings,
+    "assignment.get": assigned,
+  });
+
+  const initializing = api.initialize();
+  await new Promise(setImmediate);
+
+  assert.deepEqual(calls.map((message) => message.type), ["assignment.get", "settings.get"]);
+  assert.equal(elements.get("assigned").hidden, false);
+  assert.equal(elements.get("reminder").disabled, true);
+  assert.equal(elements.get("reminder-time").disabled, true);
+
+  resolveSettings({ kind: "settings", reminder: { enabled: false, time: "09:00" } });
+  await initializing;
+  assert.equal(elements.get("reminder").disabled, false);
+  assert.equal(elements.get("reminder-time").disabled, false);
+});
+
+test("popup shows first-run onboarding before reminder hydration finishes", async () => {
+  let resolveSettings;
+  const settings = new Promise((resolve) => { resolveSettings = resolve; });
+  const { api, elements, calls } = popupApi({ "settings.get": () => settings }, { profile: undefined });
+
+  const initializing = api.initialize();
+  await new Promise(setImmediate);
+
+  assert.equal(elements.get("onboarding").hidden, false);
+  assert.equal(elements.get("reminder").disabled, true);
+  assert.equal(calls.some((message) => message.type === "assignment.get"), false);
+
+  resolveSettings({ kind: "settings", reminder: { enabled: false, time: "09:00" } });
+  await initializing;
+  assert.equal(elements.get("reminder").disabled, true);
+});
+
 test("popup serializes rapid reminder toggles from the authoritative state", async () => {
   let enabled = false;
   const { api, elements, calls } = popupApi({
@@ -253,9 +293,23 @@ test("popup serializes rapid reminder toggles from the authoritative state", asy
 });
 
 test("popup recovery reset requires confirmation and cancellation leaves state untouched", async () => {
-  const fixture = popupApi({ confirm: () => false });
+  const fixture = popupApi({}, { confirm: () => false });
   await fixture.api.resetRecovery();
   assert.equal(fixture.calls.some((message) => message.type === "state.clear"), false);
+});
+
+test("popup recovery reset does not retain a profile-only warning as a reminder warning", async () => {
+  const fixture = popupApi({
+    "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } },
+    "assignment.get": { kind: "no-new-word" },
+    "state.clear": { kind: "ok", storageWarning: true, reminderWarning: false },
+    "onboarding.complete": { kind: "ok" },
+  }, { confirm: () => true });
+  await fixture.api.initialize();
+  await fixture.api.resetRecovery();
+  assert.equal(fixture.elements.get("warning").hidden, false);
+  await fixture.api.completeOnboarding(true);
+  assert.equal(fixture.elements.get("warning").hidden, true);
 });
 
 test("a rejected reminder disable keeps the visible enabled state and reports the error", async () => {
@@ -351,6 +405,22 @@ test("Atlas dated query loads only the retained date plus profile and settings",
   assert.deepEqual(fixture.calls.filter((message) => message.type === "assignment.get").map((message) => message.dateKey), ["2026-07-28"]);
 });
 
+test("Atlas initial daily response merges returned status and save into History", async () => {
+  const profile = atlasProfile();
+  const fixture = atlasApi({
+    "assignment.get": { kind: "assigned", wordId: "w1", dateKey: "2026-07-30", status: "known", saved: true },
+    "state.export": { kind: "export", text: JSON.stringify(profile) },
+    "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } },
+  });
+  await fixture.api.initialize();
+  await fixture.api.renderHistory();
+  assert.equal(fixture.elements.get("history-list").children.length, 1);
+  assert.match(fixture.elements.get("history-list").children[0].textContent, /known|معروف/i);
+  fixture.elements.get("history-filter").value = "saved";
+  await fixture.api.renderHistory();
+  assert.equal(fixture.elements.get("history-list").children.length, 1);
+});
+
 test("Atlas history rows show status and retain descending chronology across filters", async () => {
   const profile = atlasProfile({
     wordStates: { w1: { status: "known", dateKey: "2026-07-29", saved: true }, w2: { status: "difficult", dateKey: "2026-07-28" } },
@@ -359,7 +429,7 @@ test("Atlas history rows show status and retain descending chronology across fil
   const fixture = atlasApi({ "assignment.get": { kind: "assigned", wordId: "w1", dateKey: "2026-07-30" }, "state.export": { kind: "export", text: JSON.stringify(profile) }, "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } } });
   await fixture.api.initialize();
   await fixture.api.renderHistory();
-  assert.match(fixture.elements.get("history-list").children[0].textContent, /2026-07-29/);
+  assert.match(fixture.elements.get("history-list").children[0].textContent, /2026-07-30/);
   assert.match(fixture.elements.get("history-list").children[0].textContent, /known|معروف/i);
   fixture.elements.get("history-filter").value = "difficult";
   await fixture.api.renderHistory();
@@ -383,6 +453,20 @@ test("Atlas valid recovery import clears raw recovery state and returns to the i
   assert.equal(fixture.elements.get("recovery").hidden, true);
   assert.equal(fixture.elements.get("today-view").hidden, false);
   assert.equal(fixture.api.getRecoveryRaw(), null);
+});
+
+test("Atlas import reports a committed import when refresh fails", async () => {
+  const imported = atlasProfile({ level: 3 });
+  const fixture = atlasApi({
+    "assignment.get": new Error("refresh failed"),
+    "state.export": { kind: "export", text: JSON.stringify(atlasProfile()) },
+    "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } },
+    "state.import": { kind: "ok" },
+  });
+  await fixture.api.initialize();
+  await fixture.api.importState({ files: [{ size: JSON.stringify(imported).length, async text() { return JSON.stringify(imported); } }], value: "file" });
+  assert.match(fixture.elements.get("status").textContent, /استوردنا|import/i);
+  assert.doesNotMatch(fixture.elements.get("status").textContent, /لم نغيّر|unchanged/i);
 });
 
 test("Atlas return-to-today shows and focuses the Today view", async () => {
@@ -494,4 +578,21 @@ test("Atlas clear followed by onboarding settings requests and renders a new dai
   assert.equal(assignmentCalls, 2);
   assert.equal(fixture.elements.get("today-view").hidden, false);
   assert.equal(fixture.elements.get("today-card").children.length > 0, true);
+});
+
+test("Atlas clear does not retain a profile-only warning as a reminder warning", async () => {
+  const profile = atlasProfile({ assignments: { "2026-07-30": { wordId: "w1" } }, assignmentOrdinal: 1 });
+  const fixture = atlasApi({
+    "assignment.get": { kind: "assigned", wordId: "w1", dateKey: "2026-07-30" },
+    "state.export": { kind: "export", text: JSON.stringify(profile) },
+    "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } },
+    "state.clear": { kind: "ok", storageWarning: true, reminderWarning: false },
+    "settings.update": { kind: "ok" },
+  });
+  await fixture.api.initialize();
+  await fixture.api.clearState();
+  assert.equal(fixture.elements.get("warning").hidden, false);
+  fixture.levels[0].checked = true;
+  await fixture.api.saveSettings();
+  assert.equal(fixture.elements.get("warning").hidden, true);
 });
