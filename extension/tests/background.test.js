@@ -129,7 +129,7 @@ test("an existing assignment survives feedback and settings changes", async () =
     await background.handleMessage({ type: "word.feedback", dateKey: "2026-07-30", wordId: "w1", status: "known" });
     await background.handleMessage({ type: "settings.update", level: 2, interests: ["travel"] });
     await withLocalDay("2026-07-30", async () => {
-      assert.deepEqual(await background.handleMessage({ type: "assignment.get" }), { kind: "assigned", wordId: "w1", dateKey: "2026-07-30" });
+      assert.deepEqual(await background.handleMessage({ type: "assignment.get" }), { kind: "assigned", wordId: "w1", dateKey: "2026-07-30", status: "known" });
     });
   });
 });
@@ -157,6 +157,17 @@ test("Atlas can read a retained date without creating an assignment for another 
     assert.deepEqual(await background.handleMessage({ type: "assignment.get", dateKey: "2026-07-28" }), { kind: "assigned", wordId: "w2", dateKey: "2026-07-28" });
     assert.deepEqual(await background.handleMessage({ type: "assignment.get", dateKey: "2026-07-29" }), { kind: "no-new-word", dateKey: "2026-07-29" });
     assert.deepEqual(values["kalimat.profile"].assignments, existing.assignments);
+  });
+});
+
+test("a dated query is read-only even when it names the current day", async () => {
+  const existing = profile();
+  await withBackground({ profile: existing }, async ({ background, values }) => {
+    await withLocalDay("2026-07-30", async () => {
+      assert.deepEqual(await background.handleMessage({ type: "assignment.get", dateKey: "2026-07-30" }), { kind: "no-new-word", dateKey: "2026-07-30" });
+    });
+    assert.deepEqual(Object.keys(values["kalimat.profile"].assignments), []);
+    assert.equal(values["kalimat.profile"].assignmentOrdinal, 0);
   });
 });
 
@@ -189,6 +200,31 @@ test("settings retain English visibility alongside level and interests", async (
   });
 });
 
+test("legacy stored profile missing showEnglish is persisted with the safe default", async () => {
+  const legacy = profile({ assignments: { "2026-07-30": { wordId: "w1" } }, assignmentOrdinal: 1 });
+  delete legacy.showEnglish;
+  await withBackground({ profile: legacy }, async ({ background, values }) => {
+    await withLocalDay("2026-07-30", async () => background.handleMessage({ type: "assignment.get" }));
+    assert.equal(values["kalimat.profile"].showEnglish, true);
+  });
+});
+
+test("assignment response restores validated feedback, save, and English visibility", async () => {
+  const existing = profile({
+    showEnglish: false,
+    assignments: { "2026-07-30": { wordId: "w1", status: "known" } },
+    wordStates: { w1: { status: "known", dateKey: "2026-07-30", saved: true } },
+    assignmentOrdinal: 1,
+  });
+  await withBackground({ profile: existing }, async ({ background }) => {
+    await withLocalDay("2026-07-30", async () => {
+      assert.deepEqual(await background.handleMessage({ type: "assignment.get" }), {
+        kind: "assigned", wordId: "w1", dateKey: "2026-07-30", status: "known", saved: true, showEnglish: false,
+      });
+    });
+  });
+});
+
 test("a storage failure keeps one session assignment and reports a warning", async () => {
   await withBackground({ storageFailure: true }, async ({ background }) => {
     await withLocalDay("2026-07-30", async () => {
@@ -196,6 +232,7 @@ test("a storage failure keeps one session assignment and reports a warning", asy
       const second = await background.handleMessage({ type: "assignment.get" });
       assert.deepEqual(first, second);
       assert.equal(first.storageWarning, true);
+      assert.equal((await background.handleMessage({ type: "state.export" })).storageWarning, true);
     });
   });
 });
@@ -269,6 +306,18 @@ test("an import after a failed read retains the session profile until storage re
   });
 });
 
+test("valid recovery import replaces raw state and exits recovery mode", async () => {
+  const invalid = { schemaVersion: 999, marker: "keep" };
+  const imported = profile({ level: 3 });
+  await withBackground({ profile: invalid }, async ({ background, values }) => {
+    assert.deepEqual(await background.handleMessage({ type: "assignment.get" }), { kind: "recovery", recoveryRaw: invalid });
+    assert.deepEqual(await background.handleMessage({ type: "state.import", text: JSON.stringify(imported) }), { kind: "ok" });
+    assert.equal((await background.handleMessage({ type: "state.export" })).kind, "export");
+    assert.equal(JSON.parse((await background.handleMessage({ type: "state.export" })).text).level, 3);
+    assert.equal(values["kalimat.profile"].schemaVersion, 1);
+  });
+});
+
 test("invalid stored state remains untouched and returns recovery mode", async () => {
   const invalid = { schemaVersion: 999, marker: "keep" };
   await withBackground({ profile: invalid }, async ({ background, values, calls }) => {
@@ -287,6 +336,25 @@ test("onboarding leaves invalid stored state in recovery mode", async () => {
   });
 });
 
+test("clearing state disables the separate reminder and cancels its alarm", async () => {
+  await withBackground({ profile: profile(), reminder: { enabled: true, time: "09:00" }, alarm: { name: "kalimat.reminder", when: Date.now() + 1000 } }, async ({ background, values, alarms, calls }) => {
+    const result = await background.handleMessage({ type: "state.clear" });
+    assert.equal(result.kind, "ok");
+    assert.deepEqual(values["kalimat.reminder"], { enabled: false, time: "09:00" });
+    assert.equal(alarms.has("kalimat.reminder"), false);
+    assert.ok(calls.clear >= 1);
+  });
+});
+
+test("clearing state reports storage warning when profile or reminder persistence fails", async () => {
+  await withBackground({ profile: profile(), reminder: { enabled: true, time: "09:00" }, alarm: { name: "kalimat.reminder", when: Date.now() + 1000 }, storageSetFailures: 2 }, async ({ background, alarms }) => {
+    const result = await background.handleMessage({ type: "state.clear" });
+    assert.equal(result.kind, "ok");
+    assert.equal(result.storageWarning, true);
+    assert.equal(alarms.has("kalimat.reminder"), false);
+  });
+});
+
 test("background never requests optional permissions", async () => {
   await withBackground({ permissions: false }, async ({ background, calls }) => {
     await background.handleMessage({ type: "reminder.configure", enabled: true, time: "09:00" });
@@ -302,6 +370,15 @@ test("reminder configuration stores a valid time and schedules the next local oc
     assert.equal(calls.create.length, 1);
     assert.equal(calls.create[0].name, "kalimat.reminder");
     assert.ok(calls.create[0].details.when > Date.now());
+  });
+});
+
+test("notifications use Arabic title and body", async () => {
+  await withBackground({ reminder: { enabled: true, time: "09:00" }, permissions: true }, async ({ extension, calls }) => {
+    await new Promise(setImmediate);
+    await extension.alarms.onAlarm.listeners[0]({ name: "kalimat.reminder" });
+    assert.match(calls.notifications[0].options.title, /[\u0600-\u06ff]/);
+    assert.match(calls.notifications[0].options.message, /[\u0600-\u06ff]/);
   });
 });
 

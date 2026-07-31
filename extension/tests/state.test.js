@@ -62,6 +62,24 @@ test("legacy profiles migrate a bounded lifetime assignment ordinal without reco
   assert.equal(validateStoredProfile({ ...legacy, assignmentOrdinal: -1 }, vocabulary).canPersist, false);
 });
 
+test("legacy profiles and imports missing showEnglish migrate to Arabic-first defaults", () => {
+  const legacy = profileWithAssignment("2026-07-30");
+  delete legacy.showEnglish;
+  const stored = validateStoredProfile(legacy, vocabulary);
+  assert.equal(stored.canPersist, true);
+  assert.equal(stored.profile.showEnglish, true);
+  assert.equal(stored.migrated, true);
+
+  const imported = parseImport(JSON.stringify(legacy), vocabulary);
+  assert.equal(imported.showEnglish, true);
+});
+
+test("unknown or malformed showEnglish data remains read-only recovery", () => {
+  const valid = profileWithAssignment("2026-07-30");
+  rejected({ ...valid, showEnglish: "yes" });
+  rejected({ ...valid, showEnglish: false, unknown: true });
+});
+
 test("stored profiles reject unknown, dangerous, malformed, and invalid enum data without changing it", () => {
   const valid = profileWithAssignment("2026-07-30");
   rejected({ ...valid, unexpected: true });

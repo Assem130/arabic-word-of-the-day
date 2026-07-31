@@ -3,9 +3,10 @@
 
   const ExtApi = globalThis.browser ?? globalThis.chrome;
   const byId = (id) => document.getElementById(id);
-  const views = ["today", "explore", "history", "settings", "onboarding", "recovery"];
-  const state = { vocabulary: [], profile: null, today: null, viewed: null, reminder: { enabled: false, time: "09:00" }, recoveryRaw: null };
+  const views = ["today", "explore", "history", "settings", "onboarding", "recovery", "empty", "error"];
+  const state = { vocabulary: [], profile: null, today: null, reminder: { enabled: false, time: "09:00" }, recoveryRaw: null };
   let elements;
+  let reminderQueue = Promise.resolve();
 
   function normalize(value) {
     return String(value ?? "").normalize("NFD").replace(/[\u064B-\u065F\u0670]/g, "").toLowerCase();
@@ -16,22 +17,29 @@
   }
 
   function collect() {
-    return Object.fromEntries(["status", "today", "explore", "history", "settings", "today-view", "explore-view", "history-view", "settings-view", "onboarding", "recovery", "today-title", "explore-title", "history-title", "settings-title", "onboarding-title", "recovery-title", "today-card", "explore-card", "atlas-search", "search-count", "search-results", "return-today", "history-filter", "history-list", "settings-english", "settings-save", "settings-time", "settings-reminder", "export", "import-file", "clear", "recovery-export", "recovery-import", "recovery-clear", "onboarding-settings", "today-save", "today-known", "today-difficult"].map((id) => [id, byId(id)]));
+    return Object.fromEntries(["status", "warning", "today", "explore", "history", "settings", "today-view", "explore-view", "history-view", "settings-view", "onboarding", "recovery", "empty", "error", "today-title", "explore-title", "history-title", "settings-title", "onboarding-title", "recovery-title", "empty-title", "error-title", "today-card", "today-empty", "explore-card", "atlas-search", "search-count", "search-results", "return-today", "history-filter", "history-list", "settings-english", "settings-save", "settings-time", "settings-reminder", "export", "import-file", "clear", "recovery-export", "recovery-import", "recovery-clear", "onboarding-settings", "today-save", "today-known", "today-difficult"].map((id) => [id, byId(id)]));
   }
 
   function status(message) { elements.status.textContent = message; }
 
+  function warning(visible) { elements.warning.hidden = !visible; }
+
   function show(name) {
     for (const view of views) {
-      const section = view === "onboarding" || view === "recovery" ? elements[view] : elements[`${view}-view`];
+      const section = ["onboarding", "recovery", "empty", "error"].includes(view) ? elements[view] : elements[`${view}-view`];
       section.hidden = view !== name;
     }
     for (const nameButton of ["today", "explore", "history", "settings"]) elements[nameButton].setAttribute("aria-pressed", String(nameButton === name));
     const heading = byId(`${name}-title`);
     if (heading) heading.focus();
+    if (name !== "today") setTodayActions(false);
   }
 
   function wordById(id) { return state.vocabulary.find((word) => word.id === id) ?? null; }
+
+  function setTodayActions(enabled) {
+    for (const id of ["today-save", "today-known", "today-difficult"]) elements[id].disabled = !enabled;
+  }
 
   function addText(parent, tag, value, className, direction) {
     if (!value) return;
@@ -76,15 +84,18 @@
   }
 
   function renderToday() {
-    renderWord(elements["today-card"], state.today?.word);
-    const wordState = state.today?.word && state.profile?.wordStates?.[state.today.word.id];
+    const word = state.today?.word;
+    renderWord(elements["today-card"], word);
+    elements["today-card"].hidden = !word;
+    elements["today-empty"].hidden = !!word;
+    setTodayActions(!!word);
+    const wordState = word && state.profile?.wordStates?.[word.id];
     elements["today-save"].setAttribute("aria-pressed", String(wordState?.saved === true));
     elements["today-known"].setAttribute("aria-pressed", String(wordState?.status === "known"));
     elements["today-difficult"].setAttribute("aria-pressed", String(wordState?.status === "difficult"));
   }
 
   function viewWord(word) {
-    state.viewed = word;
     renderWord(elements["explore-card"], word);
     elements["explore-card"].hidden = false;
     elements["return-today"].hidden = word.id === state.today?.word?.id;
@@ -107,14 +118,16 @@
   function renderHistory() {
     const filter = elements["history-filter"].value;
     const wordStates = state.profile?.wordStates ?? {};
-    const entries = Object.entries(state.profile?.assignments ?? {}).sort(([left], [right]) => right.localeCompare(left)).filter(([, assignment]) => filter !== "difficult" || assignment.status === "difficult").filter(([, assignment]) => filter !== "saved" || wordStates[assignment.wordId]?.saved === true);
+    const entries = Object.entries(state.profile?.assignments ?? {}).sort(([left], [right]) => right.localeCompare(left)).filter(([, assignment]) => filter !== "difficult" || (assignment.status ?? wordStates[assignment.wordId]?.status) === "difficult").filter(([, assignment]) => filter !== "saved" || wordStates[assignment.wordId]?.saved === true);
     elements["history-list"].replaceChildren();
     for (const [dateKey, assignment] of entries) {
       const word = wordById(assignment.wordId);
       if (!word) continue;
+      const responseStatus = assignment.status ?? wordStates[assignment.wordId]?.status;
+      const label = responseStatus === "known" ? "معروف" : responseStatus === "difficult" ? "صعب" : "غير مقيّمة";
       const button = document.createElement("button");
       button.type = "button";
-      button.textContent = `${dateKey} — ${word.word}`;
+      button.textContent = `${dateKey} — ${word.word} — ${label}`;
       button.addEventListener("click", () => loadAssignment(dateKey));
       elements["history-list"].append(button);
     }
@@ -140,26 +153,45 @@
     if (!Number.isInteger(level) || interests.length > 3) return status("اختر مستوى وحتى ثلاثة اهتمامات.");
     const result = await ExtApi.runtime.sendMessage({ type: "settings.update", level, interests, showEnglish: elements["settings-english"].checked });
     if (result?.kind === "recovery") return renderRecovery(result.recoveryRaw);
+    if (result?.kind !== "ok") throw new Error("Settings unchanged.");
+    warning(result.storageWarning === true);
     state.profile = { ...state.profile, level, interests, showEnglish: elements["settings-english"].checked };
     renderToday();
     status("حُفظت الإعدادات.");
   }
 
-  async function configureReminder() {
-    const enabled = elements["settings-reminder"].getAttribute("aria-pressed") !== "true";
-    const time = elements["settings-time"].value;
-    if (!validTime(time)) return status("اختر وقتًا صالحًا.");
-    if (enabled && !(await ExtApi.permissions.request({ permissions: ["alarms", "notifications"] }))) return status("لم تُمنح أذونات التذكير.");
-    const reminder = await ExtApi.runtime.sendMessage({ type: "reminder.configure", enabled, time });
-    if (!reminder || typeof reminder.enabled !== "boolean") throw new Error("Invalid reminder.");
-    state.reminder = reminder;
-    hydrateSettings();
+  function enqueueReminder(work) {
+    const next = reminderQueue.catch(() => undefined).then(work);
+    reminderQueue = next.catch(() => undefined);
+    return next;
   }
 
-  async function saveReminderTime() {
+  function configureReminder() {
+    const enabled = elements["settings-reminder"].getAttribute("aria-pressed") !== "true";
     const time = elements["settings-time"].value;
-    if (!validTime(time)) return status("اختر وقتًا صالحًا.");
-    state.reminder = await ExtApi.runtime.sendMessage({ type: "reminder.configure", enabled: state.reminder.enabled, time });
+    return enqueueReminder(async () => {
+      if (!validTime(time)) return status("اختر وقتًا صالحًا.");
+      if (enabled && !(await ExtApi.permissions.request({ permissions: ["alarms", "notifications"] }))) return status("لم تُمنح أذونات التذكير.");
+      const reminder = await ExtApi.runtime.sendMessage({ type: "reminder.configure", enabled, time });
+      if (!reminder || typeof reminder.enabled !== "boolean" || !validTime(reminder.time)) throw new Error("Invalid reminder.");
+      state.reminder = { enabled: reminder.enabled, time: reminder.time };
+      warning(reminder.storageWarning === true);
+      hydrateSettings();
+      return state.reminder;
+    });
+  }
+
+  function saveReminderTime() {
+    const time = elements["settings-time"].value;
+    return enqueueReminder(async () => {
+      if (!validTime(time)) return status("اختر وقتًا صالحًا.");
+      const reminder = await ExtApi.runtime.sendMessage({ type: "reminder.configure", enabled: state.reminder.enabled, time });
+      if (!reminder || typeof reminder.enabled !== "boolean" || !validTime(reminder.time)) throw new Error("Invalid reminder.");
+      state.reminder = { enabled: reminder.enabled, time: reminder.time };
+      warning(reminder.storageWarning === true);
+      hydrateSettings();
+      return state.reminder;
+    });
   }
 
   function download(text, name) {
@@ -175,7 +207,7 @@
     const result = await ExtApi.runtime.sendMessage({ type: "state.export" });
     if (result?.kind === "recovery") return download(JSON.stringify(result.recoveryRaw, null, 2), "kalimat-recovery.json");
     if (result?.kind !== "export") throw new Error("Invalid export.");
-    download(raw ? JSON.stringify(state.recoveryRaw, null, 2) : result.text, "kalimat-data.json");
+    download(result.text, "kalimat-data.json");
   }
 
   async function importState(input) {
@@ -186,6 +218,8 @@
       const text = await file.text();
       const result = await ExtApi.runtime.sendMessage({ type: "state.import", text });
       if (result?.kind !== "ok") throw new Error("Import failed.");
+      state.recoveryRaw = null;
+      warning(result.storageWarning === true);
       await load();
     } catch (_) { status("تعذّر استيراد الملف. لم نغيّر بياناتك."); }
     input.value = "";
@@ -195,8 +229,10 @@
     if (!globalThis.confirm("هل تريد مسح بيانات كلمات؟ لا يمكن التراجع عن ذلك.")) return;
     const result = await ExtApi.runtime.sendMessage({ type: "state.clear" });
     if (result?.kind !== "ok") throw new Error("Clear failed.");
+    warning(result.storageWarning === true);
     state.profile = null;
     state.today = null;
+    state.recoveryRaw = null;
     show("onboarding");
     status("مُسحت البيانات.");
   }
@@ -205,6 +241,8 @@
     if (!state.today?.word) return;
     const result = await ExtApi.runtime.sendMessage({ type: "word.feedback", dateKey: state.today.dateKey, wordId: state.today.word.id, status: statusName });
     if (result?.kind === "recovery") return renderRecovery(result.recoveryRaw);
+    if (result?.kind !== "ok") throw new Error("Feedback unchanged.");
+    warning(result.storageWarning === true);
     state.profile.wordStates ??= {};
     state.profile.wordStates[state.today.word.id] = { ...state.profile.wordStates[state.today.word.id], status: statusName, dateKey: state.today.dateKey };
     renderToday();
@@ -213,7 +251,10 @@
   async function toggleSave() {
     if (!state.today?.word) return;
     const current = state.profile?.wordStates?.[state.today.word.id]?.saved === true;
-    await ExtApi.runtime.sendMessage({ type: "word.save", wordId: state.today.word.id, saved: !current });
+    const result = await ExtApi.runtime.sendMessage({ type: "word.save", wordId: state.today.word.id, saved: !current });
+    if (result?.kind === "recovery") return renderRecovery(result.recoveryRaw);
+    if (result?.kind !== "ok") throw new Error("Save unchanged.");
+    warning(result.storageWarning === true);
     state.profile.wordStates ??= {};
     state.profile.wordStates[state.today.word.id] = { ...state.profile.wordStates[state.today.word.id], saved: !current };
     renderToday();
@@ -222,10 +263,11 @@
   async function loadAssignment(dateKey) {
     const result = await ExtApi.runtime.sendMessage({ type: "assignment.get", dateKey });
     if (result?.kind === "recovery") return renderRecovery(result.recoveryRaw);
-    if (result?.kind !== "assigned") return status("لا توجد كلمة محفوظة لهذا التاريخ.");
+    if (result?.kind !== "assigned") { show("empty"); return status("لا توجد كلمة محفوظة لهذا التاريخ."); }
     const word = wordById(result.wordId);
-    if (!word) return status("الكلمة غير متاحة.");
+    if (!word) { show("error"); return status("الكلمة غير متاحة."); }
     if (!dateKey || dateKey === state.today?.dateKey) state.today = { ...result, word };
+    warning(result.storageWarning === true);
     viewWord(word);
     show("explore");
   }
@@ -236,30 +278,49 @@
     status("");
   }
 
+  function renderError(message = "تعذّر تحميل الأطلس.") {
+    show("error");
+    status(message);
+  }
+
+  function returnToToday() {
+    if (!state.today?.word) return show("empty");
+    elements["return-today"].hidden = true;
+    elements["explore-card"].hidden = true;
+    show("today");
+    renderToday();
+  }
+
   async function load() {
     const response = await fetch(ExtApi.runtime.getURL("data/vocabulary.json"));
     if (!response.ok) throw new Error("Vocabulary unavailable.");
     state.vocabulary = await response.json();
     const query = new URLSearchParams(globalThis.location.search).get("date");
     const dateKey = /^\d{4}-\d{2}-\d{2}$/.test(query ?? "") ? query : undefined;
-    const [assignment, requested, exported, settings] = await Promise.all([ExtApi.runtime.sendMessage({ type: "assignment.get" }), dateKey ? ExtApi.runtime.sendMessage({ type: "assignment.get", dateKey }) : Promise.resolve(null), ExtApi.runtime.sendMessage({ type: "state.export" }), ExtApi.runtime.sendMessage({ type: "settings.get" })]);
-    if (assignment?.kind === "recovery" || requested?.kind === "recovery" || exported?.kind === "recovery") return renderRecovery(assignment?.recoveryRaw ?? requested?.recoveryRaw ?? exported?.recoveryRaw);
+    const assignmentRequest = dateKey ? { type: "assignment.get", dateKey } : { type: "assignment.get" };
+    const [assignment, exported, settings] = await Promise.all([ExtApi.runtime.sendMessage(assignmentRequest), ExtApi.runtime.sendMessage({ type: "state.export" }), ExtApi.runtime.sendMessage({ type: "settings.get" })]);
+    if (assignment?.kind === "recovery" || exported?.kind === "recovery") return renderRecovery(assignment?.recoveryRaw ?? exported?.recoveryRaw);
     if (exported?.kind !== "export") throw new Error("Profile unavailable.");
     state.profile = JSON.parse(exported.text);
     state.reminder = settings?.reminder ?? state.reminder;
+    state.recoveryRaw = null;
+    warning(exported.storageWarning === true || assignment.storageWarning === true);
     hydrateSettings();
     if (assignment?.kind === "assigned") {
       const word = wordById(assignment.wordId);
-      if (word) state.today = { ...assignment, word };
-      renderToday();
-    } else status(dateKey ? "لا توجد كلمة محفوظة لهذا التاريخ." : "لا توجد كلمة جديدة اليوم.");
-    if (requested?.kind === "assigned") {
-      const word = wordById(requested.wordId);
-      if (word) {
+      if (!word) return renderError("الكلمة غير متاحة.");
+      if (dateKey) {
         viewWord(word);
         show("explore");
+      } else {
+        state.today = { ...assignment, word };
+        renderToday();
+        show("today");
       }
-    } else if (dateKey) status("لا توجد كلمة محفوظة لهذا التاريخ.");
+    } else {
+      show("empty");
+      status(dateKey ? "لا توجد كلمة محفوظة لهذا التاريخ." : "لا توجد كلمة جديدة اليوم.");
+    }
   }
 
   function listen() {
@@ -268,7 +329,7 @@
     elements.history.addEventListener("click", () => { show("history"); renderHistory(); });
     elements.settings.addEventListener("click", () => { show("settings"); hydrateSettings(); });
     elements["atlas-search"].addEventListener("input", search);
-    elements["return-today"].addEventListener("click", () => { if (state.today?.word) viewWord(state.today.word); });
+    elements["return-today"].addEventListener("click", returnToToday);
     elements["history-filter"].addEventListener("change", renderHistory);
     elements["settings-save"].addEventListener("click", () => saveSettings().catch(() => status("تعذّر حفظ الإعدادات.")));
     document.querySelectorAll('input[name="atlas-interest"]').forEach((input) => input.addEventListener("change", () => { if (selectedInterests().length > 3) input.checked = false; }));
@@ -289,10 +350,10 @@
   async function initialize() {
     elements = collect();
     listen();
-    try { await load(); } catch (_) { status("تعذّر تحميل الأطلس."); }
+    try { await load(); } catch (_) { renderError(); }
   }
 
-  globalThis.KalimatAtlas = { normalize, loadAssignment, renderHistory, search };
+  globalThis.KalimatAtlas = { normalize, load, initialize, loadAssignment, renderHistory, search, importState, returnToToday, feedback, toggleSave, configureReminder, saveReminderTime, getReminder: () => ({ ...state.reminder }), getRecoveryRaw: () => state.recoveryRaw };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initialize, { once: true });
   else initialize();
 })();

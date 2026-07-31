@@ -78,6 +78,10 @@ async function loadProfile(vocabulary) {
     }
     const checked = dependencies.state.validateStoredProfile(raw, vocabulary);
     if (!checked.canPersist) return { recoveryRaw: checked.recoveryRaw };
+    if (checked.migrated) {
+      const storageWarning = await saveProfile(checked.profile, checked.profile);
+      return { profile: checked.profile, warning: storageWarning, base: checked.profile };
+    }
     if (sessionFallback) {
       if (sameProfile(checked.profile, sessionFallback.base)) {
         const fallback = sessionFallback;
@@ -120,6 +124,16 @@ function recovery(loaded) {
   return { kind: "recovery", recoveryRaw: loaded.recoveryRaw };
 }
 
+function assignedResult(profile, dateKey, wordId) {
+  const result = { kind: "assigned", wordId, dateKey };
+  const wordState = profile.wordStates[wordId];
+  const status = profile.assignments[dateKey]?.status ?? wordState?.status;
+  if (status) result.status = status;
+  if (wordState?.saved === true) result.saved = true;
+  if (profile.showEnglish === false) result.showEnglish = false;
+  return result;
+}
+
 function warning(result, hasWarning) {
   return hasWarning ? { ...result, storageWarning: true } : result;
 }
@@ -130,11 +144,10 @@ async function assignment(requestedDateKey) {
   if (loaded.recoveryRaw !== undefined) return recovery(loaded);
   const currentDateKey = dependencies.date.getLocalDateKey(new Date());
   const dateKey = requestedDateKey ?? currentDateKey;
-  if (requestedDateKey && requestedDateKey !== currentDateKey && !Object.hasOwn(loaded.profile.assignments, dateKey)) return warning({ kind: "no-new-word", dateKey }, loaded.warning);
+  if (requestedDateKey && !Object.hasOwn(loaded.profile.assignments, dateKey)) return warning({ kind: "no-new-word", dateKey }, loaded.warning);
   const selected = await dependencies.selector.selectDaily({ vocabulary, profile: loaded.profile, dateKey });
   if (selected.kind !== "assigned") return warning(selected, loaded.warning);
-  const result = { kind: "assigned", wordId: selected.wordId, dateKey };
-  if (Object.hasOwn(loaded.profile.assignments, dateKey)) return warning(result, loaded.warning);
+  if (Object.hasOwn(loaded.profile.assignments, dateKey)) return warning(assignedResult(loaded.profile, dateKey, selected.wordId), loaded.warning);
   if (loaded.profile.assignmentOrdinal === Number.MAX_SAFE_INTEGER) throw new RangeError("Assignment counter exhausted.");
   const profile = dependencies.state.pruneAssignments({
     ...loaded.profile,
@@ -142,7 +155,7 @@ async function assignment(requestedDateKey) {
     assignmentOrdinal: loaded.profile.assignmentOrdinal + 1,
     recentIds: [selected.wordId, ...loaded.profile.recentIds.filter((id) => id !== selected.wordId)].slice(0, 16),
   });
-  return warning(result, await persistProfile(profile, loaded));
+  return warning(assignedResult(profile, dateKey, selected.wordId), await persistProfile(profile, loaded));
 }
 
 async function updateProfile(change) {
@@ -165,10 +178,15 @@ async function configureReminder(message) {
   if (!requested.enabled || !await reminderPermissions()) {
     return disableReminder(requested.time);
   }
-  await ExtApi.storage.local.set({ [REMINDER_KEY]: requested });
+  try {
+    await ExtApi.storage.local.set({ [REMINDER_KEY]: requested });
+  } catch (_) {
+    await clearReminder().catch(() => undefined);
+    return { ...current, storageWarning: true };
+  }
   await clearReminder();
   await ensureReminderNow();
-  return requested;
+  return readReminder();
 }
 
 async function readReminder() {
@@ -190,12 +208,14 @@ async function clearReminder() {
 
 async function disableReminder(time) {
   const disabled = { enabled: false, time };
+  let failed = false;
   try {
     await ExtApi.storage.local.set({ [REMINDER_KEY]: disabled });
-  } finally {
-    await clearReminder().catch(() => undefined);
+  } catch (_) {
+    failed = true;
   }
-  return disabled;
+  try { await clearReminder(); } catch (_) { failed = true; }
+  return failed ? { ...disabled, storageWarning: true } : disabled;
 }
 
 async function ensureReminderNow() {
@@ -238,8 +258,8 @@ async function alarmFired(alarm) {
     await ExtApi.notifications.create(REMINDER_ALARM, {
       type: "basic",
       iconUrl: ExtApi.runtime.getURL("icons/icon-128.png"),
-      title: "Kalimat",
-      message: "Your Arabic word is ready.",
+      title: "كلمات",
+      message: "كلمتك العربية جاهزة.",
     });
   }
 }
@@ -282,7 +302,7 @@ function handleMessage(message) {
       if (!exactMessage(message, new Set(["type"]))) throw new TypeError("Invalid export.");
       const vocabulary = await getVocabulary();
       const loaded = await loadProfile(vocabulary);
-      return loaded.recoveryRaw !== undefined ? recovery(loaded) : { kind: "export", text: dependencies.state.serializeExport(loaded.profile) };
+      return loaded.recoveryRaw !== undefined ? recovery(loaded) : warning({ kind: "export", text: dependencies.state.serializeExport(loaded.profile) }, loaded.warning);
     }
     if (message.type === "state.import") {
       if (!exactMessage(message, new Set(["type", "text"]))) throw new TypeError("Invalid import.");
@@ -296,7 +316,13 @@ function handleMessage(message) {
       const vocabulary = await getVocabulary();
       const loaded = await loadProfile(vocabulary);
       const profile = dependencies.state.createProfile({ seedHex: randomSeed() });
-      return warning({ kind: "ok" }, loaded.recoveryRaw !== undefined ? await saveProfile(profile) : await persistProfile(profile, loaded));
+      const profileWarning = loaded.recoveryRaw !== undefined ? await saveProfile(profile) : await persistProfile(profile, loaded);
+      let reminderWarning = false;
+      let reminderTime = DEFAULT_REMINDER.time;
+      try { reminderTime = (await readReminder()).time; } catch (_) { reminderWarning = true; }
+      const reminder = await disableReminder(reminderTime);
+      reminderWarning ||= reminder.storageWarning === true;
+      return warning({ kind: "ok" }, profileWarning || reminderWarning);
     }
     if (message.type === "reminder.configure") return configureReminder(message);
     throw new TypeError("Unknown message.");

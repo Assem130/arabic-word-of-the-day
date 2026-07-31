@@ -52,8 +52,9 @@
       <div class="reminder-row"><label for="reminder-time">تذكير يومي</label><input id="reminder-time" type="time" value="09:00"><button id="reminder" type="button" class="quiet" aria-pressed="false" aria-label="تفعيل التذكير اليومي"></button></div>
     </section>
 
-    <section id="empty" aria-labelledby="empty-title" hidden><h2 id="empty-title">لا توجد كلمة جديدة اليوم</h2><p>أتممت الكلمات المتاحة لك. عُد غدًا.</p><button id="explore-empty" type="button">استكشف الأطلس</button></section>
-    <section id="recovery" aria-labelledby="recovery-title" hidden><h2 id="recovery-title">نحتاج إلى بداية جديدة</h2><p>تعذّر قراءة بياناتك المحلية بأمان.</p><button id="recovery-reset" type="button">إعادة البدء</button></section>
+    <section id="empty" aria-labelledby="empty-title" hidden><h2 id="empty-title" tabindex="-1">لا توجد كلمة جديدة اليوم</h2><p>أتممت الكلمات المتاحة لك. عُد غدًا.</p><button id="explore-empty" type="button">استكشف الأطلس</button></section>
+    <section id="error" aria-labelledby="error-title" hidden><h2 id="error-title" tabindex="-1">تعذّر تحميل كلمة اليوم</h2><p>تحقّق من الإضافة وافتح هذه النافذة مجددًا.</p></section>
+    <section id="recovery" aria-labelledby="recovery-title" hidden><h2 id="recovery-title" tabindex="-1">نحتاج إلى بداية جديدة</h2><p>تعذّر قراءة بياناتك المحلية بأمان.</p><button id="recovery-reset" type="button">إعادة البدء</button></section>
     <p id="warning" class="warning" role="status" hidden>تُعرض كلمتك، لكن لم نتمكن من حفظ تغييراتك بعد.</p>
   </main>
   <script src="popup.js"></script>

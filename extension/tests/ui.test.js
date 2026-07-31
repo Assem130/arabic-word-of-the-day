@@ -19,17 +19,18 @@ function source(name) {
 function element() {
   const attributes = Object.create(null);
   return {
-    textContent: "", hidden: false, disabled: false, checked: false, value: "", dataset: {}, attributes, focuses: 0,
+    textContent: "", hidden: false, disabled: false, checked: false, value: "", dataset: {}, attributes, focuses: 0, children: [],
     classList: { add() {}, remove() {}, toggle() {} },
     setAttribute(name, value) { this.attributes[name] = { name, value: String(value) }; },
     getAttribute(name) { return this.attributes[name]?.value ?? null; },
     addEventListener(type, listener) { this.listeners[type] = listener; }, listeners: {}, focus() { this.focuses += 1; },
+    append(...nodes) { this.children.push(...nodes); }, replaceChildren(...nodes) { this.children = nodes; }, get childElementCount() { return this.children.length; },
   };
 }
 
 function popupApi(responses = {}, options = {}) {
   const elements = new Map();
-  const ids = ["status", "onboarding", "assigned", "empty", "recovery", "warning", "word", "meaning-ar", "meaning-en", "example", "pronunciation", "fixed-label", "save", "speak", "reminder", "reminder-time", "onboarding-submit", "onboarding-skip", "explore", "explore-empty", "recovery-reset", "known", "difficult"];
+  const ids = ["status", "onboarding", "assigned", "empty", "error", "recovery", "warning", "empty-title", "error-title", "word", "meaning-ar", "meaning-en", "example", "pronunciation", "fixed-label", "save", "speak", "reminder", "reminder-time", "onboarding-submit", "onboarding-skip", "explore", "explore-empty", "recovery-reset", "known", "difficult"];
   for (const id of ids) elements.set(id, element());
   elements.get("reminder-time").value = "09:00";
   const inputs = ["classical-arabic", "daily-life", "family", "food", "language", "travel"].map((value) => ({ ...element(), value, name: "interest" }));
@@ -40,7 +41,7 @@ function popupApi(responses = {}, options = {}) {
   };
   const calls = [];
   const extension = {
-    runtime: { sendMessage(message) { calls.push(message); const response = responses[message.type]; return response instanceof Error ? Promise.reject(response) : Promise.resolve(response ?? {}); }, getURL(value) { return `extension://kalimat/${value}`; } },
+    runtime: { sendMessage(message) { calls.push(message); const response = responses[message.type]; const result = typeof response === "function" ? response(message, calls) : response; return result instanceof Error ? Promise.reject(result) : Promise.resolve(result ?? {}); }, getURL(value) { return `extension://kalimat/${value}`; } },
     permissions: { request(value) { calls.push({ permission: value }); return Promise.resolve(true); } },
     tabs: { create(value) { calls.push({ tab: value }); return Promise.resolve(); } },
     storage: { local: { get() { return Promise.resolve({ "kalimat.profile": Object.hasOwn(options, "profile") ? options.profile : {} }); } } },
@@ -49,6 +50,58 @@ function popupApi(responses = {}, options = {}) {
   context.globalThis = context;
   vm.runInNewContext(source("popup.js"), context, { filename: files["popup.js"] });
   return { api: context.KalimatPopup, elements, inputs, calls };
+}
+
+function atlasApi(responses = {}, options = {}) {
+  const elements = new Map();
+  const ids = ["status", "warning", "today", "explore", "history", "settings", "today-view", "explore-view", "history-view", "settings-view", "onboarding", "recovery", "empty", "error", "today-title", "explore-title", "history-title", "settings-title", "onboarding-title", "recovery-title", "empty-title", "error-title", "today-card", "today-empty", "explore-card", "atlas-search", "search-count", "search-results", "return-today", "history-filter", "history-list", "settings-english", "settings-save", "settings-time", "settings-reminder", "export", "import-file", "clear", "recovery-export", "recovery-import", "recovery-clear", "onboarding-settings", "today-save", "today-known", "today-difficult"];
+  for (const id of ids) elements.set(id, element());
+  elements.get("history-filter").value = "all";
+  const levels = [1, 2, 3, 4].map((value) => ({ ...element(), value: String(value), name: "atlas-level" }));
+  const interests = ["classical-arabic", "daily-life", "family", "food", "language", "travel"].map((value) => ({ ...element(), value, name: "atlas-interest" }));
+  const document = {
+    readyState: "loading",
+    getElementById(id) { return elements.get(id); },
+    createElement() { return element(); },
+    querySelector(selector) {
+      const level = selector.match(/input\[name="atlas-level"\]\[value="(\d)"\]/);
+      if (level) return levels.find((input) => input.value === level[1]) ?? null;
+      return null;
+    },
+    querySelectorAll(selector) {
+      if (selector.includes('name="atlas-interest"')) return selector.includes(":checked") ? interests.filter((input) => input.checked) : interests;
+      if (selector.includes('name="atlas-level"')) return levels;
+      return [];
+    },
+    addEventListener() {},
+  };
+  const calls = [];
+  const extension = {
+    runtime: {
+      sendMessage(message) {
+        calls.push(message);
+        const response = responses[message.type];
+        const result = typeof response === "function" ? response(message, calls) : response;
+        return result instanceof Error ? Promise.reject(result) : Promise.resolve(result ?? {});
+      },
+      getURL(value) { return `extension://kalimat/${value}`; },
+    },
+    permissions: { request() { return Promise.resolve(true); } },
+  };
+  const vocabulary = options.vocabulary ?? [
+    { id: "w1", word: "كلمة", normalized: "كلمة", meaningAr: "معنى", meaningEn: "meaning", pronunciation: "/w1/", exampleAr: "مثال" },
+    { id: "w2", word: "ثانية", normalized: "ثانية", meaningAr: "شرح", meaningEn: "second", pronunciation: "/w2/", exampleAr: "مثال ثان" },
+  ];
+  const context = {
+    document, chrome: extension, Promise, console, URLSearchParams, URL, Blob,
+    location: { search: options.search ?? "" },
+    fetch: async () => ({ ok: true, async json() { return vocabulary; } }),
+    confirm: () => true,
+    globalThis: null,
+  };
+  context.globalThis = context;
+  vm.runInNewContext(atlasSource("atlas.js"), context, { filename: path.join(atlas, "atlas.js") });
+  return { api: context.KalimatAtlas, elements, levels, interests, calls, context };
 }
 
 test("popup ships separate native files without unsafe markup or timer work", () => {
@@ -127,6 +180,38 @@ test("save uses a real attribute value and toggles both ways", async () => {
   ]);
 });
 
+test("popup restores validated feedback, saved state, and English visibility from assignment", () => {
+  const { api, elements } = popupApi();
+  api.renderAssigned({ kind: "assigned", dateKey: "2026-07-30", status: "known", saved: true, showEnglish: false, word: { id: "w1", word: "كلمة", meaningAr: "معنى", meaningEn: "meaning", exampleAr: "مثال", pronunciation: "/test/" } });
+  assert.equal(elements.get("known").getAttribute("aria-pressed"), "true");
+  assert.equal(elements.get("difficult").getAttribute("aria-pressed"), "false");
+  assert.equal(elements.get("save").getAttribute("aria-pressed"), "true");
+  assert.equal(elements.get("meaning-en").hidden, true);
+});
+
+test("popup mutation enters recovery and does not claim a successful save", async () => {
+  const { api, elements } = popupApi({ "word.feedback": { kind: "recovery", recoveryRaw: { broken: true } } });
+  api.renderAssigned({ kind: "assigned", dateKey: "2026-07-30", word: { id: "w1", word: "كلمة", meaningAr: "معنى", exampleAr: "مثال", pronunciation: "/test/" } });
+  await api.sendFeedback("known", elements.get("known"));
+  assert.equal(elements.get("recovery").hidden, false);
+  assert.equal(elements.get("known").getAttribute("aria-pressed"), "false");
+});
+
+test("popup no-word and load-error states focus a clear state and disable word actions", async () => {
+  const noWord = popupApi({ "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } }, "assignment.get": { kind: "no-new-word" } });
+  await noWord.api.initialize();
+  assert.equal(noWord.elements.get("empty").hidden, false);
+  assert.equal(noWord.elements.get("empty-title").focuses, 1);
+  assert.equal(noWord.elements.get("known").disabled, true);
+  assert.equal(noWord.elements.get("save").disabled, true);
+
+  const failed = popupApi({ "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } }, "assignment.get": new Error("load") });
+  await failed.api.initialize();
+  assert.equal(failed.elements.get("error").hidden, false);
+  assert.equal(failed.elements.get("error-title").focuses, 1);
+  assert.match(failed.elements.get("status").textContent, /تعذّر تحميل/);
+});
+
 test("onboarding focuses the assigned word and feedback retains the authoritative assignment date", async () => {
   const assigned = { kind: "assigned", dateKey: "2026-07-30", word: { id: "w1", word: "كلمة", meaningAr: "معنى", exampleAr: "مثال", pronunciation: "/test/" } };
   const { api, elements, calls } = popupApi({ "onboarding.complete": { kind: "ok" }, "assignment.get": assigned, "word.feedback": { kind: "ok" } });
@@ -195,10 +280,14 @@ test("Atlas ships a dark, accessible four-view page without unsafe sinks or time
   for (const id of ["today", "explore", "history", "settings", "atlas-search", "return-today", "history-filter", "settings-level", "settings-english", "settings-time", "export", "import-file", "clear", "recovery-export", "recovery-import", "recovery-clear"]) assert.match(html, new RegExp(`id="${id}"`));
   assert.equal((html.match(/name="atlas-level"/g) || []).length, 4);
   assert.equal((html.match(/name="atlas-interest"/g) || []).length, 6);
+  assert.match(html, /id="search-count"[^>]+aria-live="polite"/);
   assert.doesNotMatch(`${html}\n${css}\n${js}`, /https?:\/\/|\b(?:innerHTML|outerHTML)\b|\b(?:setInterval|setTimeout)\s*\(/);
   assert.doesNotMatch(html, /\son[a-z]+\s*=/i);
   assert.match(css, /background:\s*#102b2a/i);
   assert.match(css, /:focus-visible/);
+  assert.match(css, /button\[aria-pressed="true"\][^{]*\{[^}]*color:/);
+  assert.match(css, /\.file-button[^}]*focus-visible/);
+  assert.match(css, /:focus-visible[^}]*box-shadow/);
   assert.match(css, /prefers-reduced-motion:\s*reduce/);
 });
 
@@ -214,5 +303,110 @@ test("Atlas keeps the daily anchor while exploration, history, settings, and rec
   assert.match(js, /globalThis\.confirm/);
   assert.match(js, /normalize\("NFD"\)/);
   assert.match(js, /relatedIds/);
+  assert.doesNotMatch(js, /state\s*=\s*\{[^}]*viewed/);
   assert.doesNotMatch(js, /regenerate|Math\.random/);
+});
+
+function atlasProfile(overrides = {}) {
+  return {
+    schemaVersion: 1, algorithmVersion: 1, seedHex: "a".repeat(32), level: 1, interests: [], showEnglish: true,
+    wordStates: {}, assignments: {}, assignmentOrdinal: 0, recentIds: [], evidenceCutoff: null, ...overrides,
+  };
+}
+
+test("Atlas dated query loads only the retained date plus profile and settings", async () => {
+  const profile = atlasProfile({ assignments: { "2026-07-28": { wordId: "w2" } }, assignmentOrdinal: 1 });
+  const fixture = atlasApi({
+    "assignment.get": (message) => message.dateKey ? { kind: "assigned", wordId: "w2", dateKey: message.dateKey } : { kind: "assigned", wordId: "w1", dateKey: "2026-07-30" },
+    "state.export": { kind: "export", text: JSON.stringify(profile) },
+    "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } },
+  }, { search: "?date=2026-07-28" });
+  assert.equal(typeof fixture.api.initialize, "function");
+  await fixture.api.initialize();
+  assert.equal(fixture.calls.some((message) => message.type === "assignment.get" && message.dateKey === undefined), false);
+  assert.deepEqual(fixture.calls.filter((message) => message.type === "assignment.get").map((message) => message.dateKey), ["2026-07-28"]);
+});
+
+test("Atlas history rows show status and retain descending chronology across filters", async () => {
+  const profile = atlasProfile({
+    wordStates: { w1: { status: "known", dateKey: "2026-07-29", saved: true }, w2: { status: "difficult", dateKey: "2026-07-28" } },
+    assignments: { "2026-07-28": { wordId: "w2", status: "difficult" }, "2026-07-29": { wordId: "w1", status: "known" } }, assignmentOrdinal: 2,
+  });
+  const fixture = atlasApi({ "assignment.get": { kind: "assigned", wordId: "w1", dateKey: "2026-07-30" }, "state.export": { kind: "export", text: JSON.stringify(profile) }, "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } } });
+  await fixture.api.initialize();
+  await fixture.api.renderHistory();
+  assert.match(fixture.elements.get("history-list").children[0].textContent, /2026-07-29/);
+  assert.match(fixture.elements.get("history-list").children[0].textContent, /known|معروف/i);
+  fixture.elements.get("history-filter").value = "difficult";
+  await fixture.api.renderHistory();
+  assert.equal(fixture.elements.get("history-list").children.length, 1);
+  assert.match(fixture.elements.get("history-list").children[0].textContent, /2026-07-28/);
+});
+
+test("Atlas valid recovery import clears raw recovery state and returns to the imported profile", async () => {
+  const invalid = { schemaVersion: 999, marker: "keep" };
+  const imported = atlasProfile({ level: 3 });
+  let recovered = true;
+  const fixture = atlasApi({
+    "assignment.get": () => recovered ? { kind: "recovery", recoveryRaw: invalid } : { kind: "assigned", wordId: "w1", dateKey: "2026-07-30" },
+    "state.export": () => recovered ? { kind: "recovery", recoveryRaw: invalid } : { kind: "export", text: JSON.stringify(imported) },
+    "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } },
+    "state.import": () => { recovered = false; return { kind: "ok" }; },
+  });
+  await fixture.api.initialize();
+  assert.equal(fixture.elements.get("recovery").hidden, false);
+  await fixture.api.importState({ files: [{ size: JSON.stringify(imported).length, async text() { return JSON.stringify(imported); } }], value: "file" });
+  assert.equal(fixture.elements.get("recovery").hidden, true);
+  assert.equal(fixture.elements.get("today-view").hidden, false);
+  assert.equal(fixture.api.getRecoveryRaw(), null);
+});
+
+test("Atlas return-to-today shows and focuses the Today view", async () => {
+  const profile = atlasProfile({ assignments: { "2026-07-29": { wordId: "w2" }, "2026-07-30": { wordId: "w1" } }, assignmentOrdinal: 2 });
+  const fixture = atlasApi({
+    "assignment.get": (message) => message.dateKey ? { kind: "assigned", wordId: "w2", dateKey: message.dateKey } : { kind: "assigned", wordId: "w1", dateKey: "2026-07-30" },
+    "state.export": { kind: "export", text: JSON.stringify(profile) },
+    "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } },
+  });
+  await fixture.api.initialize();
+  await fixture.api.loadAssignment("2026-07-29");
+  await fixture.api.returnToToday();
+  assert.equal(fixture.elements.get("today-view").hidden, false);
+  assert.ok(fixture.elements.get("today-title").focuses > 0);
+  assert.equal(fixture.elements.get("return-today").hidden, true);
+});
+
+test("Atlas no-word and load-error states are focused and leave Today actions disabled", async () => {
+  const empty = atlasApi({ "assignment.get": { kind: "no-new-word", dateKey: "2026-07-30" }, "state.export": { kind: "export", text: JSON.stringify(atlasProfile()) }, "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } } });
+  await empty.api.initialize();
+  assert.equal(empty.elements.get("empty").hidden, false);
+  assert.equal(empty.elements.get("empty-title").focuses, 1);
+  assert.equal(empty.elements.get("today-save").disabled, true);
+
+  const failed = atlasApi({ "assignment.get": new Error("load"), "state.export": { kind: "export", text: JSON.stringify(atlasProfile()) }, "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } } });
+  await failed.api.initialize();
+  assert.equal(failed.elements.get("error").hidden, false);
+  assert.equal(failed.elements.get("error-title").focuses, 1);
+});
+
+test("Atlas mutation warnings and reminder races keep authoritative returned state", async () => {
+  const profile = atlasProfile({ assignments: { "2026-07-30": { wordId: "w1" } }, assignmentOrdinal: 1 });
+  let releaseFirst;
+  let reminderCalls = 0;
+  const first = new Promise((resolve) => { releaseFirst = resolve; });
+  const fixture = atlasApi({
+    "assignment.get": { kind: "assigned", wordId: "w1", dateKey: "2026-07-30" },
+    "state.export": { kind: "export", text: JSON.stringify(profile) },
+    "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } },
+    "word.save": { kind: "ok", storageWarning: true },
+    "reminder.configure": () => { reminderCalls += 1; return reminderCalls === 1 ? first : { enabled: true, time: "18:45" }; },
+  });
+  await fixture.api.initialize();
+  await fixture.api.toggleSave();
+  assert.equal(fixture.elements.get("warning").hidden, false);
+  const pending = fixture.api.configureReminder();
+  const queued = fixture.api.configureReminder();
+  releaseFirst({ enabled: false, time: "09:00" });
+  await Promise.all([pending, queued]);
+  assert.equal(fixture.api.getReminder().time, "18:45");
 });

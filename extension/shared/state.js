@@ -95,7 +95,7 @@
 
   function copyProfile(raw, vocabulary, assignmentMaximum = MAX_ASSIGNMENTS) {
     safeKeys(raw, PROFILE_KEYS, "profile");
-    for (const key of PROFILE_KEYS) if (key !== "assignmentOrdinal" && !Object.hasOwn(raw, key)) fail(`profile ${key}`);
+    for (const key of PROFILE_KEYS) if (key !== "assignmentOrdinal" && key !== "showEnglish" && !Object.hasOwn(raw, key)) fail(`profile ${key}`);
     if (raw.schemaVersion !== SCHEMA_VERSION || raw.algorithmVersion !== ALGORITHM_VERSION) fail("schema version");
     if (typeof raw.seedHex !== "string" || !/^[0-9a-f]{32}$/.test(raw.seedHex)) fail("seedHex");
     if (!Number.isInteger(raw.level) || raw.level < 1 || raw.level > 4) fail("level");
@@ -159,7 +159,7 @@
 
   function validateStoredProfile(raw, vocabulary) {
     try {
-      return { profile: copyProfile(raw, vocabulary), canPersist: true, recoveryRaw: null };
+      return { profile: copyProfile(raw, vocabulary), canPersist: true, recoveryRaw: null, migrated: !Object.hasOwn(raw, "showEnglish") };
     } catch (_) {
       return { profile: createProfile(), canPersist: false, recoveryRaw: raw };
     }
