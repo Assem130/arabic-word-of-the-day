@@ -5,6 +5,7 @@
   const byId = (id) => document.getElementById(id);
   const state = { word: null, dateKey: null, showEnglish: true, reminder: null, reminderError: "", reminderBusy: false, speakAvailable: false };
   let elements;
+  let reminderQueue = null;
 
   function show(name) {
     for (const section of ["onboarding", "assigned", "empty", "error", "recovery"]) elements[section].hidden = section !== name;
@@ -176,40 +177,65 @@
     return ExtApi.tabs.create({ url: ExtApi.runtime.getURL("atlas/atlas.html") });
   }
 
+  function enqueueReminder(work) {
+    if (!reminderQueue) {
+      let result;
+      try { result = work(); } catch (error) { result = Promise.reject(error); }
+      const tracked = Promise.resolve(result).catch(() => undefined);
+      reminderQueue = tracked;
+      tracked.finally(() => { if (reminderQueue === tracked) reminderQueue = null; });
+      return result;
+    }
+    const next = reminderQueue.then(work, work);
+    reminderQueue = next.catch(() => undefined);
+    return next;
+  }
+
   function requestReminder() {
-    if (state.reminderError || state.reminderBusy) return Promise.resolve();
-    const previous = state.reminder ? { ...state.reminder } : { enabled: elements.reminder.getAttribute("aria-pressed") === "true", time: elements.reminderTime.value || "09:00" };
-    const enabled = !previous.enabled;
-    const time = elements.reminderTime.value || "09:00";
-    state.reminderBusy = true;
-    elements.reminder.disabled = true;
-    const permission = enabled ? Promise.resolve(ExtApi.permissions.request({ permissions: ["alarms", "notifications"] })).then((granted) => { if (!granted) throw new Error("Permission denied."); }) : Promise.resolve();
-    return permission.then(() => ExtApi.runtime.sendMessage({ type: "reminder.configure", enabled, time })).then((reminder) => {
-      if (!renderReminder(reminder) || reminder.enabled !== enabled) throw new Error("Reminder unchanged.");
-      warning(reminder.storageWarning === true);
-      status(enabled ? `سيصلك تذكير يومي في ${reminder.time}.` : "أوقفنا التذكير اليومي.");
-    }).catch(() => {
-      renderReminder(previous);
-      status(enabled ? "لم نفعّل التذكير." : "تعذّر إيقاف التذكير.");
-    }).finally(() => { state.reminderBusy = false; });
+    if (state.reminderError) return Promise.resolve();
+    return enqueueReminder(async () => {
+      const previous = state.reminder ? { ...state.reminder } : { enabled: elements.reminder.getAttribute("aria-pressed") === "true", time: elements.reminderTime.value || "09:00" };
+      const enabled = !previous.enabled;
+      const time = elements.reminderTime.value || previous.time || "09:00";
+      state.reminderBusy = true;
+      elements.reminder.disabled = true;
+      try {
+        if (enabled && !(await ExtApi.permissions.request({ permissions: ["alarms", "notifications"] }))) throw new Error("Permission denied.");
+        const reminder = await ExtApi.runtime.sendMessage({ type: "reminder.configure", enabled, time });
+        if (!renderReminder(reminder)) throw new Error("Reminder unchanged.");
+        warning(reminder.storageWarning === true);
+        if (reminder.enabled !== enabled) {
+          status(enabled ? "لم نفعّل التذكير." : "تعذّر إيقاف التذكير.");
+          return;
+        }
+        status(enabled ? `سيصلك تذكير يومي في ${reminder.time}.` : "أوقفنا التذكير اليومي.");
+      } catch (_) {
+        renderReminder(previous);
+        status(enabled ? "لم نفعّل التذكير." : "تعذّر إيقاف التذكير.");
+      } finally { state.reminderBusy = false; }
+    });
   }
 
   function updateReminderTime() {
-    if (state.reminderError || state.reminderBusy || !state.reminder) return Promise.resolve();
-    const previous = { ...state.reminder };
-    const time = elements.reminderTime.value;
-    state.reminderBusy = true;
-    elements.reminderTime.disabled = true;
-    return ExtApi.runtime.sendMessage({ type: "reminder.configure", enabled: previous.enabled, time }).then((reminder) => {
-      if (!renderReminder(reminder) || reminder.enabled !== previous.enabled) throw new Error("Reminder unchanged.");
-      warning(reminder.storageWarning === true);
-    }).catch(() => {
-      renderReminder(previous);
-      status("تعذّر حفظ وقت التذكير.");
-    }).finally(() => { state.reminderBusy = false; });
+    if (state.reminderError || !state.reminder) return Promise.resolve();
+    return enqueueReminder(async () => {
+      const previous = { ...state.reminder };
+      const time = elements.reminderTime.value;
+      state.reminderBusy = true;
+      elements.reminderTime.disabled = true;
+      try {
+        const reminder = await ExtApi.runtime.sendMessage({ type: "reminder.configure", enabled: previous.enabled, time });
+        if (!renderReminder(reminder)) throw new Error("Reminder unchanged.");
+        warning(reminder.storageWarning === true);
+      } catch (_) {
+        renderReminder(previous);
+        status("تعذّر حفظ وقت التذكير.");
+      } finally { state.reminderBusy = false; }
+    });
   }
 
   async function resetRecovery() {
+    if (typeof globalThis.confirm !== "function" || !globalThis.confirm("هل تريد إعادة البدء؟ لا يمكن التراجع عن ذلك.")) return;
     try {
       const result = await ExtApi.runtime.sendMessage({ type: "state.clear" });
       if (!result || result.kind !== "ok") throw new Error("Clear failed.");
@@ -246,7 +272,7 @@
     await loadAssignment();
   }
 
-  globalThis.KalimatPopup = { renderAssigned, limitInterests, requestReminder, updateReminderTime, toggleSave, completeOnboarding, sendFeedback, initialize };
+  globalThis.KalimatPopup = { renderAssigned, limitInterests, requestReminder, updateReminderTime, toggleSave, completeOnboarding, sendFeedback, resetRecovery, initialize };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initialize, { once: true });
   else initialize();
 })();

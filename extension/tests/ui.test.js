@@ -66,6 +66,7 @@ function atlasApi(responses = {}, options = {}) {
     querySelector(selector) {
       const level = selector.match(/input\[name="atlas-level"\]\[value="(\d)"\]/);
       if (level) return levels.find((input) => input.value === level[1]) ?? null;
+      if (selector === 'input[name="atlas-level"]:checked') return levels.find((input) => input.checked) ?? null;
       return null;
     },
     querySelectorAll(selector) {
@@ -96,7 +97,7 @@ function atlasApi(responses = {}, options = {}) {
     document, chrome: extension, Promise, console, URLSearchParams, URL, Blob,
     location: { search: options.search ?? "" },
     fetch: async () => ({ ok: true, async json() { return vocabulary; } }),
-    confirm: () => true,
+    confirm: options.confirm ?? (() => true),
     globalThis: null,
   };
   context.globalThis = context;
@@ -237,6 +238,26 @@ test("popup hydrates an active authoritative reminder on reopen and toggles it o
   assert.equal(elements.get("reminder").getAttribute("aria-pressed"), "false");
 });
 
+test("popup serializes rapid reminder toggles from the authoritative state", async () => {
+  let enabled = false;
+  const { api, elements, calls } = popupApi({
+    "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } },
+    "assignment.get": { kind: "no-new-word" },
+    "reminder.configure": (message) => { enabled = message.enabled; return { enabled, time: message.time }; },
+  });
+  await api.initialize();
+  api.renderAssigned({ kind: "assigned", word: { id: "w1", word: "كلمة", meaningAr: "معنى", exampleAr: "مثال", pronunciation: "/w1/" } });
+  await Promise.all([api.requestReminder(), api.requestReminder()]);
+  assert.deepEqual(calls.filter((message) => message.type === "reminder.configure").map((message) => message.enabled), [true, false]);
+  assert.equal(elements.get("reminder").getAttribute("aria-pressed"), "false");
+});
+
+test("popup recovery reset requires confirmation and cancellation leaves state untouched", async () => {
+  const fixture = popupApi({ confirm: () => false });
+  await fixture.api.resetRecovery();
+  assert.equal(fixture.calls.some((message) => message.type === "state.clear"), false);
+});
+
 test("a rejected reminder disable keeps the visible enabled state and reports the error", async () => {
   const { api, elements } = popupApi({
     "settings.get": { kind: "settings", reminder: { enabled: true, time: "09:00" } },
@@ -289,6 +310,9 @@ test("Atlas ships a dark, accessible four-view page without unsafe sinks or time
   assert.match(css, /\.file-button[^}]*focus-visible/);
   assert.match(css, /:focus-visible[^}]*box-shadow/);
   assert.match(css, /prefers-reduced-motion:\s*reduce/);
+  assert.match(html, /id="import-file"[^>]+tabindex="-1"/);
+  assert.match(html, /id="recovery-import"[^>]+tabindex="-1"/);
+  assert.match(html, /label class="file-button" tabindex="0"/);
 });
 
 test("Atlas keeps the daily anchor while exploration, history, settings, and recovery use validated messages", () => {
@@ -409,4 +433,65 @@ test("Atlas mutation warnings and reminder races keep authoritative returned sta
   releaseFirst({ enabled: false, time: "09:00" });
   await Promise.all([pending, queued]);
   assert.equal(fixture.api.getReminder().time, "18:45");
+});
+
+test("Atlas feedback and save update Today and History from returned authoritative fields", async () => {
+  const profile = atlasProfile({ assignments: { "2026-07-30": { wordId: "w1" } }, assignmentOrdinal: 1 });
+  let responseStatus = "known";
+  const fixture = atlasApi({
+    "assignment.get": { kind: "assigned", wordId: "w1", dateKey: "2026-07-30" },
+    "state.export": { kind: "export", text: JSON.stringify(profile) },
+    "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } },
+    "word.feedback": () => ({ kind: "ok", wordId: "w1", dateKey: "2026-07-30", status: responseStatus }),
+    "word.save": { kind: "ok", wordId: "w1", saved: true },
+  });
+  await fixture.api.initialize();
+  await fixture.api.feedback("known");
+  responseStatus = "difficult";
+  await fixture.api.feedback("difficult");
+  await fixture.api.toggleSave();
+  await fixture.api.renderHistory();
+  assert.match(fixture.elements.get("history-list").children[0].textContent, /difficult|صعب/i);
+  fixture.elements.get("history-filter").value = "saved";
+  await fixture.api.renderHistory();
+  assert.equal(fixture.elements.get("history-list").children.length, 1);
+  assert.equal(fixture.elements.get("today-difficult").getAttribute("aria-pressed"), "true");
+  assert.equal(fixture.elements.get("today-save").getAttribute("aria-pressed"), "true");
+});
+
+test("Atlas settings rerender English visibility in Today and the current Explore card", async () => {
+  const profile = atlasProfile({ assignments: { "2026-07-30": { wordId: "w1" } }, assignmentOrdinal: 1 });
+  const fixture = atlasApi({
+    "assignment.get": { kind: "assigned", wordId: "w1", dateKey: "2026-07-30" },
+    "state.export": { kind: "export", text: JSON.stringify(profile) },
+    "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } },
+    "settings.update": { kind: "ok" },
+  });
+  await fixture.api.initialize();
+  fixture.api.viewWord({ id: "w1", word: "كلمة", meaningAr: "معنى", meaningEn: "meaning", pronunciation: "/w1/", exampleAr: "مثال" });
+  fixture.elements.get("settings-english").checked = false;
+  fixture.levels[0].checked = true;
+  await fixture.api.saveSettings();
+  assert.equal(fixture.elements.get("today-card").children.some((node) => node.className === "english"), false);
+  assert.equal(fixture.elements.get("explore-card").children.some((node) => node.className === "english"), false);
+});
+
+test("Atlas clear followed by onboarding settings requests and renders a new daily assignment", async () => {
+  const profile = atlasProfile({ assignments: { "2026-07-30": { wordId: "w1" } }, assignmentOrdinal: 1 });
+  let assignmentCalls = 0;
+  const fixture = atlasApi({
+    "assignment.get": () => { assignmentCalls += 1; return { kind: "assigned", wordId: assignmentCalls === 1 ? "w1" : "w2", dateKey: "2026-07-30" }; },
+    "state.export": { kind: "export", text: JSON.stringify(profile) },
+    "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } },
+    "state.clear": { kind: "ok" },
+    "settings.update": { kind: "ok" },
+  });
+  await fixture.api.initialize();
+  await fixture.api.clearState();
+  fixture.levels[0].checked = true;
+  fixture.elements.get("settings-english").checked = true;
+  await fixture.api.saveSettings();
+  assert.equal(assignmentCalls, 2);
+  assert.equal(fixture.elements.get("today-view").hidden, false);
+  assert.equal(fixture.elements.get("today-card").children.length > 0, true);
 });

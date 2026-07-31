@@ -28,7 +28,7 @@ function fakeEvent() {
   return { listeners: [], addListener(listener) { this.listeners.push(listener); } };
 }
 
-function fakeExtension({ profile, reminder, vocabulary = [word("w1"), word("w2")], storageFailure = false, storageSetFailures = 0, permissions = true, alarm, notificationFailure = false, tabFailure = false, api = "chrome" } = {}) {
+function fakeExtension({ profile, reminder, vocabulary = [word("w1"), word("w2")], storageFailure = false, storageSetFailures = 0, permissions = true, alarm, alarmCreateFailures = 0, alarmClearFailures = 0, notificationFailure = false, tabFailure = false, api = "chrome" } = {}) {
   const values = Object.create(null);
   if (profile !== undefined) values["kalimat.profile"] = profile;
   if (reminder !== undefined) values["kalimat.reminder"] = reminder;
@@ -36,6 +36,8 @@ function fakeExtension({ profile, reminder, vocabulary = [word("w1"), word("w2")
   if (alarm) alarms.set(alarm.name, alarm);
   const calls = { set: 0, clear: 0, create: [], notifications: [], tabs: [], permissionRequests: 0 };
   let remainingSetFailures = storageSetFailures;
+  let remainingAlarmCreateFailures = alarmCreateFailures;
+  let remainingAlarmClearFailures = alarmClearFailures;
   let storageAvailable = !storageFailure;
   let permissionsGranted = permissions;
   const runtime = { onMessage: fakeEvent(), onStartup: fakeEvent(), onInstalled: fakeEvent(), getURL: (path) => `extension://kalimat/${path}` };
@@ -47,8 +49,8 @@ function fakeExtension({ profile, reminder, vocabulary = [word("w1"), word("w2")
     alarms: {
       onAlarm: fakeEvent(),
       async get(name) { return alarms.get(name); },
-      async create(name, details) { calls.create.push({ name, details }); alarms.set(name, { name, ...details }); },
-      async clear(name) { calls.clear += 1; return alarms.delete(name); },
+      async create(name, details) { if (remainingAlarmCreateFailures-- > 0) throw new Error("alarm unavailable"); calls.create.push({ name, details }); alarms.set(name, { name, ...details }); },
+      async clear(name) { calls.clear += 1; if (remainingAlarmClearFailures-- > 0) throw new Error("alarm unavailable"); return alarms.delete(name); },
     },
     notifications: { onClicked: fakeEvent(), async create(id, options) { if (notificationFailure) throw new Error("notification unavailable"); calls.notifications.push({ id, options }); } },
     permissions: { onRemoved: fakeEvent(), async contains() { return permissionsGranted; }, async request() { calls.permissionRequests += 1; return permissionsGranted; } },
@@ -346,12 +348,12 @@ test("clearing state disables the separate reminder and cancels its alarm", asyn
   });
 });
 
-test("clearing state reports storage warning when profile or reminder persistence fails", async () => {
+test("clearing state reports storage warning without clearing an alarm when reminder persistence fails", async () => {
   await withBackground({ profile: profile(), reminder: { enabled: true, time: "09:00" }, alarm: { name: "kalimat.reminder", when: Date.now() + 1000 }, storageSetFailures: 2 }, async ({ background, alarms }) => {
     const result = await background.handleMessage({ type: "state.clear" });
     assert.equal(result.kind, "ok");
     assert.equal(result.storageWarning, true);
-    assert.equal(alarms.has("kalimat.reminder"), false);
+    assert.equal(alarms.has("kalimat.reminder"), true);
   });
 });
 
@@ -373,6 +375,35 @@ test("reminder configuration stores a valid time and schedules the next local oc
   });
 });
 
+test("reminder enable rolls storage back when alarm creation fails", async () => {
+  await withBackground({ permissions: true, alarmCreateFailures: 1 }, async ({ background, values, alarms }) => {
+    const result = await background.handleMessage({ type: "reminder.configure", enabled: true, time: "09:00" });
+    assert.deepEqual(result, { enabled: false, time: "09:00", storageWarning: true });
+    assert.deepEqual(values["kalimat.reminder"], { enabled: false, time: "09:00" });
+    assert.equal(alarms.has("kalimat.reminder"), false);
+  });
+});
+
+test("reminder disable rolls storage back when alarm clearing fails", async () => {
+  const alarm = { name: "kalimat.reminder", when: Date.now() + 60000 };
+  await withBackground({ reminder: { enabled: true, time: "09:00" }, alarm, alarmClearFailures: 1 }, async ({ background, values, alarms }) => {
+    const result = await background.handleMessage({ type: "reminder.configure", enabled: false, time: "09:00" });
+    assert.deepEqual(result, { enabled: true, time: "09:00", storageWarning: true });
+    assert.deepEqual(values["kalimat.reminder"], { enabled: true, time: "09:00" });
+    assert.equal(alarms.has("kalimat.reminder"), true);
+  });
+});
+
+test("failed reminder persistence leaves the existing alarm and setting authoritative", async () => {
+  const alarm = { name: "kalimat.reminder", when: Date.now() + 60000 };
+  await withBackground({ reminder: { enabled: true, time: "09:00" }, alarm, storageSetFailures: 1 }, async ({ background, values, alarms }) => {
+    const result = await background.handleMessage({ type: "reminder.configure", enabled: true, time: "10:00" });
+    assert.deepEqual(result, { enabled: true, time: "09:00", storageWarning: true });
+    assert.deepEqual(values["kalimat.reminder"], { enabled: true, time: "09:00" });
+    assert.equal(alarms.has("kalimat.reminder"), true);
+  });
+});
+
 test("notifications use Arabic title and body", async () => {
   await withBackground({ reminder: { enabled: true, time: "09:00" }, permissions: true }, async ({ extension, calls }) => {
     await new Promise(setImmediate);
@@ -389,10 +420,10 @@ test("startup recreates a missing enabled reminder alarm", async () => {
   });
 });
 
-test("notification clicks open the matching Atlas local-day view", async () => {
+test("notification clicks open Atlas so the normal daily assignment flow runs", async () => {
   await withBackground({}, async ({ extension, calls }) => {
     await withLocalDay("2026-07-30", async () => extension.notifications.onClicked.listeners[0]("kalimat.reminder"));
-    assert.deepEqual(calls.tabs, [{ url: "extension://kalimat/atlas/atlas.html?date=2026-07-30" }]);
+    assert.deepEqual(calls.tabs, [{ url: "extension://kalimat/atlas/atlas.html" }]);
   });
 });
 
@@ -407,13 +438,13 @@ test("revoked permissions disable reminders without changing assignments", async
   });
 });
 
-test("permission revocation clears alarms even when disabling settings fails", async () => {
+test("permission revocation preserves the alarm when disabling settings fails", async () => {
   await withBackground({ reminder: { enabled: true, time: "09:00" }, permissions: true, storageSetFailures: 1 }, async ({ extension, values, alarms, calls, setPermissions }) => {
     await new Promise(setImmediate);
     setPermissions(false);
     await assert.doesNotReject(extension.permissions.onRemoved.listeners[0]({ permissions: ["notifications"] }));
-    assert.equal(alarms.has("kalimat.reminder"), false);
-    assert.ok(calls.clear >= 1);
+    assert.equal(alarms.has("kalimat.reminder"), true);
+    assert.equal(calls.clear, 0);
     assert.deepEqual(values["kalimat.reminder"], { enabled: true, time: "09:00" });
   });
 });

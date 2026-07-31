@@ -4,7 +4,7 @@
   const ExtApi = globalThis.browser ?? globalThis.chrome;
   const byId = (id) => document.getElementById(id);
   const views = ["today", "explore", "history", "settings", "onboarding", "recovery", "empty", "error"];
-  const state = { vocabulary: [], profile: null, today: null, reminder: { enabled: false, time: "09:00" }, recoveryRaw: null };
+  const state = { vocabulary: [], profile: null, today: null, exploreWord: null, reminder: { enabled: false, time: "09:00" }, recoveryRaw: null };
   let elements;
   let reminderQueue = Promise.resolve();
 
@@ -96,6 +96,7 @@
   }
 
   function viewWord(word) {
+    state.exploreWord = word;
     renderWord(elements["explore-card"], word);
     elements["explore-card"].hidden = false;
     elements["return-today"].hidden = word.id === state.today?.word?.id;
@@ -151,12 +152,17 @@
     const interests = selectedInterests();
     const level = Number(document.querySelector('input[name="atlas-level"]:checked')?.value);
     if (!Number.isInteger(level) || interests.length > 3) return status("اختر مستوى وحتى ثلاثة اهتمامات.");
+    const wasOnboarding = state.profile === null;
     const result = await ExtApi.runtime.sendMessage({ type: "settings.update", level, interests, showEnglish: elements["settings-english"].checked });
     if (result?.kind === "recovery") return renderRecovery(result.recoveryRaw);
     if (result?.kind !== "ok") throw new Error("Settings unchanged.");
     warning(result.storageWarning === true);
     state.profile = { ...state.profile, level, interests, showEnglish: elements["settings-english"].checked };
-    renderToday();
+    if (wasOnboarding) await loadAssignment();
+    else {
+      renderToday();
+      if (state.exploreWord) renderWord(elements["explore-card"], state.exploreWord);
+    }
     status("حُفظت الإعدادات.");
   }
 
@@ -167,9 +173,9 @@
   }
 
   function configureReminder() {
-    const enabled = elements["settings-reminder"].getAttribute("aria-pressed") !== "true";
-    const time = elements["settings-time"].value;
     return enqueueReminder(async () => {
+      const enabled = !state.reminder.enabled;
+      const time = elements["settings-time"].value;
       if (!validTime(time)) return status("اختر وقتًا صالحًا.");
       if (enabled && !(await ExtApi.permissions.request({ permissions: ["alarms", "notifications"] }))) return status("لم تُمنح أذونات التذكير.");
       const reminder = await ExtApi.runtime.sendMessage({ type: "reminder.configure", enabled, time });
@@ -203,7 +209,7 @@
     URL.revokeObjectURL(url);
   }
 
-  async function exportState(raw = false) {
+  async function exportState() {
     const result = await ExtApi.runtime.sendMessage({ type: "state.export" });
     if (result?.kind === "recovery") return download(JSON.stringify(result.recoveryRaw, null, 2), "kalimat-recovery.json");
     if (result?.kind !== "export") throw new Error("Invalid export.");
@@ -232,6 +238,7 @@
     warning(result.storageWarning === true);
     state.profile = null;
     state.today = null;
+    state.exploreWord = null;
     state.recoveryRaw = null;
     show("onboarding");
     status("مُسحت البيانات.");
@@ -243,8 +250,13 @@
     if (result?.kind === "recovery") return renderRecovery(result.recoveryRaw);
     if (result?.kind !== "ok") throw new Error("Feedback unchanged.");
     warning(result.storageWarning === true);
+    const authoritativeStatus = result.status ?? statusName;
+    const dateKey = result.dateKey ?? state.today.dateKey;
+    const wordId = result.wordId ?? state.today.word.id;
     state.profile.wordStates ??= {};
-    state.profile.wordStates[state.today.word.id] = { ...state.profile.wordStates[state.today.word.id], status: statusName, dateKey: state.today.dateKey };
+    state.profile.wordStates[wordId] = { ...state.profile.wordStates[wordId], status: authoritativeStatus, dateKey };
+    state.profile.assignments ??= {};
+    state.profile.assignments[dateKey] = { ...state.profile.assignments[dateKey], wordId, status: authoritativeStatus };
     renderToday();
   }
 
@@ -255,8 +267,10 @@
     if (result?.kind === "recovery") return renderRecovery(result.recoveryRaw);
     if (result?.kind !== "ok") throw new Error("Save unchanged.");
     warning(result.storageWarning === true);
+    const saved = typeof result.saved === "boolean" ? result.saved : !current;
+    const wordId = result.wordId ?? state.today.word.id;
     state.profile.wordStates ??= {};
-    state.profile.wordStates[state.today.word.id] = { ...state.profile.wordStates[state.today.word.id], saved: !current };
+    state.profile.wordStates[wordId] = { ...state.profile.wordStates[wordId], saved };
     renderToday();
   }
 
@@ -266,8 +280,15 @@
     if (result?.kind !== "assigned") { show("empty"); return status("لا توجد كلمة محفوظة لهذا التاريخ."); }
     const word = wordById(result.wordId);
     if (!word) { show("error"); return status("الكلمة غير متاحة."); }
-    if (!dateKey || dateKey === state.today?.dateKey) state.today = { ...result, word };
     warning(result.storageWarning === true);
+    if (!dateKey) {
+      state.profile.assignments ??= {};
+      state.profile.assignments[result.dateKey] = { ...state.profile.assignments[result.dateKey], wordId: result.wordId, ...(result.status ? { status: result.status } : {}) };
+      state.today = { ...result, word };
+      renderToday();
+      show("today");
+      return;
+    }
     viewWord(word);
     show("explore");
   }
@@ -329,6 +350,9 @@
     elements.history.addEventListener("click", () => { show("history"); renderHistory(); });
     elements.settings.addEventListener("click", () => { show("settings"); hydrateSettings(); });
     elements["atlas-search"].addEventListener("input", search);
+    document.querySelectorAll("label.file-button").forEach((label) => label.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") { event.preventDefault(); label.click(); }
+    }));
     elements["return-today"].addEventListener("click", returnToToday);
     elements["history-filter"].addEventListener("change", renderHistory);
     elements["settings-save"].addEventListener("click", () => saveSettings().catch(() => status("تعذّر حفظ الإعدادات.")));
@@ -338,7 +362,7 @@
     elements.export.addEventListener("click", () => exportState().catch(() => status("تعذّر التصدير.")));
     elements["import-file"].addEventListener("change", () => importState(elements["import-file"]));
     elements.clear.addEventListener("click", () => clearState().catch(() => status("تعذّر مسح البيانات.")));
-    elements["recovery-export"].addEventListener("click", () => exportState(true).catch(() => status("تعذّر التصدير.")));
+    elements["recovery-export"].addEventListener("click", () => exportState().catch(() => status("تعذّر التصدير.")));
     elements["recovery-import"].addEventListener("change", () => importState(elements["recovery-import"]));
     elements["recovery-clear"].addEventListener("click", () => clearState().catch(() => status("تعذّر مسح البيانات.")));
     elements["onboarding-settings"].addEventListener("click", () => show("settings"));
@@ -353,7 +377,7 @@
     try { await load(); } catch (_) { renderError(); }
   }
 
-  globalThis.KalimatAtlas = { normalize, load, initialize, loadAssignment, renderHistory, search, importState, returnToToday, feedback, toggleSave, configureReminder, saveReminderTime, getReminder: () => ({ ...state.reminder }), getRecoveryRaw: () => state.recoveryRaw };
+  globalThis.KalimatAtlas = { normalize, load, initialize, loadAssignment, renderHistory, search, viewWord, saveSettings, clearState, importState, returnToToday, feedback, toggleSave, configureReminder, saveReminderTime, getReminder: () => ({ ...state.reminder }), getRecoveryRaw: () => state.recoveryRaw };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initialize, { once: true });
   else initialize();
 })();

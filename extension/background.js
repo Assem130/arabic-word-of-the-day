@@ -158,12 +158,12 @@ async function assignment(requestedDateKey) {
   return warning(assignedResult(profile, dateKey, selected.wordId), await persistProfile(profile, loaded));
 }
 
-async function updateProfile(change) {
+async function updateProfile(change, resultFields = () => ({})) {
   const vocabulary = await getVocabulary();
   const loaded = await loadProfile(vocabulary);
   if (loaded.recoveryRaw !== undefined) return recovery(loaded);
   const profile = await change(loaded.profile, vocabulary);
-  return warning({ kind: "ok" }, await persistProfile(profile, loaded));
+  return warning({ kind: "ok", ...resultFields(profile) }, await persistProfile(profile, loaded));
 }
 
 function exactMessage(message, keys) {
@@ -175,18 +175,20 @@ async function configureReminder(message) {
   if (!exactMessage(message, new Set(["type", "enabled", "time"])) || typeof message.enabled !== "boolean" || (message.time !== undefined && !timeIsValid(message.time))) throw new TypeError("Invalid reminder.");
   const current = await readReminder();
   const requested = { enabled: message.enabled, time: message.time ?? current.time };
-  if (!requested.enabled || !await reminderPermissions()) {
-    return disableReminder(requested.time);
-  }
+  if (!requested.enabled || !await reminderPermissions()) return disableReminder(requested.time, current);
+  const snapshot = await readReminderAlarm();
   try {
     await ExtApi.storage.local.set({ [REMINDER_KEY]: requested });
   } catch (_) {
-    await clearReminder().catch(() => undefined);
     return { ...current, storageWarning: true };
   }
-  await clearReminder();
-  await ensureReminderNow();
-  return readReminder();
+  try {
+    await scheduleReminder(requested);
+    return requested;
+  } catch (_) {
+    const rollback = await rollbackReminder(current, snapshot.alarm);
+    return { ...rollback.actual, storageWarning: true };
+  }
 }
 
 async function readReminder() {
@@ -206,16 +208,73 @@ async function clearReminder() {
   if (ExtApi.alarms) await ExtApi.alarms.clear(REMINDER_ALARM);
 }
 
-async function disableReminder(time) {
-  const disabled = { enabled: false, time };
+async function readReminderAlarm() {
+  try {
+    return { alarm: ExtApi.alarms ? await ExtApi.alarms.get(REMINDER_ALARM) : null };
+  } catch (_) {
+    return { alarm: null, warning: true };
+  }
+}
+
+function alarmDetails(alarm) {
+  if (!alarm || typeof alarm !== "object") return null;
+  const when = alarm.when ?? alarm.scheduledTime;
+  if (Number.isFinite(when)) return { when };
+  const details = {};
+  for (const key of ["delayInMinutes", "periodInMinutes"]) if (Number.isFinite(alarm[key])) details[key] = alarm[key];
+  return Object.keys(details).length ? details : null;
+}
+
+async function scheduleReminder(settings) {
+  if (!settings.enabled) return clearReminder();
+  if (!await reminderPermissions()) throw new Error("Reminder permissions unavailable.");
+  const when = nextOccurrence(settings.time);
+  const existing = await ExtApi.alarms.get(REMINDER_ALARM);
+  if (!existing || (existing.scheduledTime ?? existing.when) !== when) await ExtApi.alarms.create(REMINDER_ALARM, { when });
+}
+
+async function restoreAlarm(alarm) {
   let failed = false;
+  try { await clearReminder(); } catch (_) { failed = true; }
+  if (alarm) {
+    const details = alarmDetails(alarm);
+    if (!details) failed = true;
+    else {
+      try { await ExtApi.alarms.create(REMINDER_ALARM, details); } catch (_) { failed = true; }
+    }
+  }
+  return failed;
+}
+
+async function rollbackReminder(current, alarm) {
+  let failed = false;
+  try { await ExtApi.storage.local.set({ [REMINDER_KEY]: current }); } catch (_) { failed = true; }
+  failed ||= await restoreAlarm(alarm);
+  let actual = current;
+  try { actual = await readReminder(); } catch (_) { /* keep the last authoritative snapshot */ }
+  return { actual, failed };
+}
+
+async function disableReminder(time, currentOverride = null) {
+  let current = currentOverride;
+  if (!current) {
+    try { current = await readReminder(); }
+    catch (_) { return { enabled: false, time, storageWarning: true }; }
+  }
+  const snapshot = await readReminderAlarm();
+  const disabled = { enabled: false, time };
   try {
     await ExtApi.storage.local.set({ [REMINDER_KEY]: disabled });
   } catch (_) {
-    failed = true;
+    return { ...current, storageWarning: true };
   }
-  try { await clearReminder(); } catch (_) { failed = true; }
-  return failed ? { ...disabled, storageWarning: true } : disabled;
+  try {
+    await clearReminder();
+    return disabled;
+  } catch (_) {
+    const rollback = await rollbackReminder(current, snapshot.alarm);
+    return { ...rollback.actual, storageWarning: true };
+  }
 }
 
 async function ensureReminderNow() {
@@ -224,15 +283,8 @@ async function ensureReminderNow() {
     await clearReminder();
     return settings;
   }
-  if (!await reminderPermissions()) {
-    return disableReminder(settings.time);
-  }
-  const when = nextOccurrence(settings.time);
-  const existing = await ExtApi.alarms.get(REMINDER_ALARM);
-  if (!existing || (existing.scheduledTime ?? existing.when) !== when) {
-    if (existing) await clearReminder();
-    await ExtApi.alarms.create(REMINDER_ALARM, { when });
-  }
+  if (!await reminderPermissions()) return disableReminder(settings.time, settings);
+  await scheduleReminder(settings);
   return settings;
 }
 
@@ -246,8 +298,7 @@ function eventEntry(work) {
 
 async function notificationClick(notificationId) {
   if (notificationId !== REMINDER_ALARM) return;
-  const dateKey = dependencies.date.getLocalDateKey(new Date());
-  await ExtApi.tabs.create({ url: ExtApi.runtime.getURL(`atlas/atlas.html?date=${encodeURIComponent(dateKey)}`) });
+  await ExtApi.tabs.create({ url: ExtApi.runtime.getURL("atlas/atlas.html") });
 }
 
 async function alarmFired(alarm) {
@@ -286,12 +337,15 @@ function handleMessage(message) {
     }
     if (message.type === "word.feedback") {
       if (!exactMessage(message, new Set(["type", "dateKey", "wordId", "status"]))) throw new TypeError("Invalid feedback.");
-      return updateProfile((profile) => dependencies.state.applyFeedback(profile, { dateKey: message.dateKey, wordId: message.wordId, status: message.status }));
+      return updateProfile(
+        (profile) => dependencies.state.applyFeedback(profile, { dateKey: message.dateKey, wordId: message.wordId, status: message.status }),
+        (profile) => ({ wordId: message.wordId, dateKey: message.dateKey, status: profile.assignments[message.dateKey]?.status }),
+      );
     }
     if (message.type === "word.save") return updateProfile(async (profile, vocabulary) => {
       if (!exactMessage(message, new Set(["type", "wordId", "saved"])) || typeof message.wordId !== "string" || typeof message.saved !== "boolean" || !vocabulary.some((word) => word.id === message.wordId)) throw new TypeError("Invalid save.");
       return { ...profile, wordStates: { ...profile.wordStates, [message.wordId]: { ...profile.wordStates[message.wordId], saved: message.saved } } };
-    });
+    }, (profile) => ({ wordId: message.wordId, saved: profile.wordStates[message.wordId]?.saved === true }));
     if (message.type === "settings.update") return updateProfile((profile, vocabulary) => {
       if (!exactMessage(message, new Set(["type", "level", "interests", "showEnglish"])) || (message.showEnglish !== undefined && typeof message.showEnglish !== "boolean")) throw new TypeError("Invalid settings.");
       const checked = dependencies.state.validateStoredProfile({ ...profile, level: message.level ?? profile.level, interests: message.interests ?? profile.interests, showEnglish: message.showEnglish ?? profile.showEnglish }, vocabulary);
