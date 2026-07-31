@@ -145,8 +145,18 @@ test("feedback rejects unknown message fields before changing profile state", as
 test("read-only messages reject unknown fields", async () => {
   await withBackground({}, async ({ background }) => {
     await assert.rejects(background.handleMessage({ type: "assignment.get", extra: true }), /Invalid assignment/);
+    await assert.rejects(background.handleMessage({ type: "assignment.get", dateKey: "not-a-date" }), /Invalid assignment/);
     await assert.rejects(background.handleMessage({ type: "settings.get", extra: true }), /Invalid settings/);
     await assert.rejects(background.handleMessage({ type: "state.export", extra: true }), /Invalid export/);
+  });
+});
+
+test("Atlas can read a retained date without creating an assignment for another day", async () => {
+  const existing = profile({ assignments: { "2026-07-28": { wordId: "w2" } }, assignmentOrdinal: 1 });
+  await withBackground({ profile: existing }, async ({ background, values }) => {
+    assert.deepEqual(await background.handleMessage({ type: "assignment.get", dateKey: "2026-07-28" }), { kind: "assigned", wordId: "w2", dateKey: "2026-07-28" });
+    assert.deepEqual(await background.handleMessage({ type: "assignment.get", dateKey: "2026-07-29" }), { kind: "no-new-word", dateKey: "2026-07-29" });
+    assert.deepEqual(values["kalimat.profile"].assignments, existing.assignments);
   });
 });
 
@@ -168,6 +178,14 @@ test("onboarding, save, export, import, and clear use validated profile state", 
     await background.handleMessage({ type: "state.import", text: exported.text });
     assert.equal(values["kalimat.profile"].level, 2);
     assert.equal(values["kalimat.profile"].wordStates.w1.saved, true);
+  });
+});
+
+test("settings retain English visibility alongside level and interests", async () => {
+  await withBackground({}, async ({ background }) => {
+    await background.handleMessage({ type: "settings.update", level: 3, interests: ["travel"], showEnglish: false });
+    const exported = await background.handleMessage({ type: "state.export" });
+    assert.equal(JSON.parse(exported.text).showEnglish, false);
   });
 });
 

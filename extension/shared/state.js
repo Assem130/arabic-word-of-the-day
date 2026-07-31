@@ -16,7 +16,7 @@
   const encoder = new TextEncoder();
   const INTERESTS = new Set(["classical-arabic", "daily-life", "family", "food", "language", "travel"]);
   const STATUSES = new Set(["known", "difficult"]);
-  const PROFILE_KEYS = new Set(["schemaVersion", "algorithmVersion", "seedHex", "level", "interests", "wordStates", "assignments", "recentIds", "evidenceCutoff", "assignmentOrdinal"]);
+  const PROFILE_KEYS = new Set(["schemaVersion", "algorithmVersion", "seedHex", "level", "interests", "showEnglish", "wordStates", "assignments", "recentIds", "evidenceCutoff", "assignmentOrdinal"]);
   const WORD_STATE_KEYS = new Set(["status", "dateKey", "saved"]);
   const ASSIGNMENT_KEYS = new Set(["wordId", "status"]);
   const DANGEROUS_KEYS = new Set(["__proto__", "constructor", "prototype"]);
@@ -100,6 +100,7 @@
     if (typeof raw.seedHex !== "string" || !/^[0-9a-f]{32}$/.test(raw.seedHex)) fail("seedHex");
     if (!Number.isInteger(raw.level) || raw.level < 1 || raw.level > 4) fail("level");
     if (!Array.isArray(raw.interests) || raw.interests.length > 3 || raw.interests.some((interest) => !INTERESTS.has(interest)) || new Set(raw.interests).size !== raw.interests.length) fail("interests");
+    if (Object.hasOwn(raw, "showEnglish") && typeof raw.showEnglish !== "boolean") fail("showEnglish");
     if (!Array.isArray(raw.recentIds) || raw.recentIds.length > MAX_ARRAY) fail("recentIds");
     const allowedIds = vocabulary ? vocabularyIds(vocabulary) : null;
     const recentIds = raw.recentIds.map((value) => id(value, "recent ID"));
@@ -131,6 +132,7 @@
       seedHex: raw.seedHex,
       level: raw.level,
       interests: [...raw.interests],
+      showEnglish: raw.showEnglish ?? true,
       wordStates,
       assignments,
       assignmentOrdinal,
@@ -139,13 +141,14 @@
     };
   }
 
-  function createProfile({ seedHex = "0".repeat(32), level = 1, interests = [] } = {}) {
+  function createProfile({ seedHex = "0".repeat(32), level = 1, interests = [], showEnglish = true } = {}) {
     return copyProfile({
       schemaVersion: SCHEMA_VERSION,
       algorithmVersion: ALGORITHM_VERSION,
       seedHex,
       level,
       interests,
+      showEnglish,
       wordStates: nullMap(),
       assignments: nullMap(),
       assignmentOrdinal: 0,

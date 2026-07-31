@@ -6,6 +6,11 @@ const vm = require("node:vm");
 
 const popup = path.join(__dirname, "..", "popup");
 const files = Object.fromEntries(["popup.html", "popup.css", "popup.js"].map((name) => [name, path.join(popup, name)]));
+const atlas = path.join(__dirname, "..", "atlas");
+
+function atlasSource(name) {
+  return fs.readFileSync(path.join(atlas, name), "utf8");
+}
 
 function source(name) {
   return fs.readFileSync(files[name], "utf8");
@@ -177,4 +182,37 @@ test("failed reminder hydration keeps its error through first-time onboarding", 
   assert.equal(elements.get("onboarding").hidden, false);
   assert.match(elements.get("status").textContent, /تعذّر تحميل إعدادات التذكير/);
   assert.equal(calls.some((message) => message.type === "assignment.get"), false);
+});
+
+test("Atlas ships a dark, accessible four-view page without unsafe sinks or timer work", () => {
+  for (const name of ["atlas.html", "atlas.css", "atlas.js"]) assert.equal(fs.existsSync(path.join(atlas, name)), true, `${name} is missing`);
+  const html = atlasSource("atlas.html");
+  const css = atlasSource("atlas.css");
+  const js = atlasSource("atlas.js");
+  assert.match(html, /<html\s+lang="ar"\s+dir="rtl">/);
+  assert.match(html, /<link[^>]+href="atlas\.css"/);
+  assert.match(html, /<script\s+src="atlas\.js"><\/script>/);
+  for (const id of ["today", "explore", "history", "settings", "atlas-search", "return-today", "history-filter", "settings-level", "settings-english", "settings-time", "export", "import-file", "clear", "recovery-export", "recovery-import", "recovery-clear"]) assert.match(html, new RegExp(`id="${id}"`));
+  assert.equal((html.match(/name="atlas-level"/g) || []).length, 4);
+  assert.equal((html.match(/name="atlas-interest"/g) || []).length, 6);
+  assert.doesNotMatch(`${html}\n${css}\n${js}`, /https?:\/\/|\b(?:innerHTML|outerHTML)\b|\b(?:setInterval|setTimeout)\s*\(/);
+  assert.doesNotMatch(html, /\son[a-z]+\s*=/i);
+  assert.match(css, /background:\s*#102b2a/i);
+  assert.match(css, /:focus-visible/);
+  assert.match(css, /prefers-reduced-motion:\s*reduce/);
+});
+
+test("Atlas keeps the daily anchor while exploration, history, settings, and recovery use validated messages", () => {
+  const js = atlasSource("atlas.js");
+  assert.match(js, /type:\s*"assignment\.get",\s*dateKey/);
+  assert.match(js, /type:\s*"state\.export"/);
+  assert.match(js, /type:\s*"state\.import",\s*text/);
+  assert.match(js, /type:\s*"state\.clear"/);
+  assert.match(js, /type:\s*"settings\.update",\s*level,\s*interests,\s*showEnglish/);
+  assert.match(js, /type:\s*"reminder\.configure",\s*enabled,\s*time/);
+  assert.match(js, /new Blob\(/);
+  assert.match(js, /globalThis\.confirm/);
+  assert.match(js, /normalize\("NFD"\)/);
+  assert.match(js, /relatedIds/);
+  assert.doesNotMatch(js, /regenerate|Math\.random/);
 });

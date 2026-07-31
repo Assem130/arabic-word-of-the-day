@@ -43,6 +43,9 @@ test("packages only the runtime allowlist for both browsers", () => {
     assert.equal(files.includes("shared/selector.js"), true);
     assert.equal(files.includes("popup/popup.css"), true);
     assert.equal(files.includes("popup/popup.js"), true);
+    assert.equal(files.includes("atlas/atlas.html"), true);
+    assert.equal(files.includes("atlas/atlas.css"), true);
+    assert.equal(files.includes("atlas/atlas.js"), true);
     assert.doesNotThrow(() => JSON.parse(fs.readFileSync(path.join(__dirname, "..", "dist", browser, "manifest.json"), "utf8")));
   }
 });

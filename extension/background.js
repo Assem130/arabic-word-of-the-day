@@ -124,11 +124,13 @@ function warning(result, hasWarning) {
   return hasWarning ? { ...result, storageWarning: true } : result;
 }
 
-async function assignment() {
+async function assignment(requestedDateKey) {
   const vocabulary = await getVocabulary();
   const loaded = await loadProfile(vocabulary);
   if (loaded.recoveryRaw !== undefined) return recovery(loaded);
-  const dateKey = dependencies.date.getLocalDateKey(new Date());
+  const currentDateKey = dependencies.date.getLocalDateKey(new Date());
+  const dateKey = requestedDateKey ?? currentDateKey;
+  if (requestedDateKey && requestedDateKey !== currentDateKey && !Object.hasOwn(loaded.profile.assignments, dateKey)) return warning({ kind: "no-new-word", dateKey }, loaded.warning);
   const selected = await dependencies.selector.selectDaily({ vocabulary, profile: loaded.profile, dateKey });
   if (selected.kind !== "assigned") return warning(selected, loaded.warning);
   const result = { kind: "assigned", wordId: selected.wordId, dateKey };
@@ -246,8 +248,8 @@ function handleMessage(message) {
   return serialized(async () => {
     if (!message || typeof message.type !== "string") throw new TypeError("Invalid message.");
     if (message.type === "assignment.get") {
-      if (!exactMessage(message, new Set(["type"]))) throw new TypeError("Invalid assignment.");
-      return assignment();
+      if (!exactMessage(message, new Set(["type", "dateKey"])) || (message.dateKey !== undefined && !dependencies.date.isDateKey(message.dateKey))) throw new TypeError("Invalid assignment.");
+      return assignment(message.dateKey);
     }
     if (message.type === "settings.get") {
       if (!exactMessage(message, new Set(["type"]))) throw new TypeError("Invalid settings.");
@@ -271,8 +273,8 @@ function handleMessage(message) {
       return { ...profile, wordStates: { ...profile.wordStates, [message.wordId]: { ...profile.wordStates[message.wordId], saved: message.saved } } };
     });
     if (message.type === "settings.update") return updateProfile((profile, vocabulary) => {
-      if (!exactMessage(message, new Set(["type", "level", "interests"]))) throw new TypeError("Invalid settings.");
-      const checked = dependencies.state.validateStoredProfile({ ...profile, level: message.level ?? profile.level, interests: message.interests ?? profile.interests }, vocabulary);
+      if (!exactMessage(message, new Set(["type", "level", "interests", "showEnglish"])) || (message.showEnglish !== undefined && typeof message.showEnglish !== "boolean")) throw new TypeError("Invalid settings.");
+      const checked = dependencies.state.validateStoredProfile({ ...profile, level: message.level ?? profile.level, interests: message.interests ?? profile.interests, showEnglish: message.showEnglish ?? profile.showEnglish }, vocabulary);
       if (!checked.canPersist) throw new TypeError("Invalid settings.");
       return checked.profile;
     });
