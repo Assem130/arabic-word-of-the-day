@@ -6,4 +6,6 @@ Thumbs.db
 
 .env
 .superpowers/
+docs/superpowers/
 .worktrees/
+extension/dist/
