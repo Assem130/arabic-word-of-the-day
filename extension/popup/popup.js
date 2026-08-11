@@ -3,28 +3,51 @@
 
   const ExtApi = globalThis.browser ?? globalThis.chrome;
   const byId = (id) => document.getElementById(id);
-  const state = { word: null, dateKey: null, showEnglish: true, reminder: null, reminderReady: false, reminderWarning: false, reminderError: "", reminderBusy: false, speakAvailable: false, view: "" };
+  const state = {
+    word: null,
+    dateKey: null,
+    showEnglish: true,
+    reminder: null,
+    reminderReady: false,
+    reminderWarning: false,
+    reminderError: "",
+    reminderBusy: false,
+    speakAvailable: false,
+    view: "",
+  };
   let elements;
   let reminderQueue = null;
 
   function show(name) {
     state.view = name;
-    for (const section of ["onboarding", "assigned", "empty", "error", "recovery"]) elements[section].hidden = section !== name;
+    for (const section of ["onboarding", "assigned", "empty", "error", "recovery"]) {
+      if (elements[section]) elements[section].hidden = section !== name;
+    }
     const heading = elements[`${name}Title`];
     if (heading) heading.focus();
     const active = name === "assigned";
-    for (const control of [elements.known, elements.difficult, elements.save, elements.explore]) if (control) control.disabled = !active;
+    for (const control of [elements.known, elements.difficult, elements.save, elements.explore]) {
+      if (control) control.disabled = !active;
+    }
     if (elements.speak) elements.speak.disabled = !active || !state.speakAvailable;
     if (elements.reminder) elements.reminder.disabled = !active || !state.reminderReady || state.reminderError !== "";
     if (elements.reminderTime) elements.reminderTime.disabled = !active || !state.reminderReady || state.reminderError !== "";
   }
 
   function status(message) {
-    elements.status.textContent = message;
+    if (elements.status) elements.status.textContent = message;
+  }
+
+  function actionStatus(message, isError = false) {
+    const target = elements.actionStatus;
+    if (!target) return;
+    target.textContent = message;
+    target.setAttribute("role", isError ? "alert" : "status");
+    target.setAttribute("aria-live", isError ? "assertive" : "polite");
   }
 
   function warning(visible) {
-    elements.warning.hidden = !visible;
+    if (elements.warning) elements.warning.hidden = !visible;
   }
 
   function renderReminder(reminder) {
@@ -61,11 +84,34 @@
 
   function collectElements() {
     return {
-      onboarding: byId("onboarding"), assigned: byId("assigned"), empty: byId("empty"), error: byId("error"), recovery: byId("recovery"), warning: byId("warning"), status: byId("status"),
-      onboardingTitle: byId("onboarding-title"), emptyTitle: byId("empty-title"), errorTitle: byId("error-title"), recoveryTitle: byId("recovery-title"),
-      word: byId("word"), meaningAr: byId("meaning-ar"), meaningEn: byId("meaning-en"), example: byId("example"), contextEn: byId("example-en"), pronunciation: byId("pronunciation"),
-      known: byId("known"), difficult: byId("difficult"), save: byId("save"), speak: byId("speak"), explore: byId("explore"), reminder: byId("reminder"), reminderTime: byId("reminder-time"), onboardingSubmit: byId("onboarding-submit"),
-      interests: document.querySelectorAll('input[name="interest"]'), levels: document.querySelectorAll('input[name="level"]'),
+      onboarding: byId("onboarding"),
+      assigned: byId("assigned"),
+      empty: byId("empty"),
+      error: byId("error"),
+      recovery: byId("recovery"),
+      warning: byId("warning"),
+      status: byId("status"),
+      onboardingTitle: byId("onboarding-title"),
+      emptyTitle: byId("empty-title"),
+      errorTitle: byId("error-title"),
+      recoveryTitle: byId("recovery-title"),
+      word: byId("word"),
+      meaningAr: byId("meaning-ar"),
+      meaningEn: byId("meaning-en"),
+      example: byId("example"),
+      contextEn: byId("example-en"),
+      pronunciation: byId("pronunciation"),
+      known: byId("known"),
+      difficult: byId("difficult"),
+      save: byId("save"),
+      speak: byId("speak"),
+      explore: byId("explore"),
+      reminder: byId("reminder"),
+      reminderTime: byId("reminder-time"),
+      onboardingSubmit: byId("onboarding-submit"),
+      actionStatus: byId("action-status"),
+      interests: document.querySelectorAll('input[name="interest"]'),
+      levels: document.querySelectorAll('input[name="level"]'),
     };
   }
 
@@ -90,6 +136,7 @@
     elements.save.setAttribute("aria-pressed", String(result.saved === true));
     show("assigned");
     elements.word.focus();
+    actionStatus("");
     status("كلمتك جاهزة.");
   }
 
@@ -138,7 +185,9 @@
     } catch (_) {
       show("error");
       if (!state.reminderError) status("تعذّر تحميل الكلمة. افتح النافذة مجددًا.");
-    } finally { if (state.reminderError) status(state.reminderError); }
+    } finally {
+      if (state.reminderError) status(state.reminderError);
+    }
   }
 
   function renderRecovery() {
@@ -149,29 +198,74 @@
 
   async function sendFeedback(statusName, button) {
     if (!state.word) return;
+    const targetButton = button || elements[statusName === "known" ? "known" : "difficult"];
+    const priorKnown = elements.known.getAttribute("aria-pressed");
+    const priorDifficult = elements.difficult.getAttribute("aria-pressed");
+
+    targetButton.setAttribute("aria-busy", "true");
+    targetButton.disabled = true;
+    actionStatus("جارٍ حفظ تقييمك…");
+
     try {
-      const result = await ExtApi.runtime.sendMessage({ type: "word.feedback", dateKey: state.dateKey, wordId: state.word.id, status: statusName });
+      const result = await ExtApi.runtime.sendMessage({
+        type: "word.feedback",
+        dateKey: state.dateKey,
+        wordId: state.word.id,
+        status: statusName,
+      });
       if (result?.kind === "recovery") return renderRecovery();
       if (result?.kind !== "ok") throw new Error("Feedback unchanged.");
-      elements.known.setAttribute("aria-pressed", String(statusName === "known"));
-      elements.difficult.setAttribute("aria-pressed", String(statusName === "difficult"));
+      const authoritativeStatus = result.status ?? statusName;
+      elements.known.setAttribute("aria-pressed", String(authoritativeStatus === "known"));
+      elements.difficult.setAttribute("aria-pressed", String(authoritativeStatus === "difficult"));
       warning(result.storageWarning === true || state.reminderWarning);
-      button.focus();
+      targetButton.focus();
       status("تم حفظ تقييمك.");
-    } catch (_) { status("تعذّر حفظ تقييمك."); }
+      actionStatus("تم حفظ تقييمك.");
+    } catch (_) {
+      elements.known.setAttribute("aria-pressed", priorKnown);
+      elements.difficult.setAttribute("aria-pressed", priorDifficult);
+      targetButton.focus();
+      status("تعذّر حفظ تقييمك.");
+      actionStatus("تعذّر حفظ تقييمك.", true);
+    } finally {
+      targetButton.setAttribute("aria-busy", "false");
+      targetButton.disabled = false;
+    }
   }
 
   async function toggleSave() {
     if (!state.word) return;
-    const saved = elements.save.getAttribute("aria-pressed") !== "true";
+    const priorSaved = elements.save.getAttribute("aria-pressed");
+    const saved = priorSaved !== "true";
+
+    elements.save.setAttribute("aria-busy", "true");
+    elements.save.disabled = true;
+    actionStatus("جارٍ تحديث الحفظ…");
+
     try {
-      const result = await ExtApi.runtime.sendMessage({ type: "word.save", wordId: state.word.id, saved });
+      const result = await ExtApi.runtime.sendMessage({
+        type: "word.save",
+        wordId: state.word.id,
+        saved,
+      });
       if (result?.kind === "recovery") return renderRecovery();
       if (result?.kind !== "ok") throw new Error("Save unchanged.");
-      elements.save.setAttribute("aria-pressed", String(saved));
+      const authoritativeSaved = typeof result.saved === "boolean" ? result.saved : saved;
       warning(result.storageWarning === true || state.reminderWarning);
-      status(saved ? "حُفظت الكلمة." : "أزيل الحفظ.");
-    } catch (_) { status("تعذّر تغيير الحفظ."); }
+      elements.save.setAttribute("aria-pressed", String(authoritativeSaved));
+      status(authoritativeSaved ? "حُفظت الكلمة." : "أزيل الحفظ.");
+      actionStatus(authoritativeSaved ? "حُفظت الكلمة." : "أزيل الحفظ.");
+      elements.save.focus();
+    } catch (_) {
+      elements.save.setAttribute("aria-pressed", priorSaved);
+      elements.save.focus();
+      status("تعذّر تغيير الحفظ.");
+      actionStatus("تعذّر تغيير الحفظ.", true);
+    } finally {
+      elements.save.setAttribute("aria-busy", "false");
+      elements.save.disabled = false;
+    }
   }
 
   function speak() {
@@ -284,7 +378,17 @@
     await Promise.all([loadAssignment(), loadReminder()]);
   }
 
-  globalThis.KalimatPopup = { renderAssigned, limitInterests, requestReminder, updateReminderTime, toggleSave, completeOnboarding, sendFeedback, resetRecovery, initialize };
+  globalThis.KalimatPopup = {
+    renderAssigned,
+    limitInterests,
+    requestReminder,
+    updateReminderTime,
+    toggleSave,
+    completeOnboarding,
+    sendFeedback,
+    resetRecovery,
+    initialize,
+  };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initialize, { once: true });
   else initialize();
 })();

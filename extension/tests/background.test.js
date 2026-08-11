@@ -31,7 +31,7 @@ function fakeEvent() {
   return { listeners: [], addListener(listener) { this.listeners.push(listener); } };
 }
 
-function fakeExtension({ profile, reminder, vocabulary = [word("w1"), word("w2")], storageFailure = false, storageSetFailures = 0, reminderWarningSetFailures = 0, permissions = true, reminderApis = true, alarm, alarmGetFailures = 0, alarmCreateFailures = 0, alarmClearFailures = 0, notificationFailure = false, tabFailure = false, api = "chrome" } = {}) {
+function fakeExtension({ profile, reminder, vocabulary = [word("w1"), word("w2")], storageFailure = false, storageSetFailures = 0, reminderWarningSetFailures = 0, permissions = true, hostPermissions = true, reminderApis = true, alarm, alarmGetFailures = 0, alarmCreateFailures = 0, alarmClearFailures = 0, notificationFailure = false, tabFailure = false, api = "chrome" } = {}) {
   const values = Object.create(null);
   if (profile !== undefined) values["kalimat.profile"] = profile;
   if (reminder !== undefined) values["kalimat.reminder"] = reminder;
@@ -45,6 +45,7 @@ function fakeExtension({ profile, reminder, vocabulary = [word("w1"), word("w2")
   let remainingAlarmClearFailures = alarmClearFailures;
   let storageAvailable = !storageFailure;
   let permissionsGranted = permissions;
+  let hostPermissionsGranted = hostPermissions;
   const runtime = { onMessage: fakeEvent(), onStartup: fakeEvent(), onInstalled: fakeEvent(), getURL: (path) => `extension://kalimat/${path}` };
   const alarmApi = {
     onAlarm: fakeEvent(),
@@ -65,7 +66,22 @@ function fakeExtension({ profile, reminder, vocabulary = [word("w1"), word("w2")
         Object.assign(values, next);
       },
     } },
-    permissions: { onRemoved: fakeEvent(), async contains() { return permissionsGranted; }, async request() { calls.permissionRequests += 1; return permissionsGranted; } },
+    permissions: {
+      onRemoved: fakeEvent(),
+      async contains(query) {
+        if (query?.origins?.length || query?.permissions?.some((p) => p.includes("wiktionary") || p.includes("wikimedia") || p.startsWith("http"))) {
+          return hostPermissionsGranted;
+        }
+        return permissionsGranted;
+      },
+      async request(query) {
+        calls.permissionRequests += 1;
+        if (query?.origins?.length || query?.permissions?.some((p) => p.includes("wiktionary") || p.includes("wikimedia") || p.startsWith("http"))) {
+          return hostPermissionsGranted;
+        }
+        return permissionsGranted;
+      },
+    },
     runtime,
     tabs: { async create(details) { if (tabFailure) throw new Error("tab unavailable"); calls.tabs.push(details); } },
   };
@@ -74,7 +90,7 @@ function fakeExtension({ profile, reminder, vocabulary = [word("w1"), word("w2")
     extension.notifications = notificationApi;
   }
   if (reminderApis) installReminderApis();
-  return { extension, values, alarms, calls, vocabulary, api, installReminderApis, setPermissions(value) { permissionsGranted = value; }, setStorageAvailable(value) { storageAvailable = value; } };
+  return { extension, values, alarms, calls, vocabulary, api, installReminderApis, setPermissions(value) { permissionsGranted = value; }, setHostPermissions(value) { hostPermissionsGranted = value; }, setStorageAvailable(value) { storageAvailable = value; } };
 }
 
 function loadBackground(options = {}) {
@@ -87,7 +103,13 @@ function loadBackground(options = {}) {
     delete globalThis.browser;
     globalThis.chrome = fake.extension;
   }
-  globalThis.fetch = async () => ({ ok: true, async json() { return fake.vocabulary; } });
+  globalThis.fetch = async (url, fetchOptions) => {
+    if (typeof url === "string" && url.includes("vocabulary.json")) {
+      return { ok: true, async json() { return fake.vocabulary; }, async text() { return JSON.stringify(fake.vocabulary); } };
+    }
+    if (typeof options.fetch === "function") return options.fetch(url, fetchOptions);
+    return { ok: true, async json() { return fake.vocabulary; }, async text() { return JSON.stringify(fake.vocabulary); } };
+  };
   delete require.cache[require.resolve("../background.js")];
   const background = require("../background.js");
   return {
@@ -151,7 +173,7 @@ test("first-run background serves settings and assignments without optional remi
   } finally { fixture?.restore(); }
 });
 
-test("browser background bootstrap imports only the four shared domain modules", async () => {
+test("browser background bootstrap imports the five shared domain modules", async () => {
   const fake = fakeExtension({ permissions: false, reminderApis: false });
   const imported = [];
   const context = vm.createContext({ chrome: fake.extension, console, crypto: webcrypto, TextEncoder, fetch: async () => ({ ok: true, async json() { return fake.vocabulary; } }) });
@@ -163,8 +185,8 @@ test("browser background bootstrap imports only the four shared domain modules",
     }
   };
   assert.doesNotThrow(() => vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "background.js"), "utf8"), context, { filename: "background.js" }));
-  assert.deepEqual(imported, ["shared/date.js", "shared/vocabulary.js", "shared/state.js", "shared/selector.js"]);
-  for (const name of ["KalimatDate", "KalimatVocabulary", "KalimatState", "KalimatSelector"]) assert.equal(typeof context[name], "object");
+  assert.deepEqual(imported, ["shared/date.js", "shared/vocabulary.js", "shared/state.js", "shared/selector.js", "shared/lookup.js"]);
+  for (const name of ["KalimatDate", "KalimatVocabulary", "KalimatState", "KalimatSelector", "KalimatLookup"]) assert.equal(typeof context[name], "object");
   assert.equal((await fake.extension.runtime.onMessage.listeners[0]({ type: "settings.get" })).kind, "settings");
 });
 
@@ -615,5 +637,154 @@ test("a new valid-date assignment prunes 5,001 records while lifetime cadence co
     assert.equal(values["kalimat.profile"].assignmentOrdinal, 5005);
     assert.equal(values["kalimat.profile"].assignments["2026-07-30"].wordId, "outside");
     assert.equal(Object.hasOwn(values["kalimat.profile"].assignments, "2000-01-01"), false);
+  });
+});
+
+test("online.lookup rejects unknown fields, wordId/lang options, malformed queries, and prototype keys", async () => {
+  await withBackground({}, async ({ background }) => {
+    // Extra/unexpected fields
+    await assert.rejects(background.handleMessage({ type: "online.lookup", query: "كلمة", wordId: "w1" }), /Invalid lookup/i);
+    await assert.rejects(background.handleMessage({ type: "online.lookup", query: "كلمة", word: "كلمة" }), /Invalid lookup/i);
+    await assert.rejects(background.handleMessage({ type: "online.lookup", query: "كلمة", lang: "ar" }), /Invalid lookup/i);
+    await assert.rejects(background.handleMessage({ type: "online.lookup", query: "كلمة", provider: "wiktionary" }), /Invalid lookup/i);
+    await assert.rejects(background.handleMessage({ type: "online.lookup", query: "كلمة", url: "https://ar.wiktionary.org" }), /Invalid lookup/i);
+    await assert.rejects(background.handleMessage({ type: "online.lookup", query: "كلمة", headers: {} }), /Invalid lookup/i);
+    await assert.rejects(background.handleMessage({ type: "online.lookup", query: "كلمة", options: {} }), /Invalid lookup/i);
+    await assert.rejects(background.handleMessage({ type: "online.lookup", query: "كلمة", extra: true }), /Invalid lookup/i);
+    // Malformed query values
+    await assert.rejects(background.handleMessage({ type: "online.lookup", query: "" }), /Invalid lookup/i);
+    await assert.rejects(background.handleMessage({ type: "online.lookup", query: "   " }), /Invalid lookup/i);
+    await assert.rejects(background.handleMessage({ type: "online.lookup", query: 123 }), /Invalid lookup/i);
+    await assert.rejects(background.handleMessage({ type: "online.lookup", query: "a".repeat(257) }), /Invalid lookup/i);
+    await assert.rejects(background.handleMessage({ type: "online.lookup", query: "__proto__" }), /Invalid lookup/i);
+  });
+});
+
+test("online.lookup returns permission-needed when Chrome optional host permission is not granted", async () => {
+  await withBackground({ hostPermissions: false }, async ({ background, calls }) => {
+    const result = await background.handleMessage({ type: "online.lookup", query: "كلمة" });
+    assert.deepEqual(result, { kind: "permission-needed" });
+    assert.equal(calls.permissionRequests, 0, "Background service worker must never request permissions directly");
+  });
+});
+
+test("online.lookup returns unsupported on Firefox without host permissions", async () => {
+  await withBackground({ api: "browser", hostPermissions: false }, async ({ background }) => {
+    const result = await background.handleMessage({ type: "online.lookup", query: "كلمة" });
+    assert.deepEqual(result, { kind: "unsupported" });
+  });
+});
+
+test("online.lookup canonicalizes Arabic query for the fixed plain-text API and preserves hamzas", async () => {
+  const urls = [];
+  await withBackground({
+    hostPermissions: true,
+    fetch: async (url) => {
+      urls.push(url);
+      return {
+        ok: true,
+        status: 200,
+        headers: new Map([["content-type", "application/json; charset=utf-8"]]),
+        async text() {
+          return JSON.stringify({ query: { pages: [{ pageid: 1, title: "\u0627\u0644\u064a", extract: "\u062a\u0639\u0631\u064a\u0641" }] } });
+        },
+      };
+    },
+  }, async ({ background }) => {
+    const result = await background.handleMessage({ type: "online.lookup", query: "\u0640\u0625\u0650\u0644\u064e\u0649\u0670" });
+    assert.equal(result.kind, "online-result");
+    assert.equal(result.query, "\u0627\u0644\u064a");
+    assert.equal(new URL(urls[0]).searchParams.get("titles"), "\u0627\u0644\u064a");
+
+    await background.handleMessage({ type: "online.lookup", query: "\u0624\u0626" });
+    assert.equal(new URL(urls[1]).searchParams.get("titles"), "\u0624\u0626");
+  });
+});
+
+test("online.lookup requires JSON content type and rejects HTML-shaped or malformed payloads", async () => {
+  for (const response of [
+    { ok: true, status: 200, async text() { return JSON.stringify({ query: { pages: [{ pageid: 1, title: "\u0643\u0644\u0645\u0629", extract: "\u0645\u0639\u0646\u0649" }] } }); } },
+    { ok: true, status: 200, headers: new Map([["content-type", "text/html"]]), async text() { return "<p>\u0645\u0639\u0646\u0649</p>"; } },
+    { ok: true, status: 200, headers: new Map([["content-type", "application/json"]]), async text() { return JSON.stringify({ parse: { title: "\u0643\u0644\u0645\u0629", text: { "*": "<p>\u0645\u0639\u0646\u0649</p>" } } }); } },
+    { ok: true, status: 200, headers: new Map([["content-type", "application/json"]]), async text() { return JSON.stringify({ query: { pages: [{ pageid: 1, title: "\u0643\u0644\u0645\u0629" }] } }); } },
+    { ok: true, status: 200, headers: new Map([["content-type", "application/json"]]), async text() { return JSON.stringify({ error: { code: "badrequest" } }); } },
+    { ok: false, status: 503, headers: new Map([["content-type", "application/json"]]), async text() { return JSON.stringify({}); } },
+    { ok: true, status: 200, headers: new Map([["content-type", "application/json"]]), async text() { return "x".repeat(262145); } },
+  ]) {
+    await withBackground({ hostPermissions: true, fetch: async () => response }, async ({ background }) => {
+      const result = await background.handleMessage({ type: "online.lookup", query: "\u0643\u0644\u0645\u0629" });
+      assert.equal(result.kind, "error");
+    });
+  }
+});
+
+test("online.lookup uses fixed ar.wiktionary.org endpoint with security options and returns safe online-result DTO", async () => {
+  const hostilePayload = {
+    query: { pages: [{ pageid: 1, title: "كَلِمَة", extract: "لفظ يدل على معنى." }] },
+  };
+  let capturedFetchOptions = null;
+  await withBackground({
+    hostPermissions: true,
+    fetch: async (url, options) => {
+      capturedFetchOptions = { url, ...options };
+      assert.match(url, /^https:\/\/ar\.wiktionary\.org\//i, "Must only fetch from fixed ar.wiktionary.org endpoint");
+      return {
+        ok: true,
+        status: 200,
+        headers: new Map([["content-type", "application/json"]]),
+        async json() { return hostilePayload; },
+        async text() { return JSON.stringify(hostilePayload); },
+      };
+    },
+  }, async ({ background }) => {
+    const result = await background.handleMessage({ type: "online.lookup", query: "كَلِمَة" });
+    assert.equal(result.kind, "online-result");
+    assert.equal(result.query, "كلمة");
+    assert.equal(result.unreviewed, true);
+    assert.equal(typeof result.headword, "string");
+    assert.equal(typeof result.definitionAr, "string");
+    assert.equal(typeof result.sourceUrl, "string");
+    assert.match(result.sourceUrl, /^https:\/\/ar\.wiktionary\.org\//i);
+    assert.equal(typeof result.retrievedAt, "string");
+    assert.doesNotMatch(result.definitionAr, /<script|<img|onerror|javascript:/i, "definitionAr must remain plain text");
+    assert.ok(result.definitionAr.length > 0);
+
+    // Verify fetch security constraints
+    assert.equal(capturedFetchOptions.credentials, "omit");
+    assert.equal(capturedFetchOptions.redirect, "error");
+    assert.equal(capturedFetchOptions.cache, "no-store");
+    assert.ok(capturedFetchOptions.signal !== undefined, "Fetch must include an abort signal timeout");
+  });
+});
+
+test("online.lookup handles remote 404, network errors, and hostile/oversized responses safely", async () => {
+  await withBackground({
+    hostPermissions: true,
+    fetch: async () => ({ ok: false, status: 404, async json() { return {}; }, async text() { return "Not found"; } }),
+  }, async ({ background }) => {
+    const result = await background.handleMessage({ type: "online.lookup", query: "غيرموجود" });
+    assert.equal(result.kind, "not-found");
+  });
+
+  await withBackground({
+    hostPermissions: true,
+    fetch: async () => { throw new Error("Network offline"); },
+  }, async ({ background }) => {
+    const result = await background.handleMessage({ type: "online.lookup", query: "كلمة" });
+    assert.equal(result.kind, "error");
+  });
+});
+
+test("online.lookup is strictly read-only and never modifies profile or assignment state", async () => {
+  const initialProfile = profile({ assignments: { "2026-07-30": { wordId: "w1" } }, assignmentOrdinal: 1 });
+  await withBackground({
+    profile: initialProfile,
+    hostPermissions: true,
+    fetch: async () => ({ ok: true, status: 200, headers: new Map([["content-type", "application/json"]]), async text() { return JSON.stringify({ query: { pages: [{ pageid: 1, title: "كلمة", extract: "معنى" }] } }); } }),
+  }, async ({ background, values, calls }) => {
+    await background.handleMessage({ type: "online.lookup", query: "كلمة" });
+    assert.deepEqual(values["kalimat.profile"].assignments, initialProfile.assignments);
+    assert.equal(values["kalimat.profile"].assignmentOrdinal, 1);
+    assert.equal(calls.set, 0);
   });
 });

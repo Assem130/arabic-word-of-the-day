@@ -69,7 +69,12 @@ const METADATA = [
 ];
 
 function normalizeArabic(value) {
-  return value.normalize("NFD").replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/g, "").replace(/[أإآ]/g, "ا").replace(/ى/g, "ي").normalize("NFC");
+  return value
+    .normalize("NFD")
+    .replace(/[\u0640\u064B-\u065F\u0670\u06D6-\u06ED]/g, "")
+    .replace(/[أإآٱ]/g, "ا")
+    .replace(/ى/g, "ي")
+    .normalize("NFC");
 }
 
 if (words.length !== METADATA.length) throw new Error("Vocabulary seed and review metadata must have the same length.");

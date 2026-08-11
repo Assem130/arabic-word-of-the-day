@@ -16,6 +16,8 @@
     register: new Set(["standard", "classical", "colloquial"]),
   };
   const ID = /^(?!__proto__$|constructor$|prototype$)[A-Za-z][A-Za-z0-9_-]{0,63}$/;
+  const USEFULNESS_ORDER = { high: 3, medium: 2, low: 1 };
+  const DIFFICULTY_ORDER = { beginner: 1, intermediate: 2, advanced: 3 };
 
   function fail(message) {
     throw new TypeError(`Invalid vocabulary: ${message}`);
@@ -60,5 +62,73 @@
     return vocabulary.find((word) => word.id === id);
   }
 
-  return { validateVocabulary, findWord };
+  function canonicalSearchKey(value) {
+    if (typeof value !== "string" || value.length === 0) return "";
+    return value
+      .trim()
+      .toLowerCase()
+      .replace(/\u0640/g, "")
+      .replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/g, "")
+      .replace(/[أإآٱ]/g, "ا")
+      .replace(/ى/g, "ي");
+  }
+
+  function rankVocabulary(vocabulary, query) {
+    if (!Array.isArray(vocabulary)) return [];
+    const canonicalQuery = canonicalSearchKey(query);
+    if (!canonicalQuery) {
+      return [...vocabulary].filter((word) => word && word.reviewed === true);
+    }
+
+    const scored = [];
+    for (const item of vocabulary) {
+      if (!item || item.reviewed !== true) continue;
+
+      const headword = canonicalSearchKey(item.word);
+      const normalized = canonicalSearchKey(item.normalized);
+
+      let tier = null;
+      if (headword === canonicalQuery || normalized === canonicalQuery) {
+        tier = 1;
+      } else if (headword.startsWith(canonicalQuery) || normalized.startsWith(canonicalQuery)) {
+        tier = 2;
+      } else if (headword.includes(canonicalQuery) || normalized.includes(canonicalQuery)) {
+        tier = 3;
+      } else {
+        const matchesMeta = (
+          (item.root && canonicalSearchKey(item.root).includes(canonicalQuery)) ||
+          (item.pattern && canonicalSearchKey(item.pattern).includes(canonicalQuery)) ||
+          (item.meaningAr && canonicalSearchKey(item.meaningAr).includes(canonicalQuery)) ||
+          (item.meaningEn && canonicalSearchKey(item.meaningEn).includes(canonicalQuery)) ||
+          (item.contextAr && canonicalSearchKey(item.contextAr).includes(canonicalQuery)) ||
+          (item.contextEn && canonicalSearchKey(item.contextEn).includes(canonicalQuery)) ||
+          (item.exampleAr && canonicalSearchKey(item.exampleAr).includes(canonicalQuery)) ||
+          (item.partOfSpeech && canonicalSearchKey(item.partOfSpeech).includes(canonicalQuery)) ||
+          (item.register && canonicalSearchKey(item.register).includes(canonicalQuery)) ||
+          (item.pronunciation && canonicalSearchKey(item.pronunciation).includes(canonicalQuery)) ||
+          (Array.isArray(item.topics) && item.topics.some((t) => canonicalSearchKey(t).includes(canonicalQuery)))
+        );
+        if (matchesMeta) {
+          tier = 4;
+        }
+      }
+
+      if (tier !== null) {
+        scored.push({ item, tier });
+      }
+    }
+
+    scored.sort((a, b) => {
+      if (a.tier !== b.tier) return a.tier - b.tier;
+      const uDiff = (USEFULNESS_ORDER[b.item.usefulnessBand] || 0) - (USEFULNESS_ORDER[a.item.usefulnessBand] || 0);
+      if (uDiff !== 0) return uDiff;
+      const dDiff = (DIFFICULTY_ORDER[a.item.difficultyBand] || 0) - (DIFFICULTY_ORDER[b.item.difficultyBand] || 0);
+      if (dDiff !== 0) return dDiff;
+      return a.item.id.localeCompare(b.item.id);
+    });
+
+    return scored.map((entry) => entry.item);
+  }
+
+  return { validateVocabulary, findWord, canonicalSearchKey, rankVocabulary };
 });

@@ -30,7 +30,7 @@ function element() {
 
 function popupApi(responses = {}, options = {}) {
   const elements = new Map();
-  const ids = ["status", "onboarding", "assigned", "empty", "error", "recovery", "warning", "empty-title", "error-title", "word", "meaning-ar", "meaning-en", "example", "example-en", "pronunciation", "fixed-label", "save", "speak", "reminder", "reminder-time", "onboarding-submit", "onboarding-skip", "explore", "explore-empty", "recovery-reset", "known", "difficult"];
+  const ids = ["status", "action-status", "onboarding", "assigned", "empty", "error", "recovery", "warning", "empty-title", "error-title", "word", "meaning-ar", "meaning-en", "example", "example-en", "pronunciation", "fixed-label", "save", "speak", "reminder", "reminder-time", "onboarding-submit", "onboarding-skip", "explore", "explore-empty", "recovery-reset", "known", "difficult"];
   for (const id of ids) elements.set(id, element());
   elements.get("reminder-time").value = "09:00";
   const inputs = ["classical-arabic", "daily-life", "family", "food", "language", "travel"].map((value) => ({ ...element(), value, name: "interest" }));
@@ -42,7 +42,7 @@ function popupApi(responses = {}, options = {}) {
   const calls = [];
   const extension = {
     runtime: { sendMessage(message) { calls.push(message); const response = responses[message.type]; const result = typeof response === "function" ? response(message, calls) : response; return result instanceof Error ? Promise.reject(result) : Promise.resolve(result ?? {}); }, getURL(value) { return `extension://kalimat/${value}`; } },
-    permissions: { request(value) { calls.push({ permission: value }); return Promise.resolve(true); } },
+    permissions: { request(value) { calls.push({ permission: value }); if (options.permissionError) return Promise.reject(options.permissionError); return Promise.resolve(Object.hasOwn(options, "permissionResult") ? options.permissionResult : true); } },
     tabs: { create(value) { calls.push({ tab: value }); return Promise.resolve(); } },
     storage: { local: { get() { return Promise.resolve({ "kalimat.profile": Object.hasOwn(options, "profile") ? options.profile : {} }); } } },
   };
@@ -54,7 +54,7 @@ function popupApi(responses = {}, options = {}) {
 
 function atlasApi(responses = {}, options = {}) {
   const elements = new Map();
-  const ids = ["status", "warning", "today", "explore", "history", "settings", "today-view", "explore-view", "history-view", "settings-view", "onboarding", "recovery", "empty", "error", "today-title", "explore-title", "history-title", "settings-title", "onboarding-title", "recovery-title", "empty-title", "error-title", "today-card", "today-empty", "explore-card", "atlas-search", "search-count", "search-results", "return-today", "history-filter", "history-list", "settings-english", "settings-save", "settings-time", "settings-reminder", "export", "import-file", "clear", "recovery-export", "recovery-import", "recovery-clear", "onboarding-settings", "today-save", "today-known", "today-difficult"];
+  const ids = ["status", "today-action-status", "warning", "today", "explore", "history", "settings", "today-view", "explore-view", "history-view", "settings-view", "onboarding", "recovery", "empty", "error", "today-title", "explore-title", "history-title", "settings-title", "onboarding-title", "recovery-title", "empty-title", "error-title", "today-card", "today-empty", "explore-card", "atlas-search", "search-count", "search-results", "return-today", "history-filter", "history-list", "settings-english", "settings-save", "settings-time", "settings-reminder", "export", "import-file", "clear", "recovery-export", "recovery-import", "recovery-clear", "onboarding-settings", "today-save", "today-known", "today-difficult", "explore-lookup"];
   for (const id of ids) elements.set(id, element());
   elements.get("history-filter").value = "all";
   const levels = [1, 2, 3, 4].map((value) => ({ ...element(), value: String(value), name: "atlas-level" }));
@@ -87,7 +87,7 @@ function atlasApi(responses = {}, options = {}) {
       },
       getURL(value) { return `extension://kalimat/${value}`; },
     },
-    permissions: { request() { return Promise.resolve(true); } },
+    permissions: { request() { if (options.permissionError) return Promise.reject(options.permissionError); return Promise.resolve(Object.hasOwn(options, "permissionResult") ? options.permissionResult : true); } },
   };
   const vocabulary = options.vocabulary ?? [
     { id: "w1", word: "كلمة", normalized: "كلمة", meaningAr: "معنى", meaningEn: "meaning", pronunciation: "/w1/", exampleAr: "مثال" },
@@ -95,6 +95,7 @@ function atlasApi(responses = {}, options = {}) {
   ];
   const context = {
     document, chrome: extension, Promise, console, URLSearchParams, URL, Blob,
+    KalimatVocabulary: require("../shared/vocabulary.js"),
     location: { search: options.search ?? "" },
     fetch: async () => ({ ok: true, async json() { return vocabulary; } }),
     confirm: options.confirm ?? (() => true),
@@ -113,7 +114,9 @@ test("popup ships separate native files without unsafe markup or timer work", ()
   assert.match(html, /<html\s+lang="ar"\s+dir="rtl">/);
   assert.match(html, /<link[^>]+href="popup\.css"/);
   assert.match(html, /<script\s+src="popup\.js"><\/script>/);
-  assert.doesNotMatch(`${html}\n${css}\n${js}`, /https?:\/\/|\b(?:innerHTML|outerHTML)\b|\b(?:setInterval|setTimeout)\s*\(/);
+  const withoutApprovedRemote = `${html}\n${css}\n${js}`.replace(/https:\/\/ar\.wiktionary\.org[^\s"'`)]*/g, "");
+  assert.doesNotMatch(withoutApprovedRemote, /https?:\/\/|\b(?:innerHTML|outerHTML)\b|\b(?:setInterval|setTimeout)\s*\(/);
+  assert.doesNotMatch(`${html}\n${js}`, /online[ -]lookup|lookup-result/i, "Popup must keep online lookup in Atlas only");
   assert.doesNotMatch(html, /\son[a-z]+\s*=/i);
   assert.doesNotMatch(html, /<script(?![^>]+\bsrc=)[^>]*>/i);
   assert.doesNotMatch(html, /<style\b/i);
@@ -125,10 +128,11 @@ test("popup exposes RTL accessible onboarding and assigned-word controls", () =>
   assert.match(html, /<main id="main"/);
   assert.match(html, /<h1[^>]*>كلمة اليوم<\/h1>/);
   assert.match(html, /id="status"[^>]+aria-live="polite"/);
+  assert.match(html, /id="action-status"[^>]+role="status"[^>]+aria-live="polite"/);
   assert.match(html, /aria-label="المستوى"/);
   assert.equal((html.match(/name="level"/g) || []).length, 4);
   assert.equal((html.match(/name="interest"/g) || []).length, 6);
-  for (const label of ["تخطي الآن", "ثابتة لليوم", "معروف", "صعب", "حفظ", "استكشف", "تذكير يومي"]) assert.match(html, new RegExp(`>${label}<`));
+  for (const label of ["تخطي الآن", "ثابتة لليوم", "معروف", "صعب", "حفظ", "استكشف", "تذكير يومي"]) assert.match(html, new RegExp(label));
   for (const id of ["known", "difficult", "save", "speak", "explore", "reminder", "onboarding-submit", "onboarding-skip"]) assert.match(html, new RegExp(`<button[^>]+id="${id}"`));
   assert.match(html, /<h2 id="word"[^>]+tabindex="-1"/);
   assert.match(html, /<input[^>]+id="reminder-time"[^>]+type="time"[^>]+value="09:00"/);
@@ -191,6 +195,46 @@ test("save uses a real attribute value and toggles both ways", async () => {
     { type: "word.save", wordId: "w1", saved: true },
     { type: "word.save", wordId: "w1", saved: false },
   ]);
+});
+
+test("popup feedback and save expose adjacent pending, success, failure, and focus states", async () => {
+  let releaseFeedback;
+  const feedback = new Promise((resolve) => { releaseFeedback = resolve; });
+  const fixture = popupApi({ "word.feedback": () => feedback, "word.save": { kind: "ok" } });
+  fixture.api.renderAssigned({ kind: "assigned", dateKey: "2026-07-30", word: { id: "w1", word: "كلمة", meaningAr: "معنى", exampleAr: "مثال", pronunciation: "/test/" } });
+  const known = fixture.elements.get("known");
+  const pending = fixture.api.sendFeedback("known", known);
+  await new Promise(setImmediate);
+  assert.equal(known.disabled, true);
+  assert.equal(known.getAttribute("aria-busy"), "true");
+  releaseFeedback({ kind: "ok" });
+  await pending;
+  assert.equal(known.getAttribute("aria-pressed"), "true");
+  assert.equal(known.focuses, 1);
+  assert.equal(fixture.elements.get("action-status").textContent, "تم حفظ تقييمك.");
+  assert.equal(fixture.elements.get("action-status").getAttribute("role"), "status");
+
+  await fixture.api.toggleSave();
+  assert.equal(fixture.elements.get("save").getAttribute("aria-pressed"), "true");
+  assert.equal(fixture.elements.get("save").focuses, 1);
+  assert.equal(fixture.elements.get("action-status").textContent, "حُفظت الكلمة.");
+
+  const failed = popupApi({ "word.feedback": new Error("offline") });
+  failed.api.renderAssigned({ kind: "assigned", dateKey: "2026-07-30", word: { id: "w1", word: "كلمة", meaningAr: "معنى", exampleAr: "مثال", pronunciation: "/test/" } });
+  const difficult = failed.elements.get("difficult");
+  await failed.api.sendFeedback("difficult", difficult);
+  assert.equal(difficult.getAttribute("aria-pressed"), "false");
+  assert.equal(difficult.focuses, 1);
+  assert.equal(failed.elements.get("action-status").textContent, "تعذّر حفظ تقييمك.");
+  assert.equal(failed.elements.get("action-status").getAttribute("role"), "alert");
+
+  const failedSave = popupApi({ "word.save": new Error("offline") });
+  failedSave.api.renderAssigned({ kind: "assigned", dateKey: "2026-07-30", word: { id: "w1", word: "كلمة", meaningAr: "معنى", exampleAr: "مثال", pronunciation: "/test/" } });
+  await failedSave.api.toggleSave();
+  assert.equal(failedSave.elements.get("save").getAttribute("aria-pressed"), "false");
+  assert.equal(failedSave.elements.get("save").focuses, 1);
+  assert.equal(failedSave.elements.get("action-status").textContent, "تعذّر تغيير الحفظ.");
+  assert.equal(failedSave.elements.get("action-status").getAttribute("role"), "alert");
 });
 
 test("popup restores validated feedback, saved state, and English visibility from assignment", () => {
@@ -364,11 +408,14 @@ test("Atlas ships a dark, accessible four-view page without unsafe sinks or time
   assert.match(html, /<html\s+lang="ar"\s+dir="rtl">/);
   assert.match(html, /<link[^>]+href="atlas\.css"/);
   assert.match(html, /<script\s+src="atlas\.js"><\/script>/);
-  for (const id of ["today", "explore", "history", "settings", "atlas-search", "return-today", "history-filter", "settings-level", "settings-english", "settings-time", "export", "import-file", "clear", "recovery-export", "recovery-import", "recovery-clear"]) assert.match(html, new RegExp(`id="${id}"`));
+  for (const id of ["today", "explore", "history", "settings", "atlas-search", "return-today", "history-filter", "settings-level", "settings-english", "settings-time", "export", "import-file", "clear", "recovery-export", "recovery-import", "recovery-clear", "today-action-status", "explore-lookup"]) assert.match(html, new RegExp(`id="${id}"`));
+  assert.match(html, /id="today-action-status"[^>]+role="status"[^>]+aria-live="polite"/);
+  assert.doesNotMatch(html, /id="today-lookup"/);
   assert.equal((html.match(/name="atlas-level"/g) || []).length, 4);
   assert.equal((html.match(/name="atlas-interest"/g) || []).length, 6);
   assert.match(html, /id="search-count"[^>]+aria-live="polite"/);
-  assert.doesNotMatch(`${html}\n${css}\n${js}`, /https?:\/\/|\b(?:innerHTML|outerHTML)\b|\b(?:setInterval|setTimeout)\s*\(/);
+  const withoutApprovedRemote = `${html}\n${css}\n${js}`.replace(/https:\/\/ar\.wiktionary\.org[^\s"'`)]*/g, "");
+  assert.doesNotMatch(withoutApprovedRemote, /https?:\/\/|\b(?:innerHTML|outerHTML)\b|\b(?:setInterval|setTimeout)\s*\(/);
   assert.doesNotMatch(html, /\son[a-z]+\s*=/i);
   assert.match(css, /background:\s*#102b2a/i);
   assert.match(css, /:focus-visible/);
@@ -376,6 +423,7 @@ test("Atlas ships a dark, accessible four-view page without unsafe sinks or time
   assert.match(css, /\.file-button[^}]*focus-visible/);
   assert.match(css, /:focus-visible[^}]*box-shadow/);
   assert.match(css, /prefers-reduced-motion:\s*reduce/);
+  assert.match(css, /\.action-status/);
   assert.match(html, /id="import-file"[^>]+tabindex="-1"/);
   assert.match(html, /id="recovery-import"[^>]+tabindex="-1"/);
   assert.match(html, /label class="file-button" tabindex="0"/);
@@ -391,7 +439,7 @@ test("Atlas keeps the daily anchor while exploration, history, settings, and rec
   assert.match(js, /type:\s*"reminder\.configure",\s*enabled,\s*time/);
   assert.match(js, /new Blob\(/);
   assert.match(js, /globalThis\.confirm/);
-  assert.match(js, /normalize\("NFD"\)/);
+  assert.match(js, /KalimatVocabulary\?\.canonicalSearchKey/);
   assert.match(js, /relatedIds/);
   assert.doesNotMatch(js, /state\s*=\s*\{[^}]*viewed/);
   assert.doesNotMatch(js, /regenerate|Math\.random/);
@@ -415,6 +463,65 @@ test("Atlas dated query loads only the retained date plus profile and settings",
   await fixture.api.initialize();
   assert.equal(fixture.calls.some((message) => message.type === "assignment.get" && message.dateKey === undefined), false);
   assert.deepEqual(fixture.calls.filter((message) => message.type === "assignment.get").map((message) => message.dateKey), ["2026-07-28"]);
+});
+
+test("Atlas blank Explore shows every reviewed local word and ranks exact and prefix matches", async () => {
+  const vocabulary = [
+    { id: "meta", word: "كتاب", normalized: "كتاب", meaningAr: "لفظ", meaningEn: "book", pronunciation: "/meta/", exampleAr: "مثال", difficultyBand: "advanced", usefulnessBand: "low", reviewed: true },
+    { id: "prefix", word: "كاتب", normalized: "كاتب", meaningAr: "كاتب", meaningEn: "writer", pronunciation: "/prefix/", exampleAr: "مثال", difficultyBand: "beginner", usefulnessBand: "high", reviewed: true },
+    { id: "exact", word: "كتب", normalized: "كتب", meaningAr: "فعل", meaningEn: "wrote", pronunciation: "/exact/", exampleAr: "مثال", difficultyBand: "intermediate", usefulnessBand: "medium", reviewed: true },
+  ];
+  const fixture = atlasApi({
+    "assignment.get": { kind: "assigned", wordId: "exact", dateKey: "2026-07-30" },
+    "state.export": { kind: "export", text: JSON.stringify(atlasProfile()) },
+    "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } },
+  }, { vocabulary });
+  await fixture.api.initialize();
+  fixture.elements.get("atlas-search").value = "";
+  fixture.api.search();
+  assert.equal(fixture.elements.get("search-results").children.length, vocabulary.length);
+  assert.match(fixture.elements.get("search-count").textContent, /3/);
+  fixture.elements.get("atlas-search").value = "كتب";
+  fixture.api.search();
+  assert.equal(fixture.elements.get("search-results").children[0].textContent.startsWith("كتب"), true);
+  assert.equal(fixture.elements.get("search-results").children.length, 1);
+});
+
+test("Atlas online lookup requests permission inside submit and stops on denial without messaging", async () => {
+  const responses = {
+    "assignment.get": { kind: "assigned", wordId: "w1", dateKey: "2026-07-30" },
+    "state.export": { kind: "export", text: JSON.stringify(atlasProfile()) },
+    "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } },
+  };
+  for (const options of [{ permissionResult: false }, { permissionError: new Error("denied") }]) {
+    const fixture = atlasApi(responses, options);
+    await fixture.api.initialize();
+    const button = fixture.elements.get("explore-lookup");
+    await fixture.api.lookupOnline("كلمة", button);
+    assert.equal(fixture.calls.filter((message) => message.type === "online.lookup").length, 0);
+    assert.match(fixture.elements.get("status").textContent, /إذن|تعذّر|رفض/);
+    assert.equal(button.focuses, 1);
+    assert.equal(button.disabled, false);
+  }
+});
+
+test("Atlas renders a safe unreviewed online result separately from local learning state", async () => {
+  const fixture = atlasApi({
+    "assignment.get": { kind: "assigned", wordId: "w1", dateKey: "2026-07-30" },
+    "state.export": { kind: "export", text: JSON.stringify(atlasProfile()) },
+    "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } },
+    "online.lookup": { kind: "online-result", query: "كلمة", headword: "كلمة", definitionAr: "<img onerror=alert(1)>", sourceUrl: "https://ar.wiktionary.org/wiki/%D9%83%D9%84%D9%85%D8%A9", retrievedAt: "2026-08-11T00:00:00.000Z", unreviewed: true },
+  });
+  await fixture.api.initialize();
+  await fixture.api.lookupOnline("كلمة", fixture.elements.get("explore-lookup"));
+  assert.equal(fixture.calls.filter((message) => message.type === "online.lookup").length, 1);
+  const card = fixture.elements.get("explore-card");
+  assert.equal(card.children[0].textContent, "قاموس خارجي (غير مراجعة)");
+  assert.equal(card.children[2].textContent, "<img onerror=alert(1)>");
+  assert.match(card.children.find((node) => node.className === "online-attribution").textContent, /CC BY-SA 4\.0.*GFDL/);
+  assert.match(card.children.find((node) => node.className === "online-retrieved").textContent, /2026-08-11T00:00:00\.000Z/);
+  assert.equal(card.children.some((node) => node.tagName === "BUTTON"), false);
+  assert.equal(fixture.calls.some((message) => message.type === "word.feedback" || message.type === "word.save"), false);
 });
 
 test("Atlas initial daily response merges returned status and save into History", async () => {
@@ -555,6 +662,64 @@ test("Atlas feedback and save update Today and History from returned authoritati
   assert.equal(fixture.elements.get("today-save").getAttribute("aria-pressed"), "true");
 });
 
+test("Atlas Today actions expose adjacent pending, success, failure, and focus states", async () => {
+  let releaseKnown;
+  let releaseSave;
+  const knownResult = new Promise((resolve) => { releaseKnown = resolve; });
+  const saveResult = new Promise((resolve) => { releaseSave = resolve; });
+  const fixture = atlasApi({
+    "assignment.get": { kind: "assigned", wordId: "w1", dateKey: "2026-07-30" },
+    "state.export": { kind: "export", text: JSON.stringify(atlasProfile()) },
+    "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } },
+    "word.feedback": (message) => message.status === "known" ? knownResult : { kind: "ok", wordId: "w1", dateKey: "2026-07-30", status: "difficult" },
+    "word.save": () => saveResult,
+  });
+  await fixture.api.initialize();
+  const known = fixture.elements.get("today-known");
+  const knownPending = fixture.api.feedback("known");
+  await new Promise(setImmediate);
+  assert.equal(known.disabled, true);
+  assert.equal(known.getAttribute("aria-busy"), "true");
+  releaseKnown({ kind: "ok", wordId: "w1", dateKey: "2026-07-30", status: "known" });
+  await knownPending;
+  assert.equal(known.getAttribute("aria-pressed"), "true");
+  assert.equal(known.focuses, 1);
+  assert.equal(fixture.elements.get("today-action-status").textContent, "تم حفظ تقييمك.");
+  assert.equal(fixture.elements.get("today-action-status").getAttribute("role"), "status");
+
+  await fixture.api.feedback("difficult");
+  assert.equal(fixture.elements.get("today-difficult").getAttribute("aria-pressed"), "true");
+  assert.equal(fixture.elements.get("today-difficult").focuses, 1);
+
+  const savePending = fixture.api.toggleSave();
+  await new Promise(setImmediate);
+  const save = fixture.elements.get("today-save");
+  assert.equal(save.disabled, true);
+  assert.equal(save.getAttribute("aria-busy"), "true");
+  releaseSave({ kind: "ok", wordId: "w1", saved: true });
+  await savePending;
+  assert.equal(save.getAttribute("aria-pressed"), "true");
+  assert.equal(save.focuses, 1);
+  assert.equal(fixture.elements.get("today-action-status").textContent, "حُفظت الكلمة.");
+
+  const failed = atlasApi({
+    "assignment.get": { kind: "assigned", wordId: "w1", dateKey: "2026-07-30" },
+    "state.export": { kind: "export", text: JSON.stringify(atlasProfile()) },
+    "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } },
+    "word.feedback": new Error("offline"),
+    "word.save": new Error("offline"),
+  });
+  await failed.api.initialize();
+  await failed.api.feedback("difficult");
+  assert.equal(failed.elements.get("today-difficult").getAttribute("aria-pressed"), "false");
+  assert.equal(failed.elements.get("today-difficult").focuses, 1);
+  assert.equal(failed.elements.get("today-action-status").getAttribute("role"), "alert");
+  await failed.api.toggleSave();
+  assert.equal(failed.elements.get("today-save").getAttribute("aria-pressed"), "false");
+  assert.equal(failed.elements.get("today-save").focuses, 1);
+  assert.equal(failed.elements.get("today-action-status").textContent, "تعذّر الحفظ.");
+});
+
 test("Atlas settings rerender English visibility in Today and the current Explore card", async () => {
   const profile = atlasProfile({ assignments: { "2026-07-30": { wordId: "w1" } }, assignmentOrdinal: 1 });
   const fixture = atlasApi({
@@ -596,7 +761,7 @@ test("Atlas renders practical context before the literary example and honors Eng
 });
 
 test("Atlas search includes practical context and vocabulary metadata", async () => {
-  const word = { id: "w1", word: "كلمة", normalized: "كلمة", meaningAr: "معنى", meaningEn: "meaning", contextAr: "market counter", contextEn: "at the market", exampleAr: "مثال", pronunciation: "/w1/", root: "k-t-b", pattern: "fa3ala", register: "standard", partOfSpeech: "verb" };
+  const word = { id: "w1", word: "كلمة", normalized: "كلمة", meaningAr: "معنى", meaningEn: "meaning", contextAr: "market counter", contextEn: "at the market", exampleAr: "مثال", pronunciation: "/w1/", root: "k-t-b", pattern: "fa3ala", register: "standard", partOfSpeech: "verb", reviewed: true };
   const fixture = atlasApi({
     "assignment.get": { kind: "assigned", wordId: "w1", dateKey: "2026-07-30" },
     "state.export": { kind: "export", text: JSON.stringify(atlasProfile({ assignments: { "2026-07-30": { wordId: "w1" } }, assignmentOrdinal: 1 })) },
