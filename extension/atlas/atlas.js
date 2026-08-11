@@ -50,6 +50,19 @@
     parent.append(node);
   }
 
+  function addLabeledText(parent, value, className, label, direction) {
+    if (!value) return;
+    const node = document.createElement("p");
+    node.className = className;
+    if (direction) node.dir = direction;
+    addText(node, "span", label, "label", direction);
+    addText(node, "span", value, "text", direction);
+    parent.append(node);
+  }
+
+  const REGISTER_LABELS = { standard: "فصيح معاصر", classical: "كلاسيكي", colloquial: "عامي" };
+  const PART_LABELS = { noun: "اسم", verb: "فعل", adjective: "صفة", adverb: "ظرف", phrase: "عبارة", other: "أخرى" };
+
   function renderWord(container, word) {
     container.replaceChildren();
     if (!word) return;
@@ -60,12 +73,21 @@
     addText(container, "p", word.meaningAr, "meaning", "rtl");
     if (state.profile?.showEnglish !== false) addText(container, "p", word.meaningEn, "english", "ltr");
     addText(container, "p", word.pronunciation, "pronunciation", "ltr");
-    addText(container, "p", word.exampleAr, "example", "rtl");
+    addLabeledText(container, word.contextAr, "context", "\u0633\u064a\u0627\u0642 \u0639\u0645\u0644\u064a", "rtl");
+    if (state.profile?.showEnglish !== false) addLabeledText(container, word.contextEn, "context english", "Practical context", "ltr");
+    addLabeledText(container, word.exampleAr, "example", "\u0645\u062b\u0627\u0644 \u0623\u062f\u0628\u064a / \u0623\u0635\u0644\u064a", "rtl");
     if (word.root || word.pattern) {
       const details = document.createElement("p");
-      details.className = "root";
+      details.className = "root metadata";
       if (word.root) addText(details, "span", `الجذر: ${word.root}`);
       if (word.pattern) addText(details, "span", `الوزن: ${word.pattern}`);
+      container.append(details);
+    }
+    if (word.register || word.partOfSpeech) {
+      const details = document.createElement("p");
+      details.className = "metadata";
+      if (word.register) addText(details, "span", `السجل: ${REGISTER_LABELS[word.register] ?? word.register}`);
+      if (word.partOfSpeech) addText(details, "span", `نوع الكلمة: ${PART_LABELS[word.partOfSpeech] ?? word.partOfSpeech}`);
       container.append(details);
     }
     if (Array.isArray(word.relatedIds)) {
@@ -117,7 +139,7 @@
 
   function search() {
     const query = normalize(elements["atlas-search"].value).trim();
-    const matches = query ? state.vocabulary.filter((word) => [word.word, word.normalized, word.meaningAr, word.meaningEn].some((value) => normalize(value).includes(query))).slice(0, 20) : [];
+    const matches = query ? state.vocabulary.filter((word) => [word.word, word.normalized, word.meaningAr, word.meaningEn, word.contextAr, word.contextEn, word.root, word.pattern, word.register, word.partOfSpeech].some((value) => normalize(value).includes(query))).slice(0, 20) : [];
     elements["search-results"].replaceChildren();
     elements["search-count"].textContent = query ? `${matches.length} نتيجة` : "";
     for (const word of matches) {

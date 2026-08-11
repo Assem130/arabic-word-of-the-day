@@ -6,8 +6,9 @@
   "use strict";
 
   const REQUIRED_KEYS = ["id", "contentVersion", "word", "normalized", "pronunciation", "meaningAr", "meaningEn", "exampleAr", "difficultyBand", "usefulnessBand", "topics", "partOfSpeech", "register", "reviewed"];
+  const V2_KEYS = ["contextAr", "contextEn"];
   const OPTIONAL_KEYS = ["root", "pattern", "relatedIds"];
-  const ALLOWED_KEYS = new Set([...REQUIRED_KEYS, ...OPTIONAL_KEYS]);
+  const ALLOWED_KEYS = new Set([...REQUIRED_KEYS, ...V2_KEYS, ...OPTIONAL_KEYS]);
   const ENUMS = {
     difficultyBand: new Set(["beginner", "intermediate", "advanced"]),
     usefulnessBand: new Set(["low", "medium", "high"]),
@@ -31,11 +32,13 @@
     const records = raw.map((record) => {
       if (!record || typeof record !== "object" || Array.isArray(record) || Object.getPrototypeOf(record) !== Object.prototype) fail("record");
       const keys = Object.keys(record);
-      if (keys.length > REQUIRED_KEYS.length + OPTIONAL_KEYS.length || keys.some((key) => !ALLOWED_KEYS.has(key)) || REQUIRED_KEYS.some((key) => !Object.hasOwn(record, key))) fail("record keys");
+      if (keys.length > REQUIRED_KEYS.length + V2_KEYS.length + OPTIONAL_KEYS.length || keys.some((key) => !ALLOWED_KEYS.has(key)) || REQUIRED_KEYS.some((key) => !Object.hasOwn(record, key))) fail("record keys");
       if (!ID.test(record.id) || ids.has(record.id)) fail(ids.has(record.id) ? "unique IDs" : "id");
       ids.add(record.id);
       if (!Number.isInteger(record.contentVersion) || record.contentVersion < 1 || record.contentVersion > 1000) fail("contentVersion");
+      if (record.contentVersion === 2 && V2_KEYS.some((key) => !Object.hasOwn(record, key))) fail("record keys");
       for (const field of ["word", "normalized", "pronunciation", "meaningAr", "meaningEn", "exampleAr"]) text(record[field], field);
+      if (record.contentVersion === 2) for (const field of V2_KEYS) text(record[field], field);
       for (const field of ["difficultyBand", "usefulnessBand", "partOfSpeech", "register"]) if (!ENUMS[field].has(record[field])) fail(field);
       if (!Array.isArray(record.topics) || record.topics.length < 1 || record.topics.length > 8 || record.topics.some((topic) => text(topic, "topics", 64) !== topic)) fail("topics");
       if (record.reviewed !== true) throw new TypeError("Vocabulary records must be reviewed.");

@@ -63,7 +63,7 @@
     return {
       onboarding: byId("onboarding"), assigned: byId("assigned"), empty: byId("empty"), error: byId("error"), recovery: byId("recovery"), warning: byId("warning"), status: byId("status"),
       onboardingTitle: byId("onboarding-title"), emptyTitle: byId("empty-title"), errorTitle: byId("error-title"), recoveryTitle: byId("recovery-title"),
-      word: byId("word"), meaningAr: byId("meaning-ar"), meaningEn: byId("meaning-en"), example: byId("example"), pronunciation: byId("pronunciation"),
+      word: byId("word"), meaningAr: byId("meaning-ar"), meaningEn: byId("meaning-en"), example: byId("example"), contextEn: byId("example-en"), pronunciation: byId("pronunciation"),
       known: byId("known"), difficult: byId("difficult"), save: byId("save"), speak: byId("speak"), explore: byId("explore"), reminder: byId("reminder"), reminderTime: byId("reminder-time"), onboardingSubmit: byId("onboarding-submit"),
       interests: document.querySelectorAll('input[name="interest"]'), levels: document.querySelectorAll('input[name="level"]'),
     };
@@ -79,7 +79,11 @@
     elements.meaningAr.textContent = word.meaningAr;
     elements.meaningEn.textContent = word.meaningEn ?? "";
     elements.meaningEn.hidden = !state.showEnglish || !word.meaningEn;
-    elements.example.textContent = word.exampleAr;
+    elements.example.textContent = word.contextAr || word.exampleAr || "";
+    if (elements.contextEn) {
+      elements.contextEn.textContent = word.contextEn ?? "";
+      elements.contextEn.hidden = !state.showEnglish || !word.contextEn;
+    }
     elements.pronunciation.textContent = word.pronunciation;
     elements.known.setAttribute("aria-pressed", String(result.status === "known"));
     elements.difficult.setAttribute("aria-pressed", String(result.status === "difficult"));

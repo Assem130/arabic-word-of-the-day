@@ -106,6 +106,24 @@ test("widens exactly one ability band before farther bands", async () => {
   assert.deepEqual(result, { kind: "assigned", wordId: "intermediate" });
 });
 
+test("level 4 selects advanced and reports zero ability distance", async () => {
+  const result = await selectDaily({
+    vocabulary: [word("beginner"), word("advanced", { difficultyBand: "advanced" })],
+    profile: profile({ level: 4 }),
+    dateKey,
+    explain: true,
+  });
+  assert.equal(result.wordId, "advanced");
+  assert.equal(result.explanation.abilityDistance, 0);
+});
+
+test("level 4 selection remains deterministic across corpus order", async () => {
+  const vocabulary = [word("beginner"), word("advanced", { difficultyBand: "advanced" })];
+  const a = await selected(vocabulary, profile({ level: 4 }));
+  const b = await selected([...vocabulary].reverse(), profile({ level: 4 }));
+  assert.deepEqual(a, b);
+});
+
 test("cooldown is min(14, floor(eligible / 3)) and relaxes only after all bands are exhausted", async () => {
   const vocabulary = [word("recent"), word("other-a"), word("other-b")];
   const result = await selected(vocabulary, profile({ recentIds: ["recent", "other-a", "other-b"] }));

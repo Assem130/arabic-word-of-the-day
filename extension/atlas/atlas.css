@@ -24,7 +24,8 @@ nav button { background: transparent; border-color: #71908d; color: #f5f0e5; }
 .word-card { background: #f5f0e5; border-radius: 14px; color: #102b2a; margin: 16px 0; padding: clamp(18px, 5vw, 38px); }
 .word-card h3 { font-family: Georgia, serif; font-size: clamp(2.2rem, 9vw, 4.8rem); margin: 0 0 12px; }
 .word-card p { line-height: 1.65; }
-.word-card .root { color: #45605b; display: flex; flex-wrap: wrap; gap: 16px; }
+.word-card .label { color: #45605b; display: block; font-size: .75rem; font-weight: 700; margin-bottom: 4px; }
+.word-card .metadata { color: #45605b; display: flex; flex-wrap: wrap; gap: 16px; }
 .word-card button { margin: 4px; }
 .result-list, .history-list { display: grid; gap: 8px; margin-top: 16px; }
 .result-list button, .history-list button { background: #204746; border-radius: 8px; color: #f5f0e5; text-align: start; }

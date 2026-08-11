@@ -30,7 +30,7 @@ function element() {
 
 function popupApi(responses = {}, options = {}) {
   const elements = new Map();
-  const ids = ["status", "onboarding", "assigned", "empty", "error", "recovery", "warning", "empty-title", "error-title", "word", "meaning-ar", "meaning-en", "example", "pronunciation", "fixed-label", "save", "speak", "reminder", "reminder-time", "onboarding-submit", "onboarding-skip", "explore", "explore-empty", "recovery-reset", "known", "difficult"];
+  const ids = ["status", "onboarding", "assigned", "empty", "error", "recovery", "warning", "empty-title", "error-title", "word", "meaning-ar", "meaning-en", "example", "example-en", "pronunciation", "fixed-label", "save", "speak", "reminder", "reminder-time", "onboarding-submit", "onboarding-skip", "explore", "explore-empty", "recovery-reset", "known", "difficult"];
   for (const id of ids) elements.set(id, element());
   elements.get("reminder-time").value = "09:00";
   const inputs = ["classical-arabic", "daily-life", "family", "food", "language", "travel"].map((value) => ({ ...element(), value, name: "interest" }));
@@ -149,11 +149,23 @@ test("popup exposes RTL accessible onboarding and assigned-word controls", () =>
   assert.match(source("popup.css"), /\.reminder-row button\[aria-pressed="true"\]::after\s*\{[^}]*translateX\(20px\)/);
 });
 
-test("popup renders hostile assigned-word content as text and caps interests", () => {
-  const { api, elements, inputs } = popupApi();
+test("popup renders practical context before the literary fallback as safe text", () => {
+  const { api, elements } = popupApi();
   assert.ok(api);
-  api.renderAssigned({ kind: "assigned", word: { id: "w1", word: "<img onerror=alert(1)>", meaningAr: "معنى", meaningEn: "meaning", exampleAr: "مثال", pronunciation: "/test/" } });
+  api.renderAssigned({ kind: "assigned", word: { id: "w1", word: "كلمة", meaningAr: "معنى", meaningEn: "meaning", contextAr: "<img onerror=alert(1)>", exampleAr: "مثال أدبي", pronunciation: "/test/" } });
+  assert.equal(elements.get("example").textContent, "<img onerror=alert(1)>");
+  api.renderAssigned({ kind: "assigned", word: { id: "w1", word: "كلمة", meaningAr: "معنى", meaningEn: "meaning", exampleAr: "مثال أدبي", pronunciation: "/test/" } });
+  assert.equal(elements.get("example").textContent, "مثال أدبي");
+});
+
+test("popup shows English practical context only when enabled and preserves text content", () => {
+  const { api, elements, inputs } = popupApi();
+  api.renderAssigned({ kind: "assigned", word: { id: "w1", word: "<img onerror=alert(1)>", meaningAr: "معنى", meaningEn: "meaning", contextAr: "سياق", contextEn: "<img onerror=alert(1)>", exampleAr: "مثال", pronunciation: "/test/" } });
   assert.equal(elements.get("word").textContent, "<img onerror=alert(1)>");
+  assert.equal(elements.get("example-en").textContent, "<img onerror=alert(1)>");
+  assert.equal(elements.get("example-en").hidden, false);
+  api.renderAssigned({ kind: "assigned", showEnglish: false, word: { id: "w1", word: "كلمة", meaningAr: "معنى", meaningEn: "meaning", contextAr: "سياق", contextEn: "in context", exampleAr: "مثال", pronunciation: "/test/" } });
+  assert.equal(elements.get("example-en").hidden, true);
   inputs.slice(0, 3).forEach((input) => { input.checked = true; });
   inputs[3].checked = true;
   api.limitInterests({ target: inputs[3] });
@@ -558,6 +570,45 @@ test("Atlas settings rerender English visibility in Today and the current Explor
   await fixture.api.saveSettings();
   assert.equal(fixture.elements.get("today-card").children.some((node) => node.className === "english"), false);
   assert.equal(fixture.elements.get("explore-card").children.some((node) => node.className === "english"), false);
+});
+
+test("Atlas renders practical context before the literary example and honors English visibility", async () => {
+  const word = { id: "w1", word: "كلمة", normalized: "كلمة", meaningAr: "معنى", meaningEn: "meaning", contextAr: "سياق عملي", contextEn: "practical context", exampleAr: "مثال أدبي", pronunciation: "/w1/" };
+  const responses = {
+    "assignment.get": { kind: "assigned", wordId: "w1", dateKey: "2026-07-30" },
+    "state.export": { kind: "export", text: JSON.stringify(atlasProfile({ assignments: { "2026-07-30": { wordId: "w1" } }, assignmentOrdinal: 1 })) },
+    "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } },
+  };
+  const visible = atlasApi(responses, { vocabulary: [word] });
+  await visible.api.initialize();
+  const cards = visible.elements.get("today-card").children;
+  const context = cards.find((node) => node.className === "context");
+  const example = cards.find((node) => node.className === "example");
+  const contextEnglish = cards.find((node) => node.className === "context english");
+  assert.ok(context && example && contextEnglish);
+  assert.ok(cards.indexOf(context) < cards.indexOf(example));
+  assert.equal(context.children.at(-1).textContent, "سياق عملي");
+  assert.equal(contextEnglish.children.at(-1).textContent, "practical context");
+
+  const hidden = atlasApi({ ...responses, "state.export": { kind: "export", text: JSON.stringify(atlasProfile({ showEnglish: false, assignments: { "2026-07-30": { wordId: "w1" } }, assignmentOrdinal: 1 })) } }, { vocabulary: [word] });
+  await hidden.api.initialize();
+  assert.equal(hidden.elements.get("today-card").children.some((node) => node.className === "context english"), false);
+});
+
+test("Atlas search includes practical context and vocabulary metadata", async () => {
+  const word = { id: "w1", word: "كلمة", normalized: "كلمة", meaningAr: "معنى", meaningEn: "meaning", contextAr: "market counter", contextEn: "at the market", exampleAr: "مثال", pronunciation: "/w1/", root: "k-t-b", pattern: "fa3ala", register: "standard", partOfSpeech: "verb" };
+  const fixture = atlasApi({
+    "assignment.get": { kind: "assigned", wordId: "w1", dateKey: "2026-07-30" },
+    "state.export": { kind: "export", text: JSON.stringify(atlasProfile({ assignments: { "2026-07-30": { wordId: "w1" } }, assignmentOrdinal: 1 })) },
+    "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } },
+  }, { vocabulary: [word] });
+  await fixture.api.initialize();
+  for (const query of ["market", "k-t-b", "fa3ala", "standard", "verb"]) {
+    fixture.elements.get("atlas-search").value = query;
+    fixture.api.search();
+    assert.equal(fixture.elements.get("search-results").children.length, 1, query);
+    assert.match(fixture.elements.get("search-results").children[0].textContent, /كلمة/);
+  }
 });
 
 test("Atlas clear followed by onboarding settings requests and renders a new daily assignment", async () => {

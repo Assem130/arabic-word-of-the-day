@@ -78,6 +78,10 @@
     return profile.assignments && typeof profile.assignments === "object" ? Object.keys(profile.assignments).length : 0;
   }
 
+  function normalizeLevel(level) {
+    return Number.isInteger(level) ? Math.min(3, Math.max(1, level)) : 1;
+  }
+
   function pickBand(candidates, level, recentIds, cooldown) {
     const blocked = new Set(recentIds.slice(0, cooldown));
     const available = candidates.filter((candidate) => !blocked.has(candidate.id));
@@ -103,7 +107,7 @@
     const byId = new Map(reviewed.map((word) => [word.id, word]));
     const recentWords = recentIds.map((id) => byId.get(id)).filter(Boolean);
     const cooldown = Math.min(14, Math.floor(eligible.length / 3));
-    const level = Number.isInteger(profile.level) ? profile.level : 1;
+    const level = normalizeLevel(profile.level);
     let candidates = pickBand(eligible, level, recentIds, cooldown);
     const cooldownRelaxed = !candidates.length;
     if (cooldownRelaxed) candidates = pickBand(eligible, level, [], 0);
