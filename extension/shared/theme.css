@@ -1,0 +1,78 @@
+@font-face {
+  font-family: "Amiri";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/Amiri-Regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Amiri";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../assets/fonts/Amiri-Bold.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Outfit";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/Outfit-Regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Outfit";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../assets/fonts/Outfit-Medium.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Outfit";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("../assets/fonts/Outfit-SemiBold.woff2") format("woff2");
+}
+
+:root {
+  --ink: #14211b;
+  --ink-soft: #24332b;
+  --paper: #d8cfbf;
+  --paper-light: #f3efe5;
+  --lime: #d9ff76;
+  --line-dark: rgb(20 33 27 / 34%);
+  --line-light: rgb(243 239 229 / 40%);
+  --serif: "Amiri", "Traditional Arabic", Georgia, serif;
+  --sans: "Outfit", "Segoe UI", system-ui, sans-serif;
+  --target-size: 44px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+:focus-visible {
+  outline: 3px solid var(--lime);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 4px var(--ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (forced-colors: active) {
+  :focus-visible {
+    outline: 3px solid Highlight;
+    outline-offset: 3px;
+  }
+}

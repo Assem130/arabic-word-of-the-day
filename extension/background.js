@@ -1,5 +1,5 @@
 if (!globalThis.KalimatVocabulary && typeof importScripts === "function") {
-  importScripts("shared/date.js", "shared/vocabulary.js", "shared/state.js", "shared/selector.js");
+  importScripts("shared/date.js", "shared/vocabulary.js", "shared/state.js", "shared/selector.js", "shared/lookup.js");
 }
 
 const dependencies = typeof module === "object" && module.exports
@@ -8,8 +8,15 @@ const dependencies = typeof module === "object" && module.exports
     vocabulary: require("./shared/vocabulary.js"),
     state: require("./shared/state.js"),
     selector: require("./shared/selector.js"),
+    lookup: require("./shared/lookup.js"),
   }
-  : { date: globalThis.KalimatDate, vocabulary: globalThis.KalimatVocabulary, state: globalThis.KalimatState, selector: globalThis.KalimatSelector };
+  : {
+    date: globalThis.KalimatDate,
+    vocabulary: globalThis.KalimatVocabulary,
+    state: globalThis.KalimatState,
+    selector: globalThis.KalimatSelector,
+    lookup: globalThis.KalimatLookup,
+  };
 const ExtApi = globalThis.browser ?? globalThis.chrome;
 const PROFILE_KEY = "kalimat.profile";
 const REMINDER_KEY = "kalimat.reminder";
@@ -446,6 +453,36 @@ function handleMessage(message) {
       return warning({ kind: "ok", reminderWarning }, profileWarning || reminderWarning);
     }
     if (message.type === "reminder.configure") return configureReminder(message);
+    if (message.type === "online.lookup") {
+      if (!exactMessage(message, new Set(["type", "query"])) || typeof message.query !== "string") {
+        throw new TypeError("Invalid lookup.");
+      }
+      const lookupApi = dependencies.lookup ?? (typeof require === "function" ? require("./shared/lookup.js") : globalThis.KalimatLookup);
+      let validatedQuery;
+      try {
+        validatedQuery = lookupApi.validateQuery(message.query);
+      } catch (_) {
+        throw new TypeError("Invalid lookup.");
+      }
+
+      let hasHostPerm = false;
+      if (typeof ExtApi.permissions?.contains === "function") {
+        try {
+          hasHostPerm = await ExtApi.permissions.contains({ origins: ["https://ar.wiktionary.org/*"] });
+        } catch (_) {
+          hasHostPerm = false;
+        }
+      }
+
+      if (!hasHostPerm) {
+        if (typeof globalThis.browser !== "undefined" && typeof globalThis.chrome === "undefined") {
+          return { kind: "unsupported" };
+        }
+        return { kind: "permission-needed" };
+      }
+
+      return lookupApi.performLookup(validatedQuery, globalThis.fetch);
+    }
     throw new TypeError("Unknown message.");
   });
 }

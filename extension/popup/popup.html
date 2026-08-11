@@ -4,58 +4,119 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>كلمة اليوم</title>
+  <link rel="stylesheet" href="../shared/theme.css">
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
   <a class="skip-link" href="#main">تجاوز إلى المحتوى</a>
   <main id="main" tabindex="-1">
-    <header class="masthead"><h1>كلمة اليوم</h1><p>كلمات</p></header>
+    <header class="masthead">
+      <h1>كلمة اليوم</h1>
+      <p>طريقك اليومي إلى العربية الفصحى</p>
+    </header>
     <p id="status" class="status" aria-live="polite"></p>
-
+    <p id="warning" class="warning" role="status" hidden>تُعرض بياناتك، لكن تعذّر حفظ آخر تغيير.</p>
     <section id="onboarding" aria-labelledby="onboarding-title" hidden>
-      <h2 id="onboarding-title">لنبدأ من مكانك</h2>
-      <fieldset class="level-set"><legend aria-label="المستوى">مستواك</legend><div class="levels">
-        <label><input type="radio" name="level" value="1" checked><span class="level-mark" aria-hidden="true">●</span><strong>مبتدئ</strong><small>A1–A2</small></label>
-        <label><input type="radio" name="level" value="2"><span class="level-mark" aria-hidden="true">○</span><strong>متوسط</strong><small>B1–B2</small></label>
-        <label><input type="radio" name="level" value="3"><span class="level-mark" aria-hidden="true">△</span><strong>متقدم</strong><small>متقدم · C1</small></label>
-        <label><input type="radio" name="level" value="4"><span class="level-mark" aria-hidden="true">◆</span><strong>خبير</strong><small>متقدم · C2</small></label>
-      </div>
+      <h2 id="onboarding-title" tabindex="-1">اختر ما يناسبك</h2>
+      <fieldset class="level-set">
+        <legend>المستوى <span>(واحد فقط)</span></legend>
+        <div class="levels" role="radiogroup" aria-label="المستوى">
+          <label>
+            <span class="level-mark">١</span>
+            <input type="radio" name="level" value="1" checked>
+            <strong>مبتدئ</strong>
+            <small>A1-A2</small>
+          </label>
+          <label>
+            <span class="level-mark">٢</span>
+            <input type="radio" name="level" value="2">
+            <strong>متوسط</strong>
+            <small>B1-B2</small>
+          </label>
+          <label>
+            <span class="level-mark">٣</span>
+            <input type="radio" name="level" value="3">
+            <strong>متقدم</strong>
+            <small>C1</small>
+          </label>
+          <label>
+            <span class="level-mark">٤</span>
+            <input type="radio" name="level" value="4">
+            <strong>خبير</strong>
+            <small>C2 / تراثي</small>
+          </label>
+        </div>
       </fieldset>
-      <fieldset class="interests"><legend>ما الذي يهمك؟ <span>اختر حتى ثلاثة</span></legend>
-        <label><input type="checkbox" name="interest" value="classical-arabic"> العربية الكلاسيكية</label>
+      <fieldset class="interests">
+        <legend>اهتماماتك <span>(حتى ثلاثة)</span></legend>
         <label><input type="checkbox" name="interest" value="daily-life"> الحياة اليومية</label>
-        <label><input type="checkbox" name="interest" value="family"> العائلة</label>
-        <label><input type="checkbox" name="interest" value="food"> الطعام</label>
-        <label><input type="checkbox" name="interest" value="language"> اللغة</label>
-        <label><input type="checkbox" name="interest" value="travel"> السفر</label>
+        <label><input type="checkbox" name="interest" value="classical-arabic"> العربية الكلاسيكية</label>
+        <label><input type="checkbox" name="interest" value="language"> اللغة والأدب</label>
+        <label><input type="checkbox" name="interest" value="family"> العائلة والمجتمع</label>
+        <label><input type="checkbox" name="interest" value="food"> الطعام والضيافة</label>
+        <label><input type="checkbox" name="interest" value="travel"> السفر والطبيعة</label>
       </fieldset>
-      <div class="actions"><button id="onboarding-submit" type="button" class="continue">متابعة</button><button id="onboarding-skip" type="button" class="quiet">تخطي الآن</button></div>
+      <div class="actions">
+        <button id="onboarding-submit" class="continue" type="button">ابدأ التعلم</button>
+        <button id="onboarding-skip" class="quiet" type="button">تخطي الآن</button>
+      </div>
     </section>
-
-    <section id="assigned" aria-labelledby="word" hidden>
+    <section id="assigned" aria-labelledby="assigned-title">
+      <h2 id="assigned-title" class="visually-hidden" tabindex="-1">كلمتك اليومية</h2>
       <article class="word-card">
         <p id="fixed-label" class="fixed">ثابتة لليوم</p>
-        <h2 id="word" lang="ar" tabindex="-1"></h2>
+        <h2 id="word" tabindex="-1" lang="ar"></h2>
         <p id="meaning-ar" class="meaning" lang="ar"></p>
-        <p id="meaning-en" class="english" lang="en"></p>
+        <p id="meaning-en" class="english" lang="en" dir="ltr"></p>
         <p id="pronunciation" class="pronunciation" dir="ltr"></p>
-        <button id="speak" type="button" class="speak" aria-label="استمع للنطق"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10v4h4l5 4V6L8 10H4Z"/><path d="M16 9a4 4 0 0 1 0 6"/><path d="M18.5 6.5a7 7 0 0 1 0 11"/></svg><span class="visually-hidden">استمع للنطق</span></button>
+        <button id="speak" class="speak" type="button" aria-label="استمع للنطق">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path fill="currentColor" d="M14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77zm-2 0L7 7H3v10h4l5 3.77V3.23zM16.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
+          </svg>
+        </button>
       </article>
-      <section class="example-card" aria-labelledby="example-label"><p id="example-label">في سياق عملي</p><p id="example" lang="ar"></p><p id="example-en" class="english" lang="en" hidden></p></section>
+      <section class="example-card">
+        <p>في سياق عملي</p>
+        <p id="example" lang="ar"></p>
+        <p id="example-en" class="english" lang="en" dir="ltr"></p>
+      </section>
       <p class="feedback-prompt">كيف كانت الكلمة اليوم؟</p>
-      <div class="feedback" aria-label="تقييم الكلمة">
-        <button id="known" type="button" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6"/></svg><span>معروف</span></button>
-        <button id="difficult" type="button" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14c3-4 5 4 8 0s5 4 8 0"/></svg><span>صعب</span></button>
-        <button id="save" type="button" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h12v16l-6-4-6 4V4Z"/></svg><span>حفظ</span></button>
+      <div class="feedback" role="group" aria-label="تقييم الكلمة وحفظها">
+        <button id="known" type="button" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
+          معروف
+        </button>
+        <button id="difficult" type="button" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+          صعب
+        </button>
+        <button id="save" type="button" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>
+          حفظ
+        </button>
       </div>
-      <button id="explore" type="button" class="explore">استكشف</button>
-      <div class="reminder-row"><label for="reminder-time">تذكير يومي</label><input id="reminder-time" type="time" value="09:00"><button id="reminder" type="button" class="quiet" aria-pressed="false" aria-label="تفعيل التذكير اليومي"></button></div>
+      <p id="action-status" class="action-status" role="status" aria-live="polite"></p>
+      <button id="explore" class="explore" type="button">استكشف</button>
+      <div class="reminder-row">
+        <label for="reminder-time">تذكير يومي</label>
+        <input id="reminder-time" type="time" value="09:00">
+        <button id="reminder" type="button" role="switch" aria-checked="false" aria-pressed="false" aria-label="تفعيل التذكير اليومي"></button>
+      </div>
     </section>
-
-    <section id="empty" aria-labelledby="empty-title" hidden><h2 id="empty-title" tabindex="-1">لا توجد كلمة جديدة اليوم</h2><p>أتممت الكلمات المتاحة لك. عُد غدًا.</p><button id="explore-empty" type="button">استكشف الأطلس</button></section>
-    <section id="error" aria-labelledby="error-title" hidden><h2 id="error-title" tabindex="-1">تعذّر تحميل كلمة اليوم</h2><p>تحقّق من الإضافة وافتح هذه النافذة مجددًا.</p></section>
-    <section id="recovery" aria-labelledby="recovery-title" hidden><h2 id="recovery-title" tabindex="-1">نحتاج إلى بداية جديدة</h2><p>تعذّر قراءة بياناتك المحلية بأمان.</p><button id="recovery-reset" type="button">إعادة البدء</button></section>
-    <p id="warning" class="warning" role="status" hidden>تُعرض كلمتك، لكن لم نتمكن من حفظ تغييراتك بعد.</p>
+    <section id="empty" aria-labelledby="empty-title" hidden>
+      <h2 id="empty-title" tabindex="-1">انتهت كلمات اليوم</h2>
+      <p>زُر الأطلس لمراجعة الكلمات السابقة.</p>
+      <button id="explore-empty" class="explore" type="button">استكشف</button>
+    </section>
+    <section id="error" aria-labelledby="error-title" hidden>
+      <h2 id="error-title" tabindex="-1">تعذّر تحميل الكلمة</h2>
+      <p>تحقّق من اتصالك أو أعد فتح الإضافة.</p>
+    </section>
+    <section id="recovery" aria-labelledby="recovery-title" hidden>
+      <h2 id="recovery-title" tabindex="-1">إعادة ضبط البيانات</h2>
+      <p>يبدو أن هناك مشكلة في البيانات المحفوظة. يمكنك البدء من جديد.</p>
+      <button id="recovery-reset" class="continue" type="button">إعادة البدء</button>
+    </section>
   </main>
   <script src="popup.js"></script>
 </body>
