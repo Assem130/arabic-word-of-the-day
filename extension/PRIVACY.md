@@ -8,4 +8,6 @@ Daily reminders are optional. They use the browser's alarms and notifications pe
 
 Online Arabic dictionary lookup is optional and available on Chrome upon explicit search submit. When you search, only the normalized query is transmitted directly to Wikimedia servers (`ar.wiktionary.org`). Wikimedia may process standard network connection metadata as part of HTTP requests. No profile data, visited pages, cookies, or background requests are sent, and no lookup history is retained or stored in your profile.
 
+Online results are visibly marked as unreviewed and are displayed only for that search. They cannot be saved or used for feedback, history, daily selection, or export. Firefox remains local-only.
+
 The Atlas settings page lets you export your local data as JSON. It also provides a clear-data control that deletes the stored learning profile and disables the reminder.

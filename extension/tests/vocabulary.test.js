@@ -74,28 +74,86 @@ test("uses valid local calendar date keys", () => {
 });
 
 test("loads all 60 reviewed Arabic seed records", () => {
-  const { validateVocabulary } = vocabularyApi();
+  const { validateVocabulary, rankVocabulary } = vocabularyApi();
   const raw = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "data", "vocabulary.json"), "utf8"));
   const vocabulary = validateVocabulary(raw);
-  assert.equal(vocabulary.length, 60);
-  assert.ok(vocabulary.every((word) => word.contentVersion === 2 && word.contextAr && word.contextEn));
-  const atLeast = (field, value, minimum) => assert.ok(vocabulary.filter((word) => word[field] === value).length >= minimum, `${field}:${value}`);
-  atLeast("difficultyBand", "beginner", 18);
-  atLeast("difficultyBand", "intermediate", 18);
-  atLeast("difficultyBand", "advanced", 12);
-  atLeast("register", "standard", 36);
-  atLeast("register", "classical", 12);
-  atLeast("partOfSpeech", "noun", 12);
-  atLeast("partOfSpeech", "verb", 8);
-  atLeast("partOfSpeech", "adjective", 8);
-  atLeast("partOfSpeech", "phrase", 8);
-  atLeast("usefulnessBand", "high", 24);
-  assert.ok(vocabulary.filter((word) => word.usefulnessBand === "low").length <= 12, "usefulnessBand:low");
-  for (const topic of ["classical-arabic", "daily-life", "family", "food", "language", "travel"]) {
-    assert.ok(vocabulary.filter((word) => word.topics.includes(topic)).length >= 6, `topic:${topic}`);
+  const expected = `
+w1 noun classical advanced low س م د ع|فَعَيْلَل
+w2 noun classical advanced low خ ن ذ ذ|فِعْلِيل
+w3 noun standard intermediate medium د و م|فَعْلَة
+w4 noun classical advanced low ع ر م|فَعَلْعَل
+w5 noun standard intermediate medium و ص ب|فَعَل
+w6 noun standard intermediate medium ص ب ب|فَعَالَة
+w7 noun standard intermediate medium غ س ق|فَعَل
+w8 adjective classical advanced medium أ ث ل|فَعِيل
+w9 noun classical advanced low ي ه م|فَعْلَاء
+w10 adjective classical advanced medium ب ل ق|أَفْعَل
+w11 adjective classical intermediate medium ه ت ن|فَعُول
+w12 noun standard intermediate medium س ه د|فُعَال
+w13 noun standard beginner high ع ب ق|فَعَل
+w14 adjective classical advanced low ت ل د|فَعِيل
+w15 noun classical advanced low س ل ف|فُعَال
+w16 noun classical advanced low ر ض ب|فُعَال
+w17 noun standard intermediate high ت و ق|فَعْل
+w18 noun classical advanced medium خ ف ر|فَعَل
+w19 noun standard beginner high ج ذ ل|فَعَل
+w20 noun standard intermediate high ك م د|فَعَل
+w21 noun standard intermediate medium ف ن ن|فَعَل
+w22 noun standard intermediate high خ ل ل|فِعْل
+w23 noun standard intermediate high ع ش ق|فِعْل
+w24 noun standard beginner high أ ر ج|فَعِيل
+w25 noun classical advanced medium ش ج ن|فَعَل
+w26 noun classical advanced medium ه ي م|فُعَال
+w27 noun standard beginner high و ت ن|فَعِيل
+w28 noun standard intermediate high و ر ي|فَعَل
+w29 noun standard beginner high س ك ن|فَعِيلَة
+w30 noun standard intermediate medium ج و د|فَعْل
+w31 noun standard intermediate high س م و|فُعُول
+w32 noun standard intermediate high و ء م|فِعَال
+w33 noun standard intermediate high غ ب ط|فَعْلَة
+w34 noun classical advanced low ص م د|فَعَل
+w35 noun standard beginner high ف ل ق|فَعَل
+w36 adverb classical advanced low ق ه ق ر|فَعْلَلَى
+w37 noun standard beginner high ر غ د|فَعَل
+w38 noun standard intermediate high ف ر س|فِعَالَة
+w39 noun standard beginner high ه م س|فَعْل
+w40 adjective standard intermediate medium أ ر ب|فَعِيل
+w41 noun standard intermediate medium د ج و|فُعَل
+w42 noun standard intermediate medium ن و ي|فَعَل
+w43 noun standard intermediate high ن ج و|فَعْلَى
+w44 noun standard intermediate medium أ ث ر|فَعَلَة
+w45 noun standard intermediate medium خ ي ل|فُعَلَاء
+w46 adjective standard intermediate medium ن ض ر|فَعِيل
+w47 noun classical advanced low ع س ع س|فَعْلَلَة
+w48 noun standard intermediate medium ق ر ح|فَعِيلَة
+w49 noun classical intermediate low ش ن ف|فَعَل
+w50 noun standard beginner high و ه ن|فَعَل
+w51 noun standard intermediate medium ح ج و|فِعَل
+w52 noun standard intermediate medium و ق ر|فِعَال
+w53 noun standard intermediate medium ص د ي|فَعَل
+w54 noun classical advanced medium ب ت ل|تَفَعُّل
+w55 noun standard intermediate medium ح م ي|فَعِيلَة
+w56 noun standard intermediate medium س م ر|فَعَل
+w57 noun standard intermediate medium أ ف ل|فُعُول
+w58 noun standard intermediate medium و ب ل|فَاعِل
+w59 noun standard intermediate medium و ل ه|فَعَل
+w60 noun standard intermediate medium خ ف ق|فَعُول`.trim().split("\n");
+
+  assert.deepEqual(vocabulary.map((word) => word.id), Array.from({ length: 60 }, (_, index) => `w${index + 1}`));
+  assert.deepEqual(vocabulary.map((word) => `${word.id} ${word.partOfSpeech} ${word.register} ${word.difficultyBand} ${word.usefulnessBand} ${word.root}|${word.pattern}`), expected);
+  assert.equal(new Set(vocabulary.map((word) => word.contextAr.trim())).size, 60);
+  assert.equal(new Set(vocabulary.map((word) => word.contextEn.trim())).size, 60);
+  assert.ok(vocabulary.every((word) => word.contentVersion === 2 && word.contextAr.trim() && word.contextEn.trim()));
+  assert.ok(vocabulary.every((word) => !/شاعر (?:قديم|حديث)/.test(word.exampleAr)));
+  assert.ok(vocabulary.every((word) => !/[﴿﴾«»—]/.test(word.exampleAr)));
+  assert.ok(vocabulary.every((word) => !/[\t\r\n ]/.test(word.pronunciation)));
+  for (const word of vocabulary) {
+    assert.equal(rankVocabulary(vocabulary, word.word)[0]?.id, word.id, `${word.id} headword is undiscoverable`);
   }
   assert.equal(vocabulary[0].word, "السَّمَيْدَع");
   assert.equal(vocabulary[29].word, "الجَوْد");
+  assert.equal(vocabulary[56].word, "الأُفُول");
+  assert.equal(vocabulary[57].word, "الوَابِل");
   assert.equal(vocabulary[59].word, "الخَفُوق");
 });
 

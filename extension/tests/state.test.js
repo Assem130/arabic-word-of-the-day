@@ -1,5 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 
 const {
   createProfile,
@@ -72,6 +74,19 @@ test("legacy profiles and imports missing showEnglish migrate to Arabic-first de
 
   const imported = parseImport(JSON.stringify(legacy), vocabulary);
   assert.equal(imported.showEnglish, true);
+});
+
+test("existing assignments and word state remain readable across the 0.2.0 corpus refresh", () => {
+  const currentVocabulary = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "data", "vocabulary.json"), "utf8"));
+  const stored = profileWithAssignment("2026-07-30", "w60", {
+    wordStates: { w57: { status: "known", dateKey: "2026-07-29", saved: true } },
+    recentIds: ["w57", "w60"],
+  });
+  const result = validateStoredProfile(stored, currentVocabulary);
+  assert.equal(result.canPersist, true);
+  assert.equal(result.profile.assignments["2026-07-30"].wordId, "w60");
+  assert.equal(result.profile.wordStates.w57.saved, true);
+  assert.deepEqual(result.profile.recentIds, ["w57", "w60"]);
 });
 
 test("unknown or malformed showEnglish data remains read-only recovery", () => {

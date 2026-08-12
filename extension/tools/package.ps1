@@ -42,6 +42,7 @@ $sourceAllowlist = @(
 $runtimeFiles = @(
     "assets/fonts/Amiri-Bold.woff2",
     "assets/fonts/Amiri-Regular.woff2",
+    "assets/fonts/OFL.txt",
     "assets/fonts/Outfit-Medium.woff2",
     "assets/fonts/Outfit-Regular.woff2",
     "assets/fonts/Outfit-SemiBold.woff2",
