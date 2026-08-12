@@ -11,6 +11,7 @@ const browsers = ["chrome", "firefox"];
 const runtimeFiles = [
   "assets/fonts/Amiri-Bold.woff2",
   "assets/fonts/Amiri-Regular.woff2",
+  "assets/fonts/OFL.txt",
   "assets/fonts/Outfit-Medium.woff2",
   "assets/fonts/Outfit-Regular.woff2",
   "assets/fonts/Outfit-SemiBold.woff2",
@@ -88,7 +89,7 @@ function packageTextFiles(browser) {
 
 function assertNoUnsafePayload(browser) {
   const files = packageTextFiles(browser);
-  const forbiddenPath = /(?:^|\/)(?:tests|tools)(?:\/|$)|\.map$|(?:^|\/)manifest\.(?:chrome|firefox)\.json$|(?:^|\/)PRIVACY\.md$|(?:^|\/)assets\/fonts\/OFL\.txt$/i;
+  const forbiddenPath = /(?:^|\/)(?:tests|tools)(?:\/|$)|\.map$|(?:^|\/)manifest\.(?:chrome|firefox)\.json$|(?:^|\/)PRIVACY\.md$/i;
   const allowedRemoteUrl = /^https:\/\/ar\.wiktionary\.org\//i;
   const remoteUrlRegex = /\b(?:https?|wss?):\/\/[^\s"'`<>]+/gi;
   const unsafeSink = /\b(?:innerHTML|outerHTML|insertAdjacentHTML|document\.write|eval\s*\(|new\s+Function\s*\(|Function\s*\(|set(?:Timeout|Interval)\s*\(\s*["'])/;
@@ -151,6 +152,9 @@ test("privacy document states local learning storage, online-query scope, analyt
   assert.match(privacy, /learning data stays in the browser's local extension storage/i);
   assert.match(privacy, /only the normalized query/i);
   assert.match(privacy, /Wikimedia servers|ar\.wiktionary\.org/i);
+  assert.match(privacy, /unreviewed/i);
+  assert.match(privacy, /cannot be saved/i);
+  assert.match(privacy, /Firefox remains local-only/i);
   assert.doesNotMatch(privacy, /No backend or server receives your data/i);
   assert.match(privacy, /no (?:analytics|tracking)|without (?:analytics|tracking)/i);
   assert.match(privacy, /optional reminder|reminder.{0,24}optional/i);
@@ -176,6 +180,8 @@ test("both packages contain exactly the runtime allowlist and selected manifest"
   for (const browser of browsers) {
     assert.deepEqual(new Set(listFiles(path.join(distRoot, browser))), expectedPackageFiles, `${browser} package drifted from the allowlist`);
     assert.doesNotThrow(() => assertSafeManifest(packageManifest(browser), browser));
+    assert.deepEqual(packageManifest(browser), manifest(browser));
+    assert.equal(manifest(browser).version, "0.2.0");
     assert.equal(packageManifest(browser).background.service_worker ?? undefined, browser === "chrome" ? "background.js" : undefined);
     if (browser === "firefox") assert.deepEqual(packageManifest(browser).background.scripts, manifest("firefox").background.scripts);
   }
