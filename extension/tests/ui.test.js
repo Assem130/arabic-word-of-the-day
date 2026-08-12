@@ -94,7 +94,8 @@ function atlasApi(responses = {}, options = {}) {
     { id: "w2", word: "ثانية", normalized: "ثانية", meaningAr: "شرح", meaningEn: "second", pronunciation: "/w2/", exampleAr: "مثال ثان" },
   ];
   const context = {
-    document, chrome: extension, Promise, console, URLSearchParams, URL, Blob,
+    document, chrome: options.firefox ? undefined : extension, browser: options.firefox ? extension : undefined, Promise, console, URLSearchParams, URL, Blob,
+    KalimatDate: require("../shared/date.js"),
     KalimatVocabulary: require("../shared/vocabulary.js"),
     location: { search: options.search ?? "" },
     fetch: async () => ({ ok: true, async json() { return vocabulary; } }),
@@ -195,6 +196,44 @@ test("save uses a real attribute value and toggles both ways", async () => {
     { type: "word.save", wordId: "w1", saved: true },
     { type: "word.save", wordId: "w1", saved: false },
   ]);
+});
+
+test("popup Explore preserves the current word and supports empty-corpus browsing", async () => {
+  const fixture = popupApi();
+  fixture.api.renderAssigned({ kind: "assigned", word: { id: "w1", word: "كلمة", meaningAr: "معنى", exampleAr: "مثال", pronunciation: "/test/" } });
+  await fixture.api.openAtlas();
+  assert.deepEqual(JSON.parse(JSON.stringify(fixture.calls.at(-1))), {
+    tab: { url: "extension://kalimat/atlas/atlas.html?view=explore&q=%D9%83%D9%84%D9%85%D8%A9" },
+  });
+
+  const empty = popupApi();
+  await empty.api.openAtlas();
+  assert.deepEqual(JSON.parse(JSON.stringify(empty.calls.at(-1))), {
+    tab: { url: "extension://kalimat/atlas/atlas.html?view=explore&q=" },
+  });
+});
+
+test("popup ignores duplicate feedback and save requests while the first mutation is pending", async () => {
+  let releaseFeedback;
+  let releaseSave;
+  const feedbackResult = new Promise((resolve) => { releaseFeedback = resolve; });
+  const saveResult = new Promise((resolve) => { releaseSave = resolve; });
+  const fixture = popupApi({ "word.feedback": () => feedbackResult, "word.save": () => saveResult });
+  fixture.api.renderAssigned({ kind: "assigned", dateKey: "2026-07-30", word: { id: "w1", word: "كلمة", meaningAr: "معنى", exampleAr: "مثال", pronunciation: "/test/" } });
+
+  const feedbackPending = fixture.api.sendFeedback("known", fixture.elements.get("known"));
+  await new Promise(setImmediate);
+  await fixture.api.sendFeedback("difficult", fixture.elements.get("difficult"));
+  assert.equal(fixture.calls.filter((message) => message.type === "word.feedback").length, 1);
+  releaseFeedback({ kind: "ok", status: "known" });
+  await feedbackPending;
+
+  const savePending = fixture.api.toggleSave();
+  await new Promise(setImmediate);
+  await fixture.api.toggleSave();
+  assert.equal(fixture.calls.filter((message) => message.type === "word.save").length, 1);
+  releaseSave({ kind: "ok", saved: true });
+  await savePending;
 });
 
 test("popup feedback and save expose adjacent pending, success, failure, and focus states", async () => {
@@ -465,6 +504,52 @@ test("Atlas dated query loads only the retained date plus profile and settings",
   assert.deepEqual(fixture.calls.filter((message) => message.type === "assignment.get").map((message) => message.dateKey), ["2026-07-28"]);
 });
 
+test("Atlas opens bounded Popup Explore URLs with preserved search context", async () => {
+  const vocabulary = [
+    { id: "w1", word: "كتاب", normalized: "كتاب", meaningAr: "كتاب", meaningEn: "book", pronunciation: "/book/", exampleAr: "مثال", difficultyBand: "beginner", usefulnessBand: "high", reviewed: true },
+  ];
+  const responses = {
+    "assignment.get": { kind: "assigned", wordId: "w1", dateKey: "2026-07-30" },
+    "state.export": { kind: "export", text: JSON.stringify(atlasProfile()) },
+    "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } },
+  };
+
+  const routed = atlasApi(responses, { vocabulary, search: "?view=explore&q=book" });
+  await routed.api.initialize();
+  assert.equal(routed.elements.get("atlas-search").value, "book");
+  assert.equal(routed.elements.get("explore-view").hidden, false);
+  assert.equal(routed.elements.get("today-view").hidden, true);
+  assert.equal(routed.elements.get("search-results").children.length, 1);
+  assert.equal(routed.elements.get("atlas-search").focuses, 1);
+
+  const blank = atlasApi(responses, { vocabulary, search: "?view=explore&q=" });
+  await blank.api.initialize();
+  assert.equal(blank.elements.get("explore-view").hidden, false);
+  assert.equal(blank.elements.get("search-results").children.length, 1);
+
+  const oversized = atlasApi(responses, { vocabulary, search: `?view=explore&q=${"a".repeat(257)}` });
+  await oversized.api.initialize();
+  assert.equal(oversized.elements.get("today-view").hidden, false);
+  assert.equal(oversized.elements.get("explore-view").hidden, true);
+
+  const impossibleDate = atlasApi(responses, { vocabulary, search: "?date=2026-99-99" });
+  await impossibleDate.api.initialize();
+  assert.deepEqual(impossibleDate.calls.filter((message) => message.type === "assignment.get").map((message) => message.dateKey), [undefined]);
+  assert.equal(impossibleDate.elements.get("today-view").hidden, false);
+  assert.equal(impossibleDate.elements.get("atlas-search").listeners.keydown, undefined);
+
+  const mixedInvalid = atlasApi(responses, { vocabulary, search: "?date=2026-99-99&view=explore&q=book" });
+  await mixedInvalid.api.initialize();
+  assert.equal(mixedInvalid.elements.get("today-view").hidden, false);
+  assert.equal(mixedInvalid.elements.get("explore-view").hidden, true);
+
+  const exhausted = atlasApi({ ...responses, "assignment.get": { kind: "no-new-word" } }, { vocabulary, search: "?view=explore&q=" });
+  await exhausted.api.initialize();
+  assert.equal(exhausted.elements.get("explore-view").hidden, false);
+  assert.equal(exhausted.elements.get("search-results").children.length, 1);
+  assert.equal(exhausted.elements.get("atlas-search").focuses, 1);
+});
+
 test("Atlas blank Explore shows every reviewed local word and ranks exact and prefix matches", async () => {
   const vocabulary = [
     { id: "meta", word: "كتاب", normalized: "كتاب", meaningAr: "لفظ", meaningEn: "book", pronunciation: "/meta/", exampleAr: "مثال", difficultyBand: "advanced", usefulnessBand: "low", reviewed: true },
@@ -477,8 +562,10 @@ test("Atlas blank Explore shows every reviewed local word and ranks exact and pr
     "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } },
   }, { vocabulary });
   await fixture.api.initialize();
+  fixture.elements.get("explore").listeners.click();
+  assert.equal(fixture.elements.get("explore-view").hidden, false);
   fixture.elements.get("atlas-search").value = "";
-  fixture.api.search();
+  fixture.elements.get("atlas-search").listeners.input();
   assert.equal(fixture.elements.get("search-results").children.length, vocabulary.length);
   assert.match(fixture.elements.get("search-count").textContent, /3/);
   fixture.elements.get("atlas-search").value = "كتب";
@@ -518,6 +605,17 @@ test("Atlas online lookup requests permission inside submit and stops on denial 
     assert.equal(button.focuses, 1);
     assert.equal(button.disabled, false);
   }
+});
+
+test("Firefox keeps Explore local-only without an unavailable online action", async () => {
+  const fixture = atlasApi({
+    "assignment.get": { kind: "assigned", wordId: "w1", dateKey: "2026-07-30" },
+    "state.export": { kind: "export", text: JSON.stringify(atlasProfile()) },
+    "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } },
+  }, { firefox: true });
+  await fixture.api.initialize();
+  assert.equal(fixture.elements.get("explore-lookup").hidden, true);
+  assert.equal(fixture.elements.get("explore-lookup").listeners.click, undefined);
 });
 
 test("Atlas renders a safe unreviewed online result separately from local learning state", async () => {
@@ -733,6 +831,49 @@ test("Atlas Today actions expose adjacent pending, success, failure, and focus s
   assert.equal(failed.elements.get("today-save").getAttribute("aria-pressed"), "false");
   assert.equal(failed.elements.get("today-save").focuses, 1);
   assert.equal(failed.elements.get("today-action-status").textContent, "تعذّر الحفظ.");
+});
+
+test("Atlas ignores duplicate feedback and save requests while the first mutation is pending", async () => {
+  let releaseFeedback;
+  let releaseSave;
+  const feedbackResult = new Promise((resolve) => { releaseFeedback = resolve; });
+  const saveResult = new Promise((resolve) => { releaseSave = resolve; });
+  const fixture = atlasApi({
+    "assignment.get": { kind: "assigned", wordId: "w1", dateKey: "2026-07-30" },
+    "state.export": { kind: "export", text: JSON.stringify(atlasProfile()) },
+    "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } },
+    "word.feedback": () => feedbackResult,
+    "word.save": () => saveResult,
+  });
+  await fixture.api.initialize();
+
+  const feedbackPending = fixture.api.feedback("known");
+  await new Promise(setImmediate);
+  await fixture.api.feedback("difficult");
+  assert.equal(fixture.calls.filter((message) => message.type === "word.feedback").length, 1);
+  releaseFeedback({ kind: "ok", wordId: "w1", dateKey: "2026-07-30", status: "known" });
+  await feedbackPending;
+
+  const savePending = fixture.api.toggleSave();
+  await new Promise(setImmediate);
+  await fixture.api.toggleSave();
+  assert.equal(fixture.calls.filter((message) => message.type === "word.save").length, 1);
+  releaseSave({ kind: "ok", wordId: "w1", saved: true });
+  await savePending;
+});
+
+test("Atlas recovery feedback keeps focus in the recovery view", async () => {
+  const fixture = atlasApi({
+    "assignment.get": { kind: "assigned", wordId: "w1", dateKey: "2026-07-30" },
+    "state.export": { kind: "export", text: JSON.stringify(atlasProfile()) },
+    "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } },
+    "word.feedback": { kind: "recovery", recoveryRaw: { broken: true } },
+  });
+  await fixture.api.initialize();
+  await fixture.api.feedback("known");
+  assert.equal(fixture.elements.get("recovery").hidden, false);
+  assert.equal(fixture.elements.get("recovery-title").focuses, 1);
+  assert.equal(fixture.elements.get("today-known").focuses, 0);
 });
 
 test("Atlas settings rerender English visibility in Today and the current Explore card", async () => {
