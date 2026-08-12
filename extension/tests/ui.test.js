@@ -485,6 +485,21 @@ test("Atlas blank Explore shows every reviewed local word and ranks exact and pr
   fixture.api.search();
   assert.equal(fixture.elements.get("search-results").children[0].textContent.startsWith("كتب"), true);
   assert.equal(fixture.elements.get("search-results").children.length, 1);
+  assert.equal(fixture.elements.get("search-count").textContent, "1 نتيجة");
+  fixture.elements.get("atlas-search").value = "كُتِب";
+  fixture.api.search();
+  assert.equal(fixture.elements.get("search-results").children.length, 1, "Arabic normalization must preserve local matches");
+  fixture.elements.get("atlas-search").value = "writer";
+  fixture.api.search();
+  assert.equal(fixture.elements.get("search-results").children.length, 1, "English metadata queries must find local words");
+  fixture.elements.get("atlas-search").value = "لاشيء";
+  fixture.api.search();
+  assert.equal(fixture.elements.get("search-results").children.length, 0);
+  assert.equal(fixture.elements.get("search-count").textContent, "لا توجد نتائج محلية. جرّب تهجئة أخرى.");
+  fixture.elements.get("atlas-search").value = "";
+  fixture.api.search();
+  assert.equal(fixture.elements.get("search-results").children.length, vocabulary.length, "blank search must recover the local results");
+  assert.equal(fixture.elements.get("search-count").textContent, "3 كلمة");
 });
 
 test("Atlas online lookup requests permission inside submit and stops on denial without messaging", async () => {

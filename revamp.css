@@ -19,9 +19,9 @@ body { margin: 0; background: var(--paper-light); color: var(--ink); font-family
 button, a { color: inherit; font: inherit; }
 button { border: 0; cursor: pointer; }
 a { text-decoration: none; }
-button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 3px solid var(--ink); outline-offset: 4px; }
+button:focus-visible, a:focus-visible, summary:focus-visible, [tabindex]:focus-visible { outline: 3px solid var(--ink); outline-offset: 4px; }
 .nav :is(button, a):focus-visible, .word-identity :is(button, a):focus-visible { outline: 3px solid var(--lime); }
-.hero a:focus-visible, .horizontal-accordion article:nth-child(-n+2):focus-visible { outline-color: var(--lime); }
+.hero a:focus-visible, .horizontal-accordion details:nth-child(-n+2) summary:focus-visible { outline-color: var(--lime); }
 .skip-link { position: fixed; z-index: 100; top: 10px; right: 10px; padding: 10px 14px; background: var(--lime); color: var(--ink); font: 600 .8rem var(--sans); transform: translateY(-160%); }
 .skip-link:focus { transform: none; }
 body:has(.history-dialog[open]) { overflow: hidden; }
@@ -59,13 +59,15 @@ body:has(.history-dialog[open]) { overflow: hidden; }
 .accordion-heading { max-width: 700px; margin-bottom: 54px; }
 .accordion-heading h2 { margin: 0; font-size: clamp(2.7rem, 5vw, 5rem); font-weight: 400; line-height: 1; }
 .horizontal-accordion { min-height: 460px; display: flex; gap: 2px; }
-.horizontal-accordion article { position: relative; flex: 1; min-width: 0; padding: 24px; background: var(--ink); color: var(--paper-light); overflow: hidden; transition: flex .45s ease, background .3s ease; }
-.horizontal-accordion article:nth-child(2) { background: var(--ink-soft); }
-.horizontal-accordion article:nth-child(3) { background: var(--paper-light); color: var(--ink); }
-.horizontal-accordion article:hover, .horizontal-accordion article:focus-visible { flex: 2.2; }
-.horizontal-accordion article > span { font: 600 .7rem var(--sans); letter-spacing: .15em; }
-.horizontal-accordion article div { position: absolute; right: 24px; bottom: 26px; left: 24px; opacity: 0; transform: translateY(14px); transition: opacity .25s, transform .25s; }
-.horizontal-accordion article:hover div, .horizontal-accordion article:focus-visible div { opacity: 1; transform: none; }
+.horizontal-accordion details { position: relative; flex: 1; min-width: 0; padding: 24px; background: var(--ink); color: var(--paper-light); overflow: hidden; transition: flex .45s ease, background .3s ease; }
+.horizontal-accordion details:nth-child(2) { background: var(--ink-soft); }
+.horizontal-accordion details:nth-child(3) { background: var(--paper-light); color: var(--ink); }
+.horizontal-accordion details:hover, .horizontal-accordion details:focus-within, .horizontal-accordion details[open] { flex: 2.2; }
+.horizontal-accordion summary { cursor: pointer; font: 600 .7rem var(--sans); letter-spacing: .15em; list-style: none; }
+.horizontal-accordion summary::-webkit-details-marker { display: none; }
+.horizontal-accordion summary::marker { content: ""; }
+.horizontal-accordion details > div { position: absolute; right: 24px; bottom: 26px; left: 24px; opacity: 0; transform: translateY(14px); transition: opacity .25s, transform .25s; }
+.horizontal-accordion details:hover > div, .horizontal-accordion details:focus-within > div, .horizontal-accordion details[open] > div { opacity: 1; transform: none; }
 .horizontal-accordion h3 { margin: 0 0 10px; font-size: clamp(2.6rem, 4vw, 4.2rem); font-weight: 400; line-height: 1; }
 .horizontal-accordion p { max-width: 28ch; margin: 0; font-size: 1.08rem; line-height: 1.7; }
 .footer { padding: 30px max(20px, calc((100vw - 1180px) / 2)); background: var(--ink); color: var(--paper-light); display: flex; justify-content: space-between; gap: 20px; align-items: center; }
@@ -138,8 +140,8 @@ body:has(.history-dialog[open]) { overflow: hidden; }
     .hero-art { min-height: 290px; }
     .manifesto, .accordion-section { padding-inline: 20px; }
     .horizontal-accordion { min-height: 540px; flex-direction: column; }
-    .horizontal-accordion article { min-height: 120px; }
-    .horizontal-accordion article:hover, .horizontal-accordion article:focus-visible { flex: 3; }
+    .horizontal-accordion details { min-height: 120px; }
+    .horizontal-accordion details:hover, .horizontal-accordion details:focus-within, .horizontal-accordion details[open] { flex: 3; }
     .word-experience { margin-top: 96px; }
     .identity-masthead { grid-template-columns: 1fr; }
     .identity-word { align-items: start; flex-direction: column; margin-block: 58px 34px; }
@@ -153,7 +155,7 @@ body:has(.history-dialog[open]) { overflow: hidden; }
 }
 
 @media (hover: none) {
-    .horizontal-accordion article div { opacity: 1; transform: none; }
+    .horizontal-accordion details { transition-duration: .01ms; }
 }
 
 @media (prefers-reduced-motion: reduce) {

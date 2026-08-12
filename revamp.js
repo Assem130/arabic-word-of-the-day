@@ -1,4 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
+    if (matchMedia("(hover: none)").matches) {
+        document.querySelectorAll(".horizontal-accordion details").forEach(panel => { panel.open = true; });
+    }
     if (!window.gsap || !window.ScrollTrigger || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
     gsap.registerPlugin(ScrollTrigger);
