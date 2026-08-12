@@ -211,6 +211,8 @@
     const queryClean = (rawQuery || "").trim();
     if (!queryClean) {
       elements["search-count"].textContent = `${matches.length} كلمة`;
+    } else if (matches.length === 0) {
+      elements["search-count"].textContent = "لا توجد نتائج محلية. جرّب تهجئة أخرى.";
     } else {
       elements["search-count"].textContent = `${matches.length} نتيجة`;
     }

@@ -94,6 +94,8 @@ assert.deepEqual(Array.from(browser.globalThis.WORDS_DB, word => word.id), Array
 const wordPage = fs.readFileSync("word.html", "utf8");
 const homePage = fs.readFileSync("index.html", "utf8");
 const css = fs.readFileSync("revamp.css", "utf8");
+const revamp = fs.readFileSync("revamp.js", "utf8");
+const appSource = fs.readFileSync("app.js", "utf8");
 const wordsScript = wordPage.indexOf('<script src="words.js"');
 const coreScript = wordPage.indexOf('<script src="app-core.js"');
 const appScript = wordPage.indexOf('<script src="app.js"');
@@ -108,9 +110,31 @@ for (const page of [wordPage, homePage]) {
     assert.match(page, /<main class="page-shell" id="main-content" tabindex="-1">/, "each page needs a main target");
 }
 assert.match(css, /@media \(hover: none\)/, "touch users must be able to read accordion details");
-assert.match(css, /button:focus-visible, a:focus-visible, \[tabindex\]:focus-visible \{ outline: 3px solid var\(--ink\)/, "focus must remain visible on light surfaces");
+assert.match(css, /button:focus-visible, a:focus-visible, summary:focus-visible, \[tabindex\]:focus-visible \{ outline: 3px solid var\(--ink\)/, "focus must remain visible on light surfaces");
 assert.match(css, /\.nav :is\(button, a\):focus-visible, \.word-identity :is\(button, a\):focus-visible \{ outline: 3px solid var\(--lime\)/, "focus must remain visible on dark surfaces");
-assert.match(css, /\.hero a:focus-visible, \.horizontal-accordion article:nth-child\(-n\+2\):focus-visible \{ outline-color: var\(--lime\)/, "all dark homepage surfaces need a light focus ring");
+assert.equal((homePage.match(/<details>/g) || []).length, 3, "landing page must expose three native disclosure cards");
+assert.equal((homePage.match(/<summary><span>/g) || []).length, 3, "each disclosure card must have a native summary");
+assert.doesNotMatch(homePage, /<article\b[^>]*tabindex\s*=\s*["']0/, "accordion cards must not use focusable articles");
+assert.match(css, /summary:focus-visible/, "disclosure focus ring must belong to summary");
+assert.match(css, /\.horizontal-accordion details:hover, \.horizontal-accordion details:focus-within, \.horizontal-accordion details\[open\]/, "disclosures must expand for hover, focus, and open states");
+assert.match(css, /summary::-webkit-details-marker \{ display: none; \}/, "native disclosure marker must be visually hidden");
+assert.match(css, /\.hero a:focus-visible, \.horizontal-accordion details:nth-child\(-n\+2\) summary:focus-visible \{ outline-color: var\(--lime\)/, "all dark homepage surfaces need a light focus ring");
+const touchPanels = [{ open: false }, { open: false }, { open: false }];
+const revampListeners = new Map();
+const revampContext = {
+    document: {
+        addEventListener(type, listener) { revampListeners.set(type, listener); },
+        querySelectorAll(selector) { assert.equal(selector, ".horizontal-accordion details"); return touchPanels; }
+    },
+    matchMedia(query) { return { matches: query === "(hover: none)" }; },
+    window: {}
+};
+revampContext.globalThis = revampContext;
+vm.runInNewContext(revamp, revampContext);
+revampListeners.get("DOMContentLoaded")();
+assert.deepEqual(touchPanels.map(panel => panel.open), [true, true, true], "touch initialization must open all disclosure cards");
+const exportSource = appSource.slice(appSource.indexOf("function exportHistory()"), appSource.indexOf("async function importHistory"));
+assert.match(exportSource, /link\.hidden = true;[\s\S]*document\.body\.appendChild\(link\);[\s\S]*link\.click\(\);[\s\S]*link\.remove\(\);[\s\S]*setTimeout\(\(\) => URL\.revokeObjectURL\(url\), 0\);[\s\S]*setMenuOpen\(false\);\s*showToast/, "history export must clean up its temporary link, defer URL cleanup, close the menu, then toast");
 for (const word of words) {
     assert.equal(Number.isInteger(word.id), true);
     for (const field of ["word", "pronunciation", "vocalization", "weight", "root", "category", "meaning", "englishMeaning", "example"]) {
@@ -151,6 +175,8 @@ class FakeElement {
         this.files = [];
         this.textContent = "";
         this.innerHTML = "";
+        this.parentNode = null;
+        this.clickCount = 0;
     }
 
     addEventListener(type, listener) {
@@ -161,10 +187,10 @@ class FakeElement {
         for (const listener of this.listeners.get(type) || []) await listener(event);
     }
 
-    click() { return this.emit("click"); }
-    append(...children) { this.children.push(...children); }
-    appendChild(child) { this.children.push(child); return child; }
-    replaceChildren(...children) { this.children = children; }
+    click() { this.clickCount += 1; return this.emit("click"); }
+    append(...children) { for (const child of children) { child.parentNode = this; this.children.push(child); } }
+    appendChild(child) { this.append(child); return child; }
+    replaceChildren(...children) { this.children.forEach(child => { child.parentNode = null; }); this.children = []; this.append(...children); }
     setAttribute(name, value) { this.attributes.set(name, String(value)); }
     getAttribute(name) { return this.attributes.get(name); }
     contains(target) { return target === this || this.children.some(child => child.contains?.(target)); }
@@ -173,10 +199,10 @@ class FakeElement {
     select() {}
     focus() { this.focused = true; }
     querySelector() { return null; }
-    remove() {}
+    remove() { if (this.parentNode) this.parentNode.children = this.parentNode.children.filter(child => child !== this); this.parentNode = null; }
 }
 
-function loadBrowserApp({ state, rawStorage, storageFails = false } = {}) {
+function loadBrowserApp({ state, rawStorage, storageFails = false, exportProbe } = {}) {
     const elementIds = [
         "main-word", "date-display", "word-vocalization", "word-weight", "word-root", "word-category",
         "word-meaning", "word-pronunciation", "word-meaning-en", "word-example-text", "countdown-timer",
@@ -189,10 +215,15 @@ function loadBrowserApp({ state, rawStorage, storageFails = false } = {}) {
     elements["storage-warning"].hidden = true;
     const initialWarningHidden = elements["storage-warning"].hidden;
     const documentListeners = new Map();
+    const body = new FakeElement("body");
     const document = {
-        body: new FakeElement("body"),
+        body,
         getElementById: id => elements[id],
-        createElement: tagName => new FakeElement(tagName),
+        createElement: tagName => {
+            const element = new FakeElement(tagName);
+            if (tagName === "a" && exportProbe) exportProbe.link = element;
+            return element;
+        },
         addEventListener(type, listener) { documentListeners.set(type, [...(documentListeners.get(type) || []), listener]); },
         async emit(type, event = { target: document, stopPropagation() {} }) {
             for (const listener of documentListeners.get(type) || []) await listener(event);
@@ -204,9 +235,14 @@ function loadBrowserApp({ state, rawStorage, storageFails = false } = {}) {
         setItem(key, value) { if (storageFails) throw new Error("storage unavailable"); values.set(key, value); },
         value: key => values.get(key)
     };
+    const timers = [];
+    const urlApi = exportProbe ? {
+        createObjectURL(blob) { exportProbe.blob = blob; return "blob:kalimat-test"; },
+        revokeObjectURL(url) { exportProbe.revoked = url; }
+    } : URL;
     const context = {
-        Array, Blob, Boolean, Date, JSON, Map, Math, Number, Object, Promise, RegExp, Set, String, URL,
-        console, document, localStorage, navigator: {}, setInterval: () => 0, setTimeout: () => 0
+        Array, Blob, Boolean, Date, JSON, Map, Math, Number, Object, Promise, RegExp, Set, String, URL: urlApi,
+        console, document, localStorage, navigator: {}, setInterval: () => 0, setTimeout: callback => timers.push(callback)
     };
     context.globalThis = context;
     context.window = context;
@@ -215,7 +251,7 @@ function loadBrowserApp({ state, rawStorage, storageFails = false } = {}) {
         vm.runInContext(fs.readFileSync(file, "utf8"), context, { filename: file });
     }
     document.emit("DOMContentLoaded");
-    return { context, document, elements, initialWarningHidden, localStorage };
+    return { context, document, elements, initialWarningHidden, localStorage, timers };
 }
 
 async function browserChecks() {
@@ -288,6 +324,19 @@ await new Promise(resolve => setImmediate(resolve));
 process.removeListener("unhandledRejection", onUnhandled);
 assert.equal(unhandled, undefined, "missing clipboard APIs must not create an unhandled rejection");
 assert.equal(clipboard.elements.toast.textContent, "تعذّر النسخ؛ يرجى المحاولة مجدداً.", "missing clipboard APIs must show the failure toast");
+
+const exportProbe = {};
+const exporter = loadBrowserApp({ state: savedState, exportProbe });
+exporter.elements["app-menu-dropdown"].hidden = false;
+await exporter.elements["btn-export-history"].emit("click");
+assert.equal(exportProbe.link.hidden, true, "history export link must be hidden");
+assert.equal(exportProbe.link.clickCount, 1, "history export link must be clicked");
+assert.equal(exportProbe.link.parentNode, null, "history export link must be removed after download");
+assert.equal(exportProbe.revoked, undefined, "object URL cleanup must be deferred");
+assert.equal(exporter.elements["app-menu-dropdown"].hidden, true, "history export must close the menu before feedback");
+assert.equal(exporter.elements.toast.textContent, "تم تصدير المخزون.", "history export must show success feedback");
+exporter.timers[0]();
+assert.equal(exportProbe.revoked, "blob:kalimat-test", "deferred cleanup must revoke the object URL");
 
 }
 
