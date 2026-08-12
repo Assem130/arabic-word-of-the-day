@@ -199,11 +199,12 @@
   async function sendFeedback(statusName, button) {
     if (!state.word) return;
     const targetButton = button || elements[statusName === "known" ? "known" : "difficult"];
+    const feedbackButtons = [elements.known, elements.difficult];
+    if (feedbackButtons.some((feedbackButton) => feedbackButton.disabled)) return;
     const priorKnown = elements.known.getAttribute("aria-pressed");
     const priorDifficult = elements.difficult.getAttribute("aria-pressed");
 
-    targetButton.setAttribute("aria-busy", "true");
-    targetButton.disabled = true;
+    feedbackButtons.forEach((feedbackButton) => { feedbackButton.setAttribute("aria-busy", "true"); feedbackButton.disabled = true; });
     actionStatus("جارٍ حفظ تقييمك…");
 
     try {
@@ -229,13 +230,12 @@
       status("تعذّر حفظ تقييمك.");
       actionStatus("تعذّر حفظ تقييمك.", true);
     } finally {
-      targetButton.setAttribute("aria-busy", "false");
-      targetButton.disabled = false;
+      feedbackButtons.forEach((feedbackButton) => { feedbackButton.setAttribute("aria-busy", "false"); feedbackButton.disabled = false; });
     }
   }
 
   async function toggleSave() {
-    if (!state.word) return;
+    if (!state.word || elements.save.disabled) return;
     const priorSaved = elements.save.getAttribute("aria-pressed");
     const saved = priorSaved !== "true";
 
@@ -277,7 +277,8 @@
   }
 
   function openAtlas() {
-    return ExtApi.tabs.create({ url: ExtApi.runtime.getURL("atlas/atlas.html") });
+    const query = encodeURIComponent(state.word?.word ?? "");
+    return ExtApi.tabs.create({ url: ExtApi.runtime.getURL(`atlas/atlas.html?view=explore&q=${query}`) });
   }
 
   function enqueueReminder(work) {
@@ -386,6 +387,7 @@
     toggleSave,
     completeOnboarding,
     sendFeedback,
+    openAtlas,
     resetRecovery,
     initialize,
   };

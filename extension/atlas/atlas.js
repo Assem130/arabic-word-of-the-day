@@ -478,10 +478,10 @@
   async function feedback(statusName) {
     if (!state.today?.word) return;
     const btn = elements[statusName === "known" ? "today-known" : "today-difficult"];
-    if (btn) {
-      btn.setAttribute("aria-busy", "true");
-      btn.disabled = true;
-    }
+    const feedbackButtons = [elements["today-known"], elements["today-difficult"]];
+    if (feedbackButtons.some((feedbackButton) => feedbackButton.disabled)) return;
+    let restoreFocus = true;
+    feedbackButtons.forEach((feedbackButton) => { feedbackButton.setAttribute("aria-busy", "true"); feedbackButton.disabled = true; });
     actionStatus("جارٍ حفظ تقييمك…");
     try {
       const result = await ExtApi.runtime.sendMessage({
@@ -490,7 +490,7 @@
         wordId: state.today.word.id,
         status: statusName,
       });
-      if (result?.kind === "recovery") return renderRecovery(result.recoveryRaw);
+      if (result?.kind === "recovery") { restoreFocus = false; return renderRecovery(result.recoveryRaw); }
       if (result?.kind !== "ok") throw new Error("Feedback unchanged.");
       warning(result.storageWarning === true || state.reminderWarning);
       const authoritativeStatus = result.status ?? statusName;
@@ -507,11 +507,8 @@
       status("تعذّر حفظ التقييم.");
       actionStatus("تعذّر حفظ التقييم.", true);
     } finally {
-      if (btn) {
-        btn.setAttribute("aria-busy", "false");
-        btn.disabled = false;
-        btn.focus();
-      }
+      feedbackButtons.forEach((feedbackButton) => { feedbackButton.setAttribute("aria-busy", "false"); feedbackButton.disabled = false; });
+      if (restoreFocus) btn.focus();
     }
   }
 
@@ -519,6 +516,7 @@
     if (!state.today?.word) return;
     const current = state.profile?.wordStates?.[state.today.word.id]?.saved === true;
     const btn = elements["today-save"];
+    if (btn?.disabled) return;
     if (btn) {
       btn.setAttribute("aria-busy", "true");
       btn.disabled = true;
@@ -599,8 +597,15 @@
     const response = await fetch(ExtApi.runtime.getURL("data/vocabulary.json"));
     if (!response.ok) throw new Error("Vocabulary unavailable.");
     state.vocabulary = await response.json();
-    const query = new URLSearchParams(globalThis.location.search).get("date");
-    const dateKey = /^\d{4}-\d{2}-\d{2}$/.test(query ?? "") ? query : undefined;
+    const params = new URLSearchParams(globalThis.location.search);
+    const query = params.get("date");
+    const dateKey = globalThis.KalimatDate.isDateKey(query) ? query : undefined;
+    const requestedView = params.get("view");
+    const requestedQuery = params.get("q") ?? "";
+    const exploreRequested = !params.has("date")
+      && requestedView === "explore"
+      && requestedQuery.length <= 256
+      && !/[\u0000-\u001F\u007F]/.test(requestedQuery);
     const assignmentRequest = dateKey ? { type: "assignment.get", dateKey } : { type: "assignment.get" };
     const [assignment, exported, settings] = await Promise.all([
       ExtApi.runtime.sendMessage(assignmentRequest),
@@ -627,8 +632,20 @@
         mergeAssignment(assignment);
         state.today = { ...assignment, word };
         renderToday();
-        show("today");
+        if (exploreRequested) {
+          elements["atlas-search"].value = requestedQuery;
+          search();
+          show("explore");
+          elements["atlas-search"].focus();
+        } else {
+          show("today");
+        }
       }
+    } else if (exploreRequested) {
+      elements["atlas-search"].value = requestedQuery;
+      search();
+      show("explore");
+      elements["atlas-search"].focus();
     } else {
       show("empty");
       status(dateKey ? "لا توجد كلمة محفوظة لهذا التاريخ." : "لا توجد كلمة جديدة اليوم.");
@@ -637,12 +654,14 @@
 
   function listen() {
     elements.today.addEventListener("click", () => { show("today"); renderToday(); });
-    elements.explore.addEventListener("click", () => show("explore"));
+    elements.explore.addEventListener("click", () => { show("explore"); search(); });
     elements.history.addEventListener("click", () => { show("history"); renderHistory(); });
     elements.settings.addEventListener("click", () => { show("settings"); hydrateSettings(); });
     elements["atlas-search"].addEventListener("input", search);
-    if (elements["explore-lookup"]) elements["explore-lookup"].addEventListener("click", () => lookupOnline(null, elements["explore-lookup"]));
-    elements["atlas-search"].addEventListener("keydown", (e) => { if (e.key === "Enter") lookupOnline(null, elements["explore-lookup"]); });
+    if (elements["explore-lookup"]) {
+      elements["explore-lookup"].hidden = Boolean(globalThis.browser);
+      if (!globalThis.browser) elements["explore-lookup"].addEventListener("click", () => lookupOnline(null, elements["explore-lookup"]));
+    }
     document.querySelectorAll("label.file-button").forEach((label) => label.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") { event.preventDefault(); label.click(); }
     }));
