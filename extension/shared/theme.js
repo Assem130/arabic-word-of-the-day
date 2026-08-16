@@ -72,6 +72,13 @@
     return normalized;
   }
 
+  function markThemeReady(targetDoc) {
+    const doc = targetDoc || (typeof document !== "undefined" ? document : null);
+    if (doc && doc.documentElement && typeof doc.documentElement.setAttribute === "function") {
+      doc.documentElement.setAttribute("data-theme-ready", "true");
+    }
+  }
+
   /**
    * Resolves the extension storage local area.
    * @param {*} [storageArea]
@@ -238,8 +245,9 @@
           if (select) select.value = stored;
           if (typeof onChange === "function") onChange(stored);
         }
+        markThemeReady(doc);
       })
-      .catch(() => {});
+      .catch(() => markThemeReady(doc));
 
     // 3. UI select change handler
     const handleSelectChange = (event) => {

@@ -671,12 +671,6 @@
         return "";
     }
 
-    function getNaturalAudioUrl(text) {
-        if (!text || typeof text !== "string") return "";
-        const clean = extractSpokenText(text);
-        return `https://translate.google.com/translate_tts?ie=UTF-8&tl=ar&client=tw-ob&q=${encodeURIComponent(clean)}`;
-    }
-
     function addDaysToDateKey(dateKey, days) {
         if (!isDateKey(dateKey)) {
             dateKey = getLocalDateKey(new Date());
@@ -719,9 +713,33 @@
         return 4;
     }
 
+    function withSrsAliases(item) {
+        Object.defineProperties(item, {
+            repetitions: {
+                configurable: true,
+                enumerable: false,
+                get() { return this.repetition; },
+                set(value) { this.repetition = value; }
+            },
+            easeFactor: {
+                configurable: true,
+                enumerable: false,
+                get() { return this.ef; },
+                set(value) { this.ef = value; }
+            },
+            lastReviewed: {
+                configurable: true,
+                enumerable: false,
+                get() { return this.lastReviewedDate; },
+                set(value) { this.lastReviewedDate = value; }
+            }
+        });
+        return item;
+    }
+
     function createDefaultSrsItem(wordId, initialDateKey) {
         const dateKey = isDateKey(initialDateKey) ? initialDateKey : getLocalDateKey(new Date());
-        return {
+        return withSrsAliases({
             wordId: Number(wordId),
             repetition: 0,
             interval: 0,
@@ -731,16 +749,20 @@
             reviewCount: 0,
             lapses: 0,
             history: []
-        };
+        });
     }
 
     function calculateNextReview(item, rating, reviewDateKey) {
         const q = mapRatingToGrade(rating);
         const dateKey = isDateKey(reviewDateKey) ? reviewDateKey : getLocalDateKey(new Date());
 
-        const prevRepetition = (item && Number.isInteger(item.repetition) && item.repetition >= 0) ? item.repetition : 0;
+        const prevRepetition = (item && Number.isInteger(item.repetition) && item.repetition >= 0)
+            ? item.repetition
+            : ((item && Number.isInteger(item.repetitions) && item.repetitions >= 0) ? item.repetitions : 0);
         const prevInterval = (item && typeof item.interval === "number" && item.interval >= 0) ? item.interval : 0;
-        const prevEf = (item && typeof item.ef === "number" && !isNaN(item.ef) && item.ef >= 1.3) ? item.ef : 2.5;
+        const prevEf = (item && typeof item.ef === "number" && !isNaN(item.ef) && item.ef >= 1.3)
+            ? item.ef
+            : ((item && typeof item.easeFactor === "number" && !isNaN(item.easeFactor) && item.easeFactor >= 1.3) ? item.easeFactor : 2.5);
         const prevLapses = (item && Number.isInteger(item.lapses) && item.lapses >= 0) ? item.lapses : 0;
         const prevReviewCount = (item && Number.isInteger(item.reviewCount) && item.reviewCount >= 0) ? item.reviewCount : 0;
         const prevHistory = (item && Array.isArray(item.history)) ? [...item.history] : [];
@@ -804,7 +826,7 @@
             result.wordId = Number(item.wordId);
         }
 
-        return result;
+        return withSrsAliases(result);
     }
 
     function calculateSM2(item, rating, reviewDateKey) {
@@ -923,11 +945,16 @@
                     continue;
                 }
 
-                const repetition = Number.isInteger(item.repetition) && item.repetition >= 0 ? item.repetition : 0;
+                const repetition = Number.isInteger(item.repetition) && item.repetition >= 0
+                    ? item.repetition
+                    : (Number.isInteger(item.repetitions) && item.repetitions >= 0 ? item.repetitions : 0);
                 const interval = typeof item.interval === "number" && item.interval >= 0 ? Math.round(item.interval) : 0;
-                const ef = typeof item.ef === "number" && !isNaN(item.ef) ? Math.max(1.3, Math.round(item.ef * 100) / 100) : 2.5;
+                const rawEf = typeof item.ef === "number" ? item.ef : item.easeFactor;
+                const ef = typeof rawEf === "number" && !isNaN(rawEf) ? Math.max(1.3, Math.round(rawEf * 100) / 100) : 2.5;
                 const nextReviewDate = isDateKey(item.nextReviewDate) ? item.nextReviewDate : fallbackDate;
-                const lastReviewedDate = isDateKey(item.lastReviewedDate) ? item.lastReviewedDate : null;
+                const lastReviewedDate = isDateKey(item.lastReviewedDate)
+                    ? item.lastReviewedDate
+                    : (isDateKey(item.lastReviewed) ? item.lastReviewed : null);
                 const reviewCount = Number.isInteger(item.reviewCount) && item.reviewCount >= 0 ? item.reviewCount : (repetition > 0 ? repetition : 0);
                 const lapses = Number.isInteger(item.lapses) && item.lapses >= 0 ? item.lapses : 0;
                 const srsHistory = Array.isArray(item.history)
@@ -951,7 +978,7 @@
                         .slice(-50)
                     : [];
 
-                state.srs[id] = {
+                state.srs[id] = withSrsAliases({
                     wordId: id,
                     repetition,
                     interval,
@@ -961,7 +988,7 @@
                     reviewCount,
                     lapses,
                     history: srsHistory
-                };
+                });
 
                 if (!state.history[id]) {
                     state.history[id] = { firstSeen: lastReviewedDate || nextReviewDate || fallbackDate };
@@ -988,13 +1015,23 @@
     }
 
     function getDueReviewWords(state, wordsList, dateKey, limit = null) {
-        if (!Array.isArray(wordsList) || wordsList.length === 0) return [];
+        const idsOnly = typeof wordsList === "string" && dateKey === undefined;
+        if (idsOnly) {
+            dateKey = wordsList;
+            wordsList = null;
+            if (Array.isArray(state)) {
+                state = { srs: Object.fromEntries(state.map((item) => [item?.wordId ?? item?.id, item])) };
+            } else if (state && typeof state === "object" && !state.srs) {
+                state = { srs: state.history && typeof state.history === "object" ? state.history : state };
+            }
+        }
+        if (!idsOnly && (!Array.isArray(wordsList) || wordsList.length === 0)) return [];
         const todayKey = isDateKey(dateKey) ? dateKey : getLocalDateKey(new Date());
         const normalizedState = migrateState(state, todayKey);
         const srsMap = normalizedState.srs;
 
         const wordsMap = new Map();
-        for (const w of wordsList) {
+        for (const w of wordsList || []) {
             if (w && Number.isInteger(w.id)) {
                 wordsMap.set(w.id, w);
             }
@@ -1005,13 +1042,14 @@
             if (!srsItem || typeof srsItem !== "object") continue;
             const id = Number(srsItem.wordId || rawId);
             const word = wordsMap.get(id);
-            if (!word) continue;
+            if (!idsOnly && !word) continue;
 
             const nextDate = isDateKey(srsItem.nextReviewDate) ? srsItem.nextReviewDate : todayKey;
             if (nextDate <= todayKey) {
                 const daysOverdue = Math.max(0, getDaysDifference(nextDate, todayKey));
                 dueItems.push({
-                    word,
+                    id,
+                    ...(word ? { word } : {}),
                     srs: srsItem,
                     isOverdue: daysOverdue > 0,
                     daysOverdue
@@ -1044,14 +1082,14 @@
             if (repA !== repB) {
                 return repA - repB;
             }
-            return (a.word.id || 0) - (b.word.id || 0);
+            return (a.id || a.word?.id || 0) - (b.id || b.word?.id || 0);
         });
 
-        if (typeof limit === "number" && limit > 0) {
-            return dueItems.slice(0, Math.floor(limit));
-        }
-
-        return dueItems;
+        const result = typeof limit === "number" && limit > 0
+            ? dueItems.slice(0, Math.floor(limit))
+            : dueItems;
+        if (idsOnly) return result.map((item) => item.id);
+        return result.map(({ id, ...item }) => item);
     }
 
     function recordReview(state, wordId, rating, dateKey, validIds = null) {
@@ -1760,7 +1798,6 @@
         setupThemeController,
         extractSpokenText,
         getHumanAudioUrl,
-        getNaturalAudioUrl,
         formatWordCitation,
         generateQuizQuestions,
         normalizeArabicText,

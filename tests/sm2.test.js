@@ -318,6 +318,19 @@ test("SM-2 Engine — Due Words Queue (getDueReviewWords)", async (t) => {
     assert.equal(limited[1].word.id, 5);
 });
 
+test("SM-2 public API accepts spec field names and returns due IDs", () => {
+    const next = Core.calculateNextReview({ repetitions: 1, interval: 1, easeFactor: 2.5 }, 4, "2026-08-16");
+    assert.equal(next.repetitions, 2);
+    assert.equal(next.easeFactor, 2.5);
+    assert.equal(next.lastReviewed, "2026-08-16");
+
+    const dueIds = Core.getDueReviewWords({
+        7: { wordId: 7, repetitions: 1, interval: 1, easeFactor: 2.5, nextReviewDate: "2026-08-15" },
+        8: { wordId: 8, repetitions: 1, interval: 1, easeFactor: 2.5, nextReviewDate: "2026-08-20" },
+    }, "2026-08-16");
+    assert.deepEqual(dueIds, [7]);
+});
+
 test("SM-2 Engine — Review Recording (recordReview)", async (t) => {
     const initialState = {
         version: 2,

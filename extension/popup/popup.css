@@ -98,7 +98,7 @@ main {
   inset: 8px auto auto 8px;
   transform: translateY(-180%);
   background: var(--paper-light);
-  color: var(--ink);
+  color: var(--button-ink);
   padding: 8px 12px;
   border-radius: 8px;
   z-index: 10;
@@ -230,7 +230,7 @@ button {
   border: 1px solid transparent;
   border-radius: 10px;
   background: var(--lime);
-  color: var(--ink);
+  color: var(--button-ink);
   cursor: pointer;
   font: 600 13px/1.2 var(--sans);
   padding: 8px 12px;
@@ -281,7 +281,7 @@ button:disabled {
 .continue {
   background: var(--lime);
   border-color: var(--lime);
-  color: var(--ink);
+  color: var(--button-ink);
   flex: 1;
   font-weight: 700;
 }
@@ -589,7 +589,7 @@ html[data-theme="midnight"] .feedback button:hover {
 
 .feedback button[aria-pressed="true"] {
   background: var(--lime);
-  color: var(--ink);
+  color: var(--button-ink);
   border-color: var(--lime);
 }
 
@@ -641,7 +641,7 @@ html[data-theme="midnight"] .feedback button[aria-pressed="true"] {
   width: 100%;
   background: var(--lime);
   border: 1px solid var(--lime);
-  color: var(--ink);
+  color: var(--button-ink);
   border-radius: 12px;
   font-size: 13px;
   font-weight: 700;

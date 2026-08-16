@@ -337,6 +337,7 @@ test("initThemeController hydrates DOM immediately and sets select value", async
   assert.equal(doc.documentElement.getAttribute("data-theme"), "midnight");
   assert.equal(select.value, "midnight");
   assert.equal(controller.getTheme(), "midnight");
+  assert.equal(doc.documentElement.getAttribute("data-theme-ready"), "true");
 
   controller.cleanup();
 });

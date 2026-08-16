@@ -406,7 +406,7 @@ async function updateBadge(profile, vocabulary) {
 function ensureContextMenu() {
   if (typeof ExtApi?.contextMenus?.create === "function") {
     try {
-      ExtApi.contextMenus.create({
+      const result = ExtApi.contextMenus.create({
         id: "kalimat-lookup-selection",
         title: "ابحث في كَلِمات",
         contexts: ["selection"],
@@ -415,6 +415,7 @@ function ensureContextMenu() {
           // Ignored if already created
         }
       });
+      if (result && typeof result.catch === "function") result.catch(() => {});
     } catch (_) {}
   }
 }
@@ -570,6 +571,7 @@ ExtApi?.runtime?.onMessage?.addListener?.(handleMessage);
 ExtApi?.runtime?.onStartup?.addListener?.(eventEntry(ensureReminderNow));
 ExtApi?.runtime?.onInstalled?.addListener?.(eventEntry(ensureReminderNow));
 registerReminderListeners();
+ensureContextMenu();
 
 if (typeof ExtApi?.contextMenus?.onClicked?.addListener === "function") {
   ExtApi.contextMenus.onClicked.addListener(eventEntry(async (info) => {

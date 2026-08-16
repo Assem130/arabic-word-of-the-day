@@ -37,7 +37,7 @@ function fakeExtension({ profile, reminder, vocabulary = [word("w1"), word("w2")
   if (reminder !== undefined) values["kalimat.reminder"] = reminder;
   const alarms = new Map();
   if (alarm) alarms.set(alarm.name, alarm);
-  const calls = { set: 0, clear: 0, create: [], notifications: [], tabs: [], permissionRequests: 0 };
+  const calls = { set: 0, clear: 0, create: [], contextMenus: [], notifications: [], tabs: [], permissionRequests: 0 };
   let remainingSetFailures = storageSetFailures;
   let remainingReminderWarningSetFailures = reminderWarningSetFailures;
   let remainingAlarmGetFailures = alarmGetFailures;
@@ -56,6 +56,10 @@ function fakeExtension({ profile, reminder, vocabulary = [word("w1"), word("w2")
   const notificationApi = {
     onClicked: fakeEvent(),
     async create(id, options) { if (notificationFailure) throw new Error("notification unavailable"); calls.notifications.push({ id, options }); },
+  };
+  const contextMenuApi = {
+    onClicked: fakeEvent(),
+    create(details, callback) { calls.contextMenus.push(details); callback?.(); },
   };
   const extension = {
     storage: { local: {
@@ -82,6 +86,7 @@ function fakeExtension({ profile, reminder, vocabulary = [word("w1"), word("w2")
         return permissionsGranted;
       },
     },
+    contextMenus: contextMenuApi,
     runtime,
     tabs: { async create(details) { if (tabFailure) throw new Error("tab unavailable"); calls.tabs.push(details); } },
   };
@@ -188,6 +193,18 @@ test("browser background bootstrap imports the five shared domain modules", asyn
   assert.deepEqual(imported, ["shared/date.js", "shared/vocabulary.js", "shared/state.js", "shared/selector.js", "shared/lookup.js"]);
   for (const name of ["KalimatDate", "KalimatVocabulary", "KalimatState", "KalimatSelector", "KalimatLookup"]) assert.equal(typeof context[name], "object");
   assert.equal((await fake.extension.runtime.onMessage.listeners[0]({ type: "settings.get" })).kind, "settings");
+});
+
+test("background registers the selection context menu on worker startup", () => {
+  const fixture = loadBackground({ permissions: false, reminderApis: false });
+  try {
+    assert.deepEqual(fixture.calls.contextMenus, [{
+      id: "kalimat-lookup-selection",
+      title: "ابحث في كَلِمات",
+      contexts: ["selection"],
+    }]);
+    assert.equal(fixture.extension.contextMenus.onClicked.listeners.length, 1);
+  } finally { fixture.restore(); }
 });
 
 test("reminder configuration registers newly available optional API listeners once", async () => {

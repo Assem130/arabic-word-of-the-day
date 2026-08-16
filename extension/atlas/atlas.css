@@ -91,7 +91,7 @@ button {
   background: var(--lime);
   border: 1px solid var(--lime);
   border-radius: 0;
-  color: var(--ink);
+  color: var(--button-ink);
   cursor: pointer;
   min-height: 44px;
   padding: 8px 16px;
@@ -101,7 +101,7 @@ button {
 button[aria-pressed="true"] {
   background: var(--lime);
   border-color: var(--atlas-text);
-  color: var(--atlas-card-text);
+  color: var(--button-ink);
 }
 
 button.danger {
@@ -166,7 +166,7 @@ h3:focus-visible,
 }
 
 .skip-link {
-  background: var(--atlas-text);
+  background: var(--atlas-card-bg);
   color: var(--atlas-card-text);
   inset-inline-start: 12px;
   padding: 8px 12px;
@@ -264,7 +264,7 @@ nav button {
 nav button[aria-pressed="true"] {
   background: var(--lime);
   border-color: var(--lime);
-  color: var(--ink);
+  color: var(--button-ink);
 }
 
 .status {
@@ -425,7 +425,7 @@ fieldset {
 
 .file-button:hover {
   background: var(--lime);
-  color: var(--ink);
+  color: var(--button-ink);
 }
 
 hr {
