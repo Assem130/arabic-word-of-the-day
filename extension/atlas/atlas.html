@@ -4,12 +4,27 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>أطلس كلمات</title>
+  <script src="../shared/theme-init.js"></script>
   <link rel="stylesheet" href="../shared/theme.css">
   <link rel="stylesheet" href="atlas.css">
 </head>
 <body>
   <a class="skip-link" href="#main">تجاوز إلى المحتوى</a>
-  <header class="masthead"><p>كلمات</p><h1>أطلس الكلمات</h1></header>
+  <header class="masthead">
+    <div class="masthead-brand">
+      <p>كلمات</p>
+      <h1>أطلس الكلمات</h1>
+    </div>
+    <div class="masthead-controls">
+      <select id="theme-select" aria-label="اختر السمة">
+        <option value="paper">ورقي</option>
+        <option value="emerald">زمردي</option>
+        <option value="midnight">ليلي</option>
+      </select>
+      <span id="streak-badge" class="streak-badge" aria-label="تتابع التعلم" role="status">🔥 لا يوجد تتابع بعد</span>
+      <button id="due-review-badge" class="due-review-badge" aria-label="المراجعات المستحقة" type="button" hidden>0 مستحقة</button>
+    </div>
+  </header>
   <nav aria-label="أقسام الأطلس"><button id="today" type="button" aria-pressed="true">اليوم</button><button id="explore" type="button" aria-pressed="false">استكشف</button><button id="history" type="button" aria-pressed="false">السجل</button><button id="settings" type="button" aria-pressed="false">الإعدادات</button></nav>
   <main id="main" tabindex="-1">
     <p id="status" class="status" aria-live="polite"></p><p id="warning" class="warning" role="status" hidden>تُعرض بياناتك، لكن تعذّر حفظ آخر تغيير.</p>
@@ -22,6 +37,7 @@
         <button id="today-save" type="button" aria-pressed="false">حفظ</button>
         <button id="today-known" type="button" aria-pressed="false">معروف</button>
         <button id="today-difficult" type="button" aria-pressed="false">صعب</button>
+        <button id="today-export-card" type="button">بطاقة للمشاركة</button>
       </div>
       <p id="today-action-status" class="action-status" role="status" aria-live="polite"></p>
     </section>
@@ -39,8 +55,11 @@
     </section>
     <section id="history-view" class="view" aria-labelledby="history-title" hidden>
       <h2 id="history-title" tabindex="-1">السجل</h2>
-      <label for="history-filter">عرض</label>
-      <select id="history-filter"><option value="all">كل الكلمات</option><option value="difficult">الصعبة</option><option value="saved">المحفوظة</option></select>
+      <div class="history-controls">
+        <label for="history-filter">عرض</label>
+        <select id="history-filter"><option value="all">كل الكلمات</option><option value="difficult">الصعبة</option><option value="saved">المحفوظة</option></select>
+        <button id="history-export-anki" type="button">تصدير إلى Anki (CSV)</button>
+      </div>
       <div id="history-list" class="history-list"></div>
     </section>
     <section id="settings-view" class="view" aria-labelledby="settings-title" hidden>
@@ -69,6 +88,7 @@
       <button id="settings-reminder" type="button" aria-pressed="false">تفعيل التذكير اليومي</button>
       <hr>
       <button id="export" type="button">تصدير البيانات</button>
+      <button id="btn-export-anki" type="button">تصدير بطاقات Anki (CSV)</button>
       <label class="file-button" tabindex="0" for="import-file">استيراد ملف JSON</label>
       <input id="import-file" type="file" accept="application/json,.json" tabindex="-1">
       <button id="clear" type="button" class="danger">مسح البيانات</button>
@@ -95,8 +115,66 @@
       <button id="recovery-clear" type="button" class="danger">مسح البيانات</button>
     </section>
   </main>
+  <dialog id="practice-dialog" class="practice-dialog" aria-modal="true" aria-labelledby="practice-title">
+    <div class="practice-container">
+      <header class="practice-header">
+        <h2 id="practice-title" class="practice-title">مراجعة البطاقات</h2>
+        <span id="practice-progress" class="practice-progress" aria-live="polite"></span>
+        <button id="practice-close" class="practice-close" type="button" aria-label="إغلاق">✕</button>
+      </header>
+      <div id="practice-body" class="practice-body">
+        <div class="flashcard-scene">
+          <div id="flashcard-card" class="flashcard-card" role="button" tabindex="0" aria-label="اقلب البطاقة">
+            <div class="flashcard-front">
+              <div id="card-front-word" class="card-word" lang="ar"></div>
+              <div id="card-front-vocalization" class="card-vocalization" lang="ar"></div>
+              <div id="card-front-weight" class="card-weight" lang="ar"></div>
+              <div id="card-front-root" class="card-root" lang="ar"></div>
+              <button id="card-front-speak" class="card-speak" type="button" aria-label="استمع للنطق">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path fill="currentColor" d="M14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77zm-2 0L7 7H3v10h4l5 3.77V3.23zM16.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
+                </svg>
+              </button>
+              <p class="flip-hint">اضغط أو اضغط المسافة لقلب البطاقة</p>
+            </div>
+            <div class="flashcard-back">
+              <div id="card-back-meaning-ar" class="card-meaning-ar" lang="ar"></div>
+              <div id="card-back-meaning-en" class="card-meaning-en" lang="en" dir="ltr"></div>
+              <div id="card-back-example-ar" class="card-example-ar" lang="ar"></div>
+              <div id="card-back-context" class="card-context" lang="ar"></div>
+            </div>
+          </div>
+        </div>
+        <div id="practice-ratings" class="practice-ratings" role="group" aria-label="تقييم التذكر">
+          <button id="rate-again" class="rate-btn rate-again" data-rating="again" type="button">
+            <span class="rate-title">أعد (1)</span>
+            <small class="rate-interval">&lt; 1 يوم</small>
+          </button>
+          <button id="rate-hard" class="rate-btn rate-hard" data-rating="hard" type="button">
+            <span class="rate-title">صعب (2)</span>
+            <small class="rate-interval">+1 يوم</small>
+          </button>
+          <button id="rate-good" class="rate-btn rate-good" data-rating="good" type="button">
+            <span class="rate-title">جيد (3)</span>
+            <small class="rate-interval">أيام</small>
+          </button>
+          <button id="rate-easy" class="rate-btn rate-easy" data-rating="easy" type="button">
+            <span class="rate-title">سهل (4)</span>
+            <small class="rate-interval">أسبوع</small>
+          </button>
+        </div>
+      </div>
+      <div id="practice-finished" class="practice-finished" hidden>
+        <p>🎉 أحسنت! أنهيت جميع مراجعات اليوم.</p>
+        <button id="practice-finish-btn" class="continue" type="button">إتمام</button>
+      </div>
+    </div>
+  </dialog>
   <script src="../shared/date.js"></script>
   <script src="../shared/vocabulary.js"></script>
+  <script src="../shared/theme.js"></script>
+  <script src="../shared/streak.js"></script>
+  <script src="../shared/export.js"></script>
   <script src="atlas.js"></script>
 </body>
 </html>

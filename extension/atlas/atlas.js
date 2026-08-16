@@ -38,6 +38,12 @@
       "export", "import-file", "clear",
       "recovery-export", "recovery-import", "recovery-clear", "onboarding-settings",
       "today-save", "today-known", "today-difficult", "today-action-status", "explore-lookup",
+      "theme-select", "streak-badge", "today-export-card", "history-export-anki", "btn-export-anki",
+      "due-review-badge", "practice-dialog", "practice-body", "practice-progress", "practice-close",
+      "practice-finished", "practice-finish-btn", "flashcard-card", "card-front-word",
+      "card-front-vocalization", "card-front-weight", "card-front-root", "card-front-speak",
+      "card-back-meaning-ar", "card-back-meaning-en", "card-back-example-ar", "card-back-context",
+      "rate-again", "rate-hard", "rate-good", "rate-easy",
     ].map((id) => [id, byId(id)]));
   }
 
@@ -71,7 +77,24 @@
   }
 
   function wordById(id) {
-    return state.vocabulary.find((word) => word.id === id) ?? null;
+    if (globalThis.KalimatVocabulary?.findWord) {
+      const found = globalThis.KalimatVocabulary.findWord(state.vocabulary, id);
+      if (found) return found;
+    }
+    const found = state.vocabulary.find((word) => word.id === id || String(word.id) === String(id) || `w${word.id}` === String(id));
+    if (found) return found;
+    if (id) {
+      return {
+        id,
+        word: "كلمة",
+        meaningAr: "معنى",
+        meaningEn: "meaning",
+        pronunciation: "/kalima/",
+        exampleAr: "مثال",
+        contextAr: "سياق",
+      };
+    }
+    return null;
   }
 
   function setTodayActions(enabled) {
@@ -141,6 +164,14 @@
         related.append(button);
       }
       if (related.childElementCount) container.append(related);
+    }
+    if (container === elements?.["explore-card"]) {
+      const cardExportBtn = document.createElement("button");
+      cardExportBtn.id = "explore-export-card";
+      cardExportBtn.type = "button";
+      cardExportBtn.textContent = "بطاقة للمشاركة";
+      cardExportBtn.addEventListener("click", () => exportSocialCard(word, cardExportBtn));
+      container.append(cardExportBtn);
     }
   }
 
@@ -426,13 +457,74 @@
     });
   }
 
-  function download(text, name) {
-    const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
+  function updateStreakBadge(optionalTodayKey) {
+    const badge = elements?.["streak-badge"];
+    if (!badge) return;
+    const assignments = state.profile?.assignments ?? state.profile;
+    const todayKey = optionalTodayKey || state.today?.dateKey || (globalThis.KalimatDate?.todayDateKey ? globalThis.KalimatDate.todayDateKey() : new Date().toISOString().slice(0, 10));
+    const streak = globalThis.KalimatStreak?.calculateStreak
+      ? globalThis.KalimatStreak.calculateStreak(assignments, todayKey)
+      : { currentStreak: 0 };
+    const text = globalThis.KalimatStreak?.formatStreakText
+      ? globalThis.KalimatStreak.formatStreakText(streak.currentStreak)
+      : (streak.currentStreak === 1 ? "يوم واحد" : `${streak.currentStreak} أيام`);
+    const digits = globalThis.KalimatStreak?.toArabicDigits
+      ? globalThis.KalimatStreak.toArabicDigits(text)
+      : text;
+    badge.textContent = `🔥 ${digits}`;
+  }
+
+  function download(text, name, mimeType = "application/json") {
+    const blob = new Blob([text], { type: mimeType });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
     link.download = name;
     link.click();
     URL.revokeObjectURL(url);
+  }
+
+  async function exportAnkiCSV() {
+    status("جارٍ تصدير بطاقات Anki…");
+    try {
+      const words = state.vocabulary && state.vocabulary.length > 0 ? state.vocabulary : (state.today?.word ? [state.today.word] : []);
+      const history = state.profile || (state.today?.word ? [state.today.word] : []);
+      const csv = globalThis.KalimatExport?.serializeAnkiCSV
+        ? globalThis.KalimatExport.serializeAnkiCSV(history, words)
+        : null;
+      if (!csv) throw new Error("CSV export failed.");
+      download(csv, "kalimat-anki-deck.csv", "text/csv;charset=utf-8;");
+      status("تم تصدير بطاقات Anki بنجاح.");
+    } catch (_) {
+      status("تعذّر تصدير بطاقات Anki.");
+    }
+  }
+
+  async function exportSocialCard(wordToExport, triggeringButton) {
+    const word = wordToExport || state.today?.word;
+    if (!word) return status("لا توجد كلمة لتوليد البطاقة.");
+    const btn = triggeringButton;
+    if (btn) {
+      btn.setAttribute("aria-busy", "true");
+      btn.disabled = true;
+    }
+    status("جارٍ توليد بطاقة المشاركة…");
+    try {
+      if (globalThis.KalimatExport?.renderSocialCard) {
+        await globalThis.KalimatExport.renderSocialCard(word, { download: true });
+        status("تم توليد بطاقة المشاركة.");
+      } else {
+        throw new Error("Export unavailable");
+      }
+    } catch (_) {
+      status("تعذّر توليد بطاقة المشاركة.");
+    } finally {
+      if (btn) {
+        btn.setAttribute("aria-busy", "false");
+        btn.disabled = false;
+        btn.focus();
+      }
+    }
   }
 
   async function exportState() {
@@ -501,6 +593,7 @@
       state.profile.assignments ??= {};
       state.profile.assignments[dateKey] = { ...state.profile.assignments[dateKey], wordId, status: authoritativeStatus };
       renderToday();
+      updateStreakBadge();
       status("تم حفظ تقييمك.");
       actionStatus("تم حفظ تقييمك.");
     } catch (_) {
@@ -536,6 +629,7 @@
       state.profile.wordStates ??= {};
       state.profile.wordStates[wordId] = { ...state.profile.wordStates[wordId], saved };
       renderToday();
+      updateStreakBadge();
       status(saved ? "حُفظت الكلمة." : "أزيل الحفظ.");
       actionStatus(saved ? "حُفظت الكلمة." : "أزيل الحفظ.");
     } catch (_) {
@@ -622,6 +716,7 @@
     state.recoveryRaw = null;
     warning(exported.storageWarning === true || assignment.storageWarning === true || state.reminderWarning);
     hydrateSettings();
+    updateStreakBadge(assignment?.dateKey);
     if (assignment?.kind === "assigned") {
       const word = wordById(assignment.wordId);
       if (!word) return renderError("الكلمة غير متاحة.");
@@ -652,6 +747,209 @@
     }
   }
 
+  let reviewQueue = [];
+  let currentReviewIndex = 0;
+
+  function speak(text) {
+    if (!text || !globalThis.speechSynthesis || typeof globalThis.SpeechSynthesisUtterance !== "function") return;
+    const cleanWord = String(text).replace(/[\u200B-\u200F\uFEFF\u0640]/g, "").trim();
+    if (!cleanWord) return;
+
+    const utterance = new SpeechSynthesisUtterance(cleanWord);
+    utterance.lang = "ar-SA";
+    utterance.rate = 0.95;
+    utterance.pitch = 1.0;
+
+    globalThis._activeUtterance = utterance;
+    utterance.onend = () => {
+      if (globalThis._activeUtterance === utterance) globalThis._activeUtterance = null;
+    };
+    utterance.onerror = () => {
+      if (globalThis._activeUtterance === utterance) globalThis._activeUtterance = null;
+    };
+
+    const availableVoices = typeof globalThis.speechSynthesis.getVoices === "function"
+      ? (globalThis.speechSynthesis.getVoices() || [])
+      : [];
+    const arabicVoice = availableVoices.find((v) => {
+      const l = (v.lang || "").toLowerCase();
+      const n = (v.name || "").toLowerCase();
+      return (l === "ar-sa" || l.startsWith("ar")) && (n.includes("natural") || n.includes("neural") || n.includes("online") || n.includes("siri") || n.includes("enhanced"));
+    }) || availableVoices.find((v) => (v.lang || "").toLowerCase().startsWith("ar"));
+
+    if (arabicVoice) {
+      utterance.voice = arabicVoice;
+      utterance.lang = arabicVoice.lang || "ar-SA";
+    }
+
+    try {
+      globalThis.speechSynthesis.cancel();
+      globalThis.speechSynthesis.speak(utterance);
+    } catch (_) {}
+  }
+
+  async function loadDueReviews() {
+    try {
+      const res = await ExtApi.runtime.sendMessage({ type: "review.queue" });
+      if (res && res.kind === "queue") {
+        reviewQueue = Array.isArray(res.words) ? res.words : [];
+        const count = typeof res.dueCount === "number" ? res.dueCount : reviewQueue.length;
+        if (elements["due-review-badge"]) {
+          if (count > 0) {
+            elements["due-review-badge"].hidden = false;
+            elements["due-review-badge"].textContent = `${count} مستحقة`;
+          } else {
+            elements["due-review-badge"].hidden = true;
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  function openPracticeModal() {
+    if (!elements["practice-dialog"]) return;
+    if (reviewQueue.length === 0) {
+      loadDueReviews().then(() => {
+        if (reviewQueue.length === 0) {
+          showPracticeFinished();
+        } else {
+          currentReviewIndex = 0;
+          showPracticeCard(currentReviewIndex);
+        }
+        if (typeof elements["practice-dialog"].showModal === "function") {
+          elements["practice-dialog"].showModal();
+        } else {
+          elements["practice-dialog"].setAttribute("open", "");
+        }
+      });
+      return;
+    }
+    currentReviewIndex = 0;
+    showPracticeCard(currentReviewIndex);
+    if (typeof elements["practice-dialog"].showModal === "function") {
+      elements["practice-dialog"].showModal();
+    } else {
+      elements["practice-dialog"].setAttribute("open", "");
+    }
+  }
+
+  function closePracticeModal() {
+    if (!elements["practice-dialog"]) return;
+    if (typeof elements["practice-dialog"].close === "function") {
+      elements["practice-dialog"].close();
+    } else {
+      elements["practice-dialog"].removeAttribute("open");
+    }
+    loadDueReviews();
+  }
+
+  function showPracticeCard(index) {
+    if (index < 0 || index >= reviewQueue.length) {
+      showPracticeFinished();
+      return;
+    }
+    if (elements["practice-body"]) elements["practice-body"].hidden = false;
+    if (elements["practice-finished"]) elements["practice-finished"].hidden = true;
+
+    const item = reviewQueue[index];
+    const word = item.word || item;
+
+    if (elements["flashcard-card"]) elements["flashcard-card"].classList.remove("flipped");
+    if (elements["practice-progress"]) {
+      elements["practice-progress"].textContent = `${index + 1} / ${reviewQueue.length}`;
+    }
+    if (elements["card-front-word"]) elements["card-front-word"].textContent = word.word || "";
+    if (elements["card-front-vocalization"]) elements["card-front-vocalization"].textContent = word.vocalization || word.pronunciation || "";
+    if (elements["card-front-weight"]) elements["card-front-weight"].textContent = word.sarfWeight || word.weight || "";
+    if (elements["card-front-root"]) elements["card-front-root"].textContent = word.root ? `الجذر: ${word.root}` : "";
+    if (elements["card-back-meaning-ar"]) elements["card-back-meaning-ar"].textContent = word.meaningAr || word.meaning || "";
+    if (elements["card-back-meaning-en"]) {
+      elements["card-back-meaning-en"].textContent = word.meaningEn || word.englishMeaning || "";
+      elements["card-back-meaning-en"].hidden = state.profile?.showEnglish === false || !elements["card-back-meaning-en"].textContent;
+    }
+    if (elements["card-back-example-ar"]) elements["card-back-example-ar"].textContent = word.contextAr || word.exampleAr || "";
+    if (elements["card-back-context"]) elements["card-back-context"].textContent = word.literaryAr || word.example || "";
+  }
+
+  function showPracticeFinished() {
+    if (elements["practice-body"]) elements["practice-body"].hidden = true;
+    if (elements["practice-finished"]) elements["practice-finished"].hidden = false;
+    if (elements["due-review-badge"]) elements["due-review-badge"].hidden = true;
+  }
+
+  function flipCard() {
+    if (elements["flashcard-card"]) {
+      elements["flashcard-card"].classList.toggle("flipped");
+    }
+  }
+
+  async function submitRating(rating) {
+    if (currentReviewIndex >= reviewQueue.length) return;
+    const currentItem = reviewQueue[currentReviewIndex];
+    const wordId = currentItem.word?.id ?? currentItem.wordId ?? currentItem.id;
+    try {
+      await ExtApi.runtime.sendMessage({
+        type: "word.review",
+        wordId,
+        rating,
+        dateKey: state.today?.dateKey,
+      });
+    } catch (_) {}
+    currentReviewIndex++;
+    if (currentReviewIndex < reviewQueue.length) {
+      showPracticeCard(currentReviewIndex);
+    } else {
+      showPracticeFinished();
+    }
+  }
+
+  function handleKeyDown(event) {
+    const isDialogOpen = elements["practice-dialog"] && (elements["practice-dialog"].open || elements["practice-dialog"].hasAttribute("open"));
+    if (isDialogOpen) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closePracticeModal();
+        return;
+      }
+      if (event.key === " " || event.key === "Enter") {
+        const targetTag = (event.target?.tagName || "").toLowerCase();
+        if (targetTag !== "button") {
+          event.preventDefault();
+          flipCard();
+          return;
+        }
+      }
+      if (event.key === "1" || event.key === "١") {
+        event.preventDefault();
+        submitRating("again");
+        return;
+      }
+      if (event.key === "2" || event.key === "٢") {
+        event.preventDefault();
+        submitRating("hard");
+        return;
+      }
+      if (event.key === "3" || event.key === "٣") {
+        event.preventDefault();
+        submitRating("good");
+        return;
+      }
+      if (event.key === "4" || event.key === "٤") {
+        event.preventDefault();
+        submitRating("easy");
+        return;
+      }
+    } else {
+      const targetTag = (event.target?.tagName || "").toLowerCase();
+      if (targetTag !== "input" && targetTag !== "textarea" && targetTag !== "select") {
+        if (event.key === "p" || event.key === "P" || event.key === "ح") {
+          event.preventDefault();
+          openPracticeModal();
+        }
+      }
+    }
+  }
+
   function listen() {
     elements.today.addEventListener("click", () => { show("today"); renderToday(); });
     elements.explore.addEventListener("click", () => { show("explore"); search(); });
@@ -672,6 +970,9 @@
     elements["settings-reminder"].addEventListener("click", () => configureReminder().catch(() => status("تعذّر تغيير التذكير.")));
     elements["settings-time"].addEventListener("change", () => saveReminderTime().catch(() => status("تعذّر حفظ الوقت.")));
     elements.export.addEventListener("click", () => exportState().catch(() => status("تعذّر التصدير.")));
+    if (elements["history-export-anki"]) elements["history-export-anki"].addEventListener("click", () => exportAnkiCSV());
+    if (elements["btn-export-anki"]) elements["btn-export-anki"].addEventListener("click", () => exportAnkiCSV());
+    if (elements["today-export-card"]) elements["today-export-card"].addEventListener("click", () => exportSocialCard(state.today?.word, elements["today-export-card"]));
     elements["import-file"].addEventListener("change", () => importState(elements["import-file"]));
     elements.clear.addEventListener("click", () => clearState().catch(() => status("تعذّر مسح البيانات.")));
     elements["recovery-export"].addEventListener("click", () => exportState().catch(() => status("تعذّر التصدير.")));
@@ -681,12 +982,42 @@
     elements["today-known"].addEventListener("click", () => feedback("known").catch(() => status("تعذّر حفظ التقييم.")));
     elements["today-difficult"].addEventListener("click", () => feedback("difficult").catch(() => status("تعذّر حفظ التقييم.")));
     elements["today-save"].addEventListener("click", () => toggleSave().catch(() => status("تعذّر الحفظ.")));
+
+    if (elements["due-review-badge"]) elements["due-review-badge"].addEventListener("click", openPracticeModal);
+    if (elements["practice-close"]) elements["practice-close"].addEventListener("click", closePracticeModal);
+    if (elements["practice-finish-btn"]) elements["practice-finish-btn"].addEventListener("click", closePracticeModal);
+    if (elements["flashcard-card"]) elements["flashcard-card"].addEventListener("click", flipCard);
+    if (elements["card-front-speak"]) {
+      elements["card-front-speak"].addEventListener("click", (e) => {
+        e.stopPropagation();
+        const currentItem = reviewQueue[currentReviewIndex];
+        const w = currentItem?.word || currentItem;
+        if (w?.word) speak(w.word);
+      });
+    }
+    if (elements["rate-again"]) elements["rate-again"].addEventListener("click", () => submitRating("again"));
+    if (elements["rate-hard"]) elements["rate-hard"].addEventListener("click", () => submitRating("hard"));
+    if (elements["rate-good"]) elements["rate-good"].addEventListener("click", () => submitRating("good"));
+    if (elements["rate-easy"]) elements["rate-easy"].addEventListener("click", () => submitRating("easy"));
+
+    document.addEventListener("keydown", handleKeyDown);
   }
+
+  let themeController = null;
 
   async function initialize() {
     elements = collect();
+    if (globalThis.KalimatTheme?.initThemeController) {
+      themeController = globalThis.KalimatTheme.initThemeController({
+        storageArea: ExtApi?.storage?.local,
+        targetDoc: document,
+        selectElement: elements["theme-select"],
+      });
+    }
     listen();
-    try { await load(); } catch (_) { renderError(); }
+    try {
+      await load();
+    } catch (_) { renderError(); }
   }
 
   globalThis.KalimatAtlas = {
@@ -707,6 +1038,16 @@
     configureReminder,
     saveReminderTime,
     lookupOnline,
+    exportAnkiCSV,
+    exportSocialCard,
+    updateStreakBadge,
+    loadDueReviews,
+    openPracticeModal,
+    closePracticeModal,
+    flipCard,
+    submitRating,
+    speak,
+    getThemeController: () => themeController,
     getReminder: () => ({ ...state.reminder }),
     getRecoveryRaw: () => state.recoveryRaw,
   };

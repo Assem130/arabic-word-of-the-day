@@ -1,3 +1,5 @@
+@charset "UTF-8";
+
 @font-face {
   font-family: "Amiri";
   font-style: normal;
@@ -38,17 +40,76 @@
   src: url("../assets/fonts/Outfit-SemiBold.woff2") format("woff2");
 }
 
-:root {
+/* 1. Paper Theme (Default Editorial Palette) */
+:root,
+html[data-theme="paper"] {
   --ink: #14211b;
   --ink-soft: #24332b;
   --paper: #d8cfbf;
   --paper-light: #f3efe5;
   --lime: #d9ff76;
-  --line-dark: rgb(20 33 27 / 34%);
-  --line-light: rgb(243 239 229 / 40%);
-  --serif: "Amiri", "Traditional Arabic", Georgia, serif;
-  --sans: "Outfit", "Segoe UI", system-ui, sans-serif;
+  --line-dark: rgba(20, 33, 27, 0.34);
+  --line-light: rgba(243, 239, 229, 0.40);
+  --nav-bg: rgba(20, 33, 27, 0.94);
+  --serif: "Amiri", "Readex Pro", "Scheherazade New", "Traditional Arabic", serif;
+  --sans: "Outfit", "Readex Pro", "Segoe UI", sans-serif;
   --target-size: 44px;
+}
+
+/* 2. Emerald Theme (Classic Luxury / Gold-on-Green) */
+html[data-theme="emerald"] {
+  --ink: #062c22;
+  --ink-soft: #114b3d;
+  --paper: #e2dabf;
+  --paper-light: #f4f0e6;
+  --lime: #d4af37;
+  --line-dark: rgba(6, 44, 34, 0.34);
+  --line-light: rgba(244, 240, 230, 0.40);
+  --nav-bg: rgba(6, 44, 34, 0.94);
+}
+
+/* 3. Midnight Theme (High-Contrast Dark Mode) */
+html[data-theme="midnight"] {
+  --ink: #f1f5f9;
+  --ink-soft: #cbd5e1;
+  --paper: #152244;
+  --paper-light: #0b1329;
+  --lime: #38bdf8;
+  --line-dark: rgba(241, 245, 249, 0.20);
+  --line-light: rgba(241, 245, 249, 0.15);
+  --nav-bg: rgba(7, 13, 28, 0.94);
+}
+
+/* Diacritic Protection & Arabic Typography Rules */
+.headword,
+.main-word,
+#word,
+.word-title,
+.identity-word h1,
+.word-card h2,
+.word-card h3 {
+  font-family: var(--serif);
+  line-height: 1.35;
+  padding-top: 4px;
+  overflow-wrap: break-word;
+}
+
+.meaning,
+.meaning-text,
+.definition,
+#meaning-ar,
+.meaning-ar {
+  font-family: var(--serif);
+  line-height: 1.45;
+}
+
+.example,
+.example-panel,
+.example-card,
+#example,
+.example-ar {
+  font-family: var(--serif);
+  line-height: 1.65;
 }
 
 * {
@@ -59,6 +120,23 @@
   outline: 3px solid var(--lime);
   outline-offset: 3px;
   box-shadow: 0 0 0 4px var(--ink);
+}
+
+/* Non-interactive programmatic focus targets (e.g. #word with tabindex="-1") must not show outline */
+[tabindex="-1"]:focus,
+[tabindex="-1"]:focus-visible,
+h1:focus,
+h1:focus-visible,
+h2:focus,
+h2:focus-visible,
+h3:focus,
+h3:focus-visible,
+#word:focus,
+#word:focus-visible,
+.word-card h2:focus,
+.word-card h2:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

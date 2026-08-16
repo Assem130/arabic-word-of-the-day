@@ -4,11 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="كَلِمات — تجربة يومية للاحتفاء بثراء اللغة العربية.">
+    <meta name="theme-color" content="#14211b">
     <title>كَلِمات | العربية كما لم تتأملها من قبل</title>
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://picsum.photos https://fastly.picsum.photos; object-src 'none'; base-uri 'self'; form-action 'none'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://picsum.photos https://fastly.picsum.photos; object-src 'none'; base-uri 'self'; form-action 'none'; worker-src 'self'; manifest-src 'self'">
+    <link rel="manifest" href="manifest.webmanifest">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="revamp.css">
 </head>
 <body>
@@ -16,7 +19,12 @@
     <svg class="svg-sprite" aria-hidden="true">
         <defs>
             <symbol id="i-book-open" viewBox="0 0 24 24"><path d="M12 7v14M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></symbol>
-            <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+            <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+            <symbol id="i-volume-high" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4zM15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14"/></symbol>
+            <symbol id="i-waveform" viewBox="0 0 24 24"><path d="M2 12h2M6 9v6M10 5v14M14 8v8M18 10v4M22 12h0"/></symbol>
+            <symbol id="i-xmark" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+            <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+            <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" fill="none" stroke="currentColor" stroke-width="2"/><line x1="21" y1="21" x2="16.65" y2="16.65" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
         </defs>
     </svg>
 
@@ -29,6 +37,18 @@
                 </a>
                 <p class="nav-note">لفظٌ واحد. أفقٌ أوسع.</p>
                 <div class="nav-actions">
+                    <a class="nav-word-link nav-explorer-link" href="#lexicon-explorer" title="معجم الجذور والأوزان"><svg class="icon"><use href="#i-search"/></svg> <span>معجم الجذور</span></a>
+                    <button id="due-review-badge" class="due-review-badge" type="button" title="المراجعات المستحقة اليوم (Q)" aria-label="المراجعات المستحقة اليوم: 0 كلمات" role="status">
+                        <span class="due-icon badge-icon">⚡</span>
+                        <span class="due-count" id="due-count">0</span>
+                        <span class="due-label">مراجعة</span>
+                    </button>
+                    <div id="streak-badge" class="streak-badge" title="تتابع القراءة اليومي" aria-label="تتابع القراءة اليومي">🔥 لا يوجد تتابع بعد</div>
+                    <select id="theme-select" class="theme-select" aria-label="اختر المظهر">
+                        <option value="paper">كلاسيكي ورقي</option>
+                        <option value="emerald">أندلسي زمردي</option>
+                        <option value="midnight">واحة الليل</option>
+                    </select>
                     <a class="nav-word-link" href="word.html">كلمة اليوم <svg class="icon"><use href="#i-arrow"/></svg></a>
                 </div>
             </nav>
@@ -39,7 +59,10 @@
                 <p class="eyebrow">مجلة لغوية يومية</p>
                 <h1>العربية،<br><span>بحضور أكبر.</span></h1>
                 <p class="hero-lede">لفظة واحدة كل يوم؛ معناها، بنيتها، وصوتها في مساحة تمنحها ما تستحق.</p>
-                <a class="primary-button" href="word.html">ابدأ القراءة <svg class="icon"><use href="#i-arrow"/></svg></a>
+                <div class="hero-cta-group">
+                    <a class="primary-button" href="word.html">ابدأ القراءة <svg class="icon"><use href="#i-arrow"/></svg></a>
+                    <a class="secondary-button" href="#lexicon-explorer"><svg class="icon"><use href="#i-search"/></svg> <span>معجم الجذور والأوزان</span></a>
+                </div>
             </div>
             <div class="hero-art" aria-hidden="true"><div class="hero-glyph">ض</div></div>
         </section>
@@ -60,6 +83,72 @@
             </div>
         </section>
 
+        <section class="lexicon-explorer-section" id="lexicon-explorer" aria-label="معجم الجذور والأوزان">
+            <div class="lexicon-header">
+                <p class="eyebrow">معجم كَلِمات الشامل</p>
+                <h2>معجم الجذور والأوزان الصرفية</h2>
+                <p class="lexicon-lede">تصفح وابحث في ٣٦٥ لفظاً فصيحاً مصنفة حسب الأصول اللغوية (٣٣٢ جذراً)، الأوزان الصرفية (٦٦ وزناً)، والتصنيفات الدلالية (١٢ حقلاً).</p>
+            </div>
+
+            <div class="lexicon-toolbar">
+                <div class="lexicon-search-bar">
+                    <div class="lexicon-search-wrap">
+                        <svg class="icon search-icon" aria-hidden="true"><use href="#i-search"/></svg>
+                        <input type="search" id="input-lexicon-search" class="lexicon-search-input" placeholder="ابحث باللفظ، الجذر (مثال: س م د ع)، الوزن، أو المعنى..." aria-label="البحث في المعجم">
+                    </div>
+                    <button type="button" id="btn-clear-lexicon-filters" class="lexicon-clear-btn" title="مسح جميع الفلاتر" hidden>
+                        <svg class="icon"><use href="#i-xmark"/></svg>
+                        <span>مسح الفلاتر</span>
+                    </button>
+                </div>
+
+                <div class="lexicon-filters-grid">
+                    <div class="lexicon-filter-group">
+                        <label for="select-lexicon-root" class="lexicon-filter-label">الجذر اللغوي (الأصول):</label>
+                        <select id="select-lexicon-root" class="lexicon-select" aria-label="تصفية حسب الجذر اللغوي">
+                            <option value="">جميع الجذور (٣٣٢ جذراً)</option>
+                        </select>
+                    </div>
+
+                    <div class="lexicon-filter-group">
+                        <label for="select-lexicon-weight" class="lexicon-filter-label">الوزن الصرفي (الميزان):</label>
+                        <select id="select-lexicon-weight" class="lexicon-select" aria-label="تصفية حسب الوزن الصرفي">
+                            <option value="">جميع الأوزان الصرفية (٦٦ وزناً)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="lexicon-subfilters">
+                    <div class="lexicon-category-wrapper">
+                        <span class="lexicon-subfilter-title">التصنيفات الموضوعية (١٢ حقل دلالي):</span>
+                        <div class="lexicon-category-chips" id="lexicon-category-chips" role="group" aria-label="التصنيفات الموضوعية">
+                            <!-- Category chips rendered dynamically -->
+                        </div>
+                    </div>
+
+                    <div class="lexicon-letter-wrapper">
+                        <span class="lexicon-subfilter-title">فهرس الحرف الأول من الجذر:</span>
+                        <div class="lexicon-letter-bar" id="lexicon-letter-bar" role="group" aria-label="فهرس الحروف">
+                            <!-- Letter buttons rendered dynamically -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="lexicon-results-bar">
+                    <span id="lexicon-results-count" class="lexicon-results-count" role="status" aria-live="polite">عرض ٣٦٥ من أصل ٣٦٥ لفظاً</span>
+                </div>
+            </div>
+
+            <div id="lexicon-grid" class="lexicon-grid" role="region" aria-label="قائمة مفردات المعجم">
+                <!-- Cards rendered dynamically -->
+            </div>
+
+            <div id="lexicon-empty-state" class="lexicon-empty-state" hidden>
+                <p>لم نجد ألفاظاً مطابقة لمعايير البحث الحالية.</p>
+                <button type="button" id="btn-reset-lexicon-empty" class="primary-button">إعادة ضبط الفلاتر</button>
+            </div>
+        </section>
+
         <footer class="footer">
             <span>كَلِمات</span>
             <p>تجربة يومية للاحتفاء بثراء العربية.</p>
@@ -67,8 +156,22 @@
         </footer>
     </main>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+    <dialog class="practice-dialog" id="practice-dialog" role="dialog" aria-modal="true" aria-labelledby="practice-title">
+        <header>
+            <div><p>تثبيت الذاكرة</p><h2 id="practice-title">مراجعة التكرار المتباعد</h2></div>
+            <button class="icon-button" id="btn-close-practice" type="button" aria-label="إغلاق المراجعة">
+                <svg class="icon"><use href="#i-xmark"/></svg>
+            </button>
+        </header>
+        <div class="practice-body" id="practice-body">
+            <!-- Rendered by app.js / revamp.js -->
+        </div>
+    </dialog>
+
+    <div id="audio-announcer" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="words.js" charset="utf-8"></script>
+    <script src="app-core.js" charset="utf-8"></script>
     <script src="revamp.js"></script>
 </body>
 </html>
