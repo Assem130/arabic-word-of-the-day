@@ -719,9 +719,8 @@ async function speakText(text, buttonEl, activeIcon = "i-waveform", idleIcon = "
     setButtonPlaybackState(buttonEl, "loading", activeIcon, idleIcon);
 
     const AudioCtor = (typeof window !== "undefined" && typeof window.Audio === "function") ? window.Audio : (typeof Audio === "function" ? Audio : null);
-    const isOnline = (typeof navigator !== "undefined" && typeof navigator.onLine === "boolean") ? navigator.onLine : true;
 
-    // 1. Build ordered candidate list (Tier 1A: Human Audio -> Tier 1B: Streaming URL)
+    // 1. Build the ordered local candidate list (human audio before Web Speech fallback).
     const audioCandidates = [];
     if (audioOverride) {
         audioCandidates.push(audioOverride);
@@ -732,13 +731,6 @@ async function speakText(text, buttonEl, activeIcon = "i-waveform", idleIcon = "
             audioCandidates.push(humanUrl);
         }
     }
-    if (isOnline && typeof Core.getNaturalAudioUrl === "function") {
-        const streamUrl = Core.getNaturalAudioUrl(cleanSpeechText);
-        if (streamUrl && !audioCandidates.includes(streamUrl)) {
-            audioCandidates.push(streamUrl);
-        }
-    }
-
     // 2. Try HTML5 Audio candidates
     if (AudioCtor && audioCandidates.length > 0) {
         for (const candUrl of audioCandidates) {
@@ -1631,21 +1623,7 @@ function startSpacedRepetitionReview() {
         ? Core.getDueReviewWords(appState, WORDS_DB, todayKey)
         : [];
 
-    if (dueItems && dueItems.length > 0) {
-        activeReviewQueue = dueItems;
-    } else {
-        // Fallback to recent history words if available, or empty queue
-        const historyIds = Object.keys(appState.history || {}).map(Number).filter(id => VALID_WORD_IDS.has(id));
-        if (historyIds.length > 0) {
-            activeReviewQueue = historyIds.slice(0, 10).map(id => {
-                const w = WORDS_DB.find(item => item.id === id);
-                const srs = (appState.srs && appState.srs[id]) ? appState.srs[id] : (Core ? Core.createDefaultSrsItem(id, todayKey) : {});
-                return { word: w, srs, isOverdue: false, daysOverdue: 0 };
-            }).filter(item => Boolean(item.word));
-        } else {
-            activeReviewQueue = [];
-        }
-    }
+    activeReviewQueue = Array.isArray(dueItems) ? dueItems : [];
 
     activeReviewIndex = 0;
     sessionReviewStats = { totalReviewed: 0, ratings: { again: 0, hard: 0, good: 0, easy: 0 } };

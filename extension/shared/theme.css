@@ -48,6 +48,7 @@ html[data-theme="paper"] {
   --paper: #d8cfbf;
   --paper-light: #f3efe5;
   --lime: #d9ff76;
+  --button-ink: #0b1329;
   --line-dark: rgba(20, 33, 27, 0.34);
   --line-light: rgba(243, 239, 229, 0.40);
   --nav-bg: rgba(20, 33, 27, 0.94);
@@ -114,6 +115,10 @@ html[data-theme="midnight"] {
 
 * {
   box-sizing: border-box;
+}
+
+html:not([data-theme-ready]) body {
+  visibility: hidden;
 }
 
 :focus-visible {

@@ -172,10 +172,34 @@
     return 4;
   }
 
+  function withSrsAliases(item) {
+    Object.defineProperties(item, {
+      repetitions: {
+        configurable: true,
+        enumerable: false,
+        get() { return this.repetition; },
+        set(value) { this.repetition = value; },
+      },
+      easeFactor: {
+        configurable: true,
+        enumerable: false,
+        get() { return this.ef; },
+        set(value) { this.ef = value; },
+      },
+      lastReviewed: {
+        configurable: true,
+        enumerable: false,
+        get() { return this.lastReviewedDate; },
+        set(value) { this.lastReviewedDate = value; },
+      },
+    });
+    return item;
+  }
+
   function createDefaultSrsItem(wordId, initialDateKey) {
     const today = isDateKey(initialDateKey) ? initialDateKey : getLocalDateKey(new Date());
     const numericId = typeof wordId === "number" ? wordId : (String(wordId).startsWith("w") ? parseInt(String(wordId).slice(1), 10) : Number(wordId));
-    return {
+    return withSrsAliases({
       wordId: Number.isInteger(numericId) ? numericId : wordId,
       repetition: 0,
       interval: 0,
@@ -185,16 +209,20 @@
       reviewCount: 0,
       lapses: 0,
       history: [],
-    };
+    });
   }
 
   function calculateSM2(item, rating, reviewDateKey) {
     const q = mapRatingToGrade(rating);
     const dateKey = isDateKey(reviewDateKey) ? reviewDateKey : getLocalDateKey(new Date());
 
-    const prevRepetition = (item && Number.isInteger(item.repetition) && item.repetition >= 0) ? item.repetition : 0;
+    const prevRepetition = (item && Number.isInteger(item.repetition) && item.repetition >= 0)
+      ? item.repetition
+      : ((item && Number.isInteger(item.repetitions) && item.repetitions >= 0) ? item.repetitions : 0);
     const prevInterval = (item && typeof item.interval === "number" && item.interval >= 0) ? item.interval : 0;
-    const prevEf = (item && typeof item.ef === "number" && !isNaN(item.ef) && item.ef >= 1.3) ? item.ef : 2.5;
+    const prevEf = (item && typeof item.ef === "number" && !isNaN(item.ef) && item.ef >= 1.3)
+      ? item.ef
+      : ((item && typeof item.easeFactor === "number" && !isNaN(item.easeFactor) && item.easeFactor >= 1.3) ? item.easeFactor : 2.5);
     const prevLapses = (item && Number.isInteger(item.lapses) && item.lapses >= 0) ? item.lapses : 0;
     const prevReviewCount = (item && Number.isInteger(item.reviewCount) && item.reviewCount >= 0) ? item.reviewCount : 0;
     const prevHistory = (item && Array.isArray(item.history)) ? [...item.history] : [];
@@ -254,7 +282,7 @@
       result.wordId = item.wordId;
     }
 
-    return result;
+    return withSrsAliases(result);
   }
 
   function copyProfile(raw, vocabulary, assignmentMaximum = MAX_ASSIGNMENTS) {
@@ -299,17 +327,22 @@
       for (const [rawWordId, item] of Object.entries(raw.srs)) {
         if (item && typeof item === "object") {
           const wId = item.wordId ?? rawWordId;
-          srs[wId] = {
+          const rawEf = typeof item.ef === "number" ? item.ef : item.easeFactor;
+          srs[wId] = withSrsAliases({
             wordId: Number.isInteger(Number(wId)) ? Number(wId) : wId,
-            repetition: Number.isInteger(item.repetition) && item.repetition >= 0 ? item.repetition : 0,
+            repetition: Number.isInteger(item.repetition) && item.repetition >= 0
+              ? item.repetition
+              : (Number.isInteger(item.repetitions) && item.repetitions >= 0 ? item.repetitions : 0),
             interval: typeof item.interval === "number" && item.interval >= 0 ? Math.round(item.interval) : 0,
-            ef: typeof item.ef === "number" && !isNaN(item.ef) ? Math.max(1.3, Math.round(item.ef * 100) / 100) : 2.5,
+            ef: typeof rawEf === "number" && !isNaN(rawEf) ? Math.max(1.3, Math.round(rawEf * 100) / 100) : 2.5,
             nextReviewDate: isDateKey(item.nextReviewDate) ? item.nextReviewDate : getLocalDateKey(new Date()),
-            lastReviewedDate: isDateKey(item.lastReviewedDate) ? item.lastReviewedDate : null,
+            lastReviewedDate: isDateKey(item.lastReviewedDate)
+              ? item.lastReviewedDate
+              : (isDateKey(item.lastReviewed) ? item.lastReviewed : null),
             reviewCount: Number.isInteger(item.reviewCount) && item.reviewCount >= 0 ? item.reviewCount : 0,
             lapses: Number.isInteger(item.lapses) && item.lapses >= 0 ? item.lapses : 0,
             history: Array.isArray(item.history) ? item.history.slice(-50) : [],
-          };
+          });
         }
       }
     }
