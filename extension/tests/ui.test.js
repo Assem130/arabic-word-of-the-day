@@ -16,6 +16,64 @@ function source(name) {
   return fs.readFileSync(files[name], "utf8");
 }
 
+class FakeCanvasContext {
+  constructor() {
+    this.calls = [];
+    this.font = "";
+    this.fillStyle = "";
+    this.strokeStyle = "";
+    this.lineWidth = 1;
+    this.textAlign = "start";
+    this.textBaseline = "alphabetic";
+    this.direction = "inherit";
+  }
+  createLinearGradient(x0, y0, x1, y1) {
+    this.calls.push({ method: "createLinearGradient", args: [x0, y0, x1, y1] });
+    return {
+      addColorStop: (offset, color) => {
+        this.calls.push({ method: "addColorStop", args: [offset, color] });
+      },
+    };
+  }
+  fillRect(x, y, w, h) {
+    this.calls.push({ method: "fillRect", args: [x, y, w, h], fillStyle: this.fillStyle });
+  }
+  strokeRect(x, y, w, h) {
+    this.calls.push({ method: "strokeRect", args: [x, y, w, h], strokeStyle: this.strokeStyle, lineWidth: this.lineWidth });
+  }
+  fillText(text, x, y) {
+    this.calls.push({ method: "fillText", args: [text, x, y], font: this.font, fillStyle: this.fillStyle, textAlign: this.textAlign, direction: this.direction });
+  }
+  measureText(text) {
+    return { width: String(text || "").length * 10 };
+  }
+  save() { this.calls.push({ method: "save" }); }
+  restore() { this.calls.push({ method: "restore" }); }
+  beginPath() { this.calls.push({ method: "beginPath" }); }
+  moveTo(x, y) { this.calls.push({ method: "moveTo", args: [x, y] }); }
+  lineTo(x, y) { this.calls.push({ method: "lineTo", args: [x, y] }); }
+  stroke() { this.calls.push({ method: "stroke", strokeStyle: this.strokeStyle, lineWidth: this.lineWidth }); }
+}
+
+class FakeCanvasElement {
+  constructor() {
+    this.width = 0;
+    this.height = 0;
+    this.context = new FakeCanvasContext();
+  }
+  getContext(type) {
+    if (type === "2d") return this.context;
+    return null;
+  }
+  toBlob(callback, type = "image/png") {
+    const blob = { type, size: 1024, isBlob: true };
+    if (typeof callback === "function") callback(blob);
+  }
+  toDataURL(type = "image/png") {
+    return `data:${type};base64,fakecanvasdata`;
+  }
+}
+
 function element() {
   const attributes = Object.create(null);
   return {
@@ -30,39 +88,264 @@ function element() {
 
 function popupApi(responses = {}, options = {}) {
   const elements = new Map();
-  const ids = ["status", "action-status", "onboarding", "assigned", "empty", "error", "recovery", "warning", "empty-title", "error-title", "word", "meaning-ar", "meaning-en", "example", "example-en", "pronunciation", "fixed-label", "save", "speak", "reminder", "reminder-time", "onboarding-submit", "onboarding-skip", "explore", "explore-empty", "recovery-reset", "known", "difficult"];
+  const ids = [
+    "status", "action-status", "onboarding", "assigned", "empty", "error", "recovery", "warning",
+    "empty-title", "error-title", "word", "meaning-ar", "meaning-en", "example", "example-en",
+    "pronunciation", "fixed-label", "save", "speak", "reminder", "reminder-time",
+    "onboarding-submit", "onboarding-skip", "explore", "explore-empty", "recovery-reset",
+    "known", "difficult", "theme-select", "streak-badge", "btn-export-anki", "btn-export-card",
+  ];
   for (const id of ids) elements.set(id, element());
   elements.get("reminder-time").value = "09:00";
+  elements.get("theme-select").value = options.theme || "paper";
+  elements.get("streak-badge").textContent = "🔥 لا يوجد تتابع بعد";
   const inputs = ["classical-arabic", "daily-life", "family", "food", "language", "travel"].map((value) => ({ ...element(), value, name: "interest" }));
+  const downloads = [];
+  const storageData = {
+    "kalimat.profile": Object.hasOwn(options, "profile") ? options.profile : {},
+    "kalimat.theme": options.theme || "paper",
+    ...(options.storage || {}),
+  };
+  const storageListeners = [];
+  const storage = {
+    local: {
+      get(keys, cb) {
+        let result = {};
+        if (typeof keys === "string") {
+          if (storageData[keys] !== undefined) result[keys] = storageData[keys];
+        } else if (Array.isArray(keys)) {
+          for (const k of keys) { if (storageData[k] !== undefined) result[k] = storageData[k]; }
+        } else if (keys && typeof keys === "object") {
+          for (const k of Object.keys(keys)) {
+            result[k] = storageData[k] !== undefined ? storageData[k] : keys[k];
+          }
+        } else {
+          result = { ...storageData };
+        }
+        if (typeof cb === "function") cb(result);
+        return Promise.resolve(result);
+      },
+      set(items, cb) {
+        const changes = {};
+        for (const [k, v] of Object.entries(items || {})) {
+          changes[k] = { oldValue: storageData[k], newValue: v };
+          storageData[k] = v;
+        }
+        for (const fn of storageListeners) {
+          try { fn(changes, "local"); } catch (_) {}
+        }
+        if (typeof cb === "function") cb();
+        return Promise.resolve();
+      },
+    },
+    onChanged: {
+      addListener(fn) { storageListeners.push(fn); },
+      removeListener(fn) {
+        const idx = storageListeners.indexOf(fn);
+        if (idx !== -1) storageListeners.splice(idx, 1);
+      },
+    },
+  };
+  storage.local.onChanged = storage.onChanged;
+  const documentElement = {
+    attributes: {},
+    setAttribute(name, value) { this.attributes[name] = { name, value: String(value) }; },
+    getAttribute(name) { return this.attributes[name]?.value ?? null; },
+  };
+  const body = {
+    appendChild(node) {
+      if (node && node.download !== undefined) {
+        // anchor appended
+      }
+    },
+    removeChild() {},
+  };
   const document = {
-    readyState: "loading", getElementById(id) { return elements.get(id); },
+    readyState: "loading",
+    documentElement,
+    body,
+    fonts: { ready: Promise.resolve() },
+    getElementById(id) { return elements.get(id); },
+    createElement(tag) {
+      if (tag === "canvas") return new FakeCanvasElement();
+      if (tag === "a") {
+        const a = element();
+        a.download = "";
+        a.href = "";
+        a.click = function () {
+          downloads.push({ href: this.href, download: this.download, filename: this.download });
+        };
+        a.remove = function () {};
+        return a;
+      }
+      return element();
+    },
     querySelectorAll(selector) { return selector === 'input[name="interest"]' ? inputs : []; },
     addEventListener() {},
   };
   const calls = [];
   const extension = {
-    runtime: { sendMessage(message) { calls.push(message); const response = responses[message.type]; const result = typeof response === "function" ? response(message, calls) : response; return result instanceof Error ? Promise.reject(result) : Promise.resolve(result ?? {}); }, getURL(value) { return `extension://kalimat/${value}`; } },
-    permissions: { request(value) { calls.push({ permission: value }); if (options.permissionError) return Promise.reject(options.permissionError); return Promise.resolve(Object.hasOwn(options, "permissionResult") ? options.permissionResult : true); } },
+    runtime: {
+      sendMessage(message) {
+        calls.push(message);
+        const response = responses[message.type];
+        const result = typeof response === "function" ? response(message, calls) : response;
+        return result instanceof Error ? Promise.reject(result) : Promise.resolve(result ?? {});
+      },
+      getURL(value) { return `extension://kalimat/${value}`; },
+    },
+    permissions: {
+      request(value) {
+        calls.push({ permission: value });
+        if (options.permissionError) return Promise.reject(options.permissionError);
+        return Promise.resolve(Object.hasOwn(options, "permissionResult") ? options.permissionResult : true);
+      },
+    },
     tabs: { create(value) { calls.push({ tab: value }); return Promise.resolve(); } },
-    storage: { local: { get() { return Promise.resolve({ "kalimat.profile": Object.hasOwn(options, "profile") ? options.profile : {} }); } } },
+    storage,
   };
-  const context = { document, chrome: extension, Promise, console, confirm: options.confirm, globalThis: null };
+  const createdUrls = new Map();
+  const recordedBlobs = new Map();
+  let urlCounter = 0;
+  const mockURL = {
+    createObjectURL(blob) {
+      const url = `blob:kalimat/${++urlCounter}`;
+      createdUrls.set(url, blob);
+      recordedBlobs.set(url, blob);
+      return url;
+    },
+    revokeObjectURL(url) {
+      createdUrls.delete(url);
+    },
+  };
+  const vocabulary = options.vocabulary ?? [
+    { id: "w1", word: "كلمة", normalized: "كلمة", meaningAr: "معنى", meaningEn: "meaning", pronunciation: "/w1/", exampleAr: "مثال", contextAr: "سياق" },
+  ];
+  const context = {
+    document,
+    chrome: extension,
+    Promise,
+    console,
+    confirm: options.confirm,
+    URLSearchParams,
+    URL: mockURL,
+    Blob: globalThis.Blob,
+    fetch: async (url) => {
+      if (typeof url === "string" && url.includes("vocabulary.json")) {
+        return { ok: true, async json() { return options.vocabulary ?? vocabulary; } };
+      }
+      return { ok: false };
+    },
+    globalThis: null,
+  };
   context.globalThis = context;
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, "..", "shared", "date.js"), "utf8"), context);
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, "..", "shared", "vocabulary.js"), "utf8"), context);
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, "..", "shared", "theme.js"), "utf8"), context);
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, "..", "shared", "streak.js"), "utf8"), context);
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, "..", "shared", "export.js"), "utf8"), context);
   vm.runInNewContext(source("popup.js"), context, { filename: files["popup.js"] });
-  return { api: context.KalimatPopup, elements, inputs, calls };
+  return { api: context.KalimatPopup, elements, inputs, calls, context, downloads, storageData, storageListeners, createdUrls, recordedBlobs };
 }
 
 function atlasApi(responses = {}, options = {}) {
   const elements = new Map();
-  const ids = ["status", "today-action-status", "warning", "today", "explore", "history", "settings", "today-view", "explore-view", "history-view", "settings-view", "onboarding", "recovery", "empty", "error", "today-title", "explore-title", "history-title", "settings-title", "onboarding-title", "recovery-title", "empty-title", "error-title", "today-card", "today-empty", "explore-card", "atlas-search", "search-count", "search-results", "return-today", "history-filter", "history-list", "settings-english", "settings-save", "settings-time", "settings-reminder", "export", "import-file", "clear", "recovery-export", "recovery-import", "recovery-clear", "onboarding-settings", "today-save", "today-known", "today-difficult", "explore-lookup"];
+  const ids = [
+    "status", "today-action-status", "warning", "today", "explore", "history", "settings",
+    "today-view", "explore-view", "history-view", "settings-view", "onboarding", "recovery",
+    "empty", "error", "today-title", "explore-title", "history-title", "settings-title",
+    "onboarding-title", "recovery-title", "empty-title", "error-title", "today-card", "today-empty",
+    "explore-card", "atlas-search", "search-count", "search-results", "return-today",
+    "history-filter", "history-list", "settings-english", "settings-save", "settings-time",
+    "settings-reminder", "export", "import-file", "clear", "recovery-export", "recovery-import",
+    "recovery-clear", "onboarding-settings", "today-save", "today-known", "today-difficult", "explore-lookup",
+    "theme-select", "streak-badge", "today-export-card", "history-export-anki", "btn-export-anki",
+  ];
   for (const id of ids) elements.set(id, element());
   elements.get("history-filter").value = "all";
+  elements.get("theme-select").value = options.theme || "paper";
+  elements.get("streak-badge").textContent = "🔥 لا يوجد تتابع بعد";
   const levels = [1, 2, 3, 4].map((value) => ({ ...element(), value: String(value), name: "atlas-level" }));
   const interests = ["classical-arabic", "daily-life", "family", "food", "language", "travel"].map((value) => ({ ...element(), value, name: "atlas-interest" }));
+  const downloads = [];
+  const storageData = {
+    "kalimat.theme": options.theme || "paper",
+    ...(options.storage || {}),
+  };
+  const storageListeners = [];
+  const storage = {
+    local: {
+      get(keys, cb) {
+        let result = {};
+        if (typeof keys === "string") {
+          if (storageData[keys] !== undefined) result[keys] = storageData[keys];
+        } else if (Array.isArray(keys)) {
+          for (const k of keys) { if (storageData[k] !== undefined) result[k] = storageData[k]; }
+        } else if (keys && typeof keys === "object") {
+          for (const k of Object.keys(keys)) {
+            result[k] = storageData[k] !== undefined ? storageData[k] : keys[k];
+          }
+        } else {
+          result = { ...storageData };
+        }
+        if (typeof cb === "function") cb(result);
+        return Promise.resolve(result);
+      },
+      set(items, cb) {
+        const changes = {};
+        for (const [k, v] of Object.entries(items || {})) {
+          changes[k] = { oldValue: storageData[k], newValue: v };
+          storageData[k] = v;
+        }
+        for (const fn of storageListeners) {
+          try { fn(changes, "local"); } catch (_) {}
+        }
+        if (typeof cb === "function") cb();
+        return Promise.resolve();
+      },
+    },
+    onChanged: {
+      addListener(fn) { storageListeners.push(fn); },
+      removeListener(fn) {
+        const idx = storageListeners.indexOf(fn);
+        if (idx !== -1) storageListeners.splice(idx, 1);
+      },
+    },
+  };
+  storage.local.onChanged = storage.onChanged;
+  const documentElement = {
+    attributes: {},
+    setAttribute(name, value) { this.attributes[name] = { name, value: String(value) }; },
+    getAttribute(name) { return this.attributes[name]?.value ?? null; },
+  };
+  const body = {
+    appendChild(node) {
+      if (node && node.download !== undefined) {
+        // anchor appended
+      }
+    },
+    removeChild() {},
+  };
   const document = {
     readyState: "loading",
+    documentElement,
+    body,
+    fonts: { ready: Promise.resolve() },
     getElementById(id) { return elements.get(id); },
-    createElement() { return element(); },
+    createElement(tag) {
+      if (tag === "canvas") return new FakeCanvasElement();
+      if (tag === "a") {
+        const a = element();
+        a.download = "";
+        a.href = "";
+        a.click = function () {
+          downloads.push({ href: this.href, download: this.download, filename: this.download });
+        };
+        a.remove = function () {};
+        return a;
+      }
+      return element();
+    },
     querySelector(selector) {
       const level = selector.match(/input\[name="atlas-level"\]\[value="(\d)"\]/);
       if (level) return levels.find((input) => input.value === level[1]) ?? null;
@@ -87,24 +370,54 @@ function atlasApi(responses = {}, options = {}) {
       },
       getURL(value) { return `extension://kalimat/${value}`; },
     },
-    permissions: { request() { if (options.permissionError) return Promise.reject(options.permissionError); return Promise.resolve(Object.hasOwn(options, "permissionResult") ? options.permissionResult : true); } },
+    permissions: {
+      request() {
+        if (options.permissionError) return Promise.reject(options.permissionError);
+        return Promise.resolve(Object.hasOwn(options, "permissionResult") ? options.permissionResult : true);
+      },
+    },
+    storage,
   };
   const vocabulary = options.vocabulary ?? [
-    { id: "w1", word: "كلمة", normalized: "كلمة", meaningAr: "معنى", meaningEn: "meaning", pronunciation: "/w1/", exampleAr: "مثال" },
-    { id: "w2", word: "ثانية", normalized: "ثانية", meaningAr: "شرح", meaningEn: "second", pronunciation: "/w2/", exampleAr: "مثال ثان" },
+    { id: "w1", word: "كلمة", normalized: "كلمة", meaningAr: "معنى", meaningEn: "meaning", pronunciation: "/w1/", exampleAr: "مثال", contextAr: "سياق" },
+    { id: "w2", word: "ثانية", normalized: "ثانية", meaningAr: "شرح", meaningEn: "second", pronunciation: "/w2/", exampleAr: "مثال ثان", contextAr: "سياق ثان" },
   ];
+  const createdUrls = new Map();
+  const recordedBlobs = new Map();
+  let urlCounter = 0;
+  const mockURL = {
+    createObjectURL(blob) {
+      const url = `blob:kalimat/${++urlCounter}`;
+      createdUrls.set(url, blob);
+      recordedBlobs.set(url, blob);
+      return url;
+    },
+    revokeObjectURL(url) {
+      createdUrls.delete(url);
+    },
+  };
   const context = {
-    document, chrome: options.firefox ? undefined : extension, browser: options.firefox ? extension : undefined, Promise, console, URLSearchParams, URL, Blob,
-    KalimatDate: require("../shared/date.js"),
-    KalimatVocabulary: require("../shared/vocabulary.js"),
+    document,
+    chrome: options.firefox ? undefined : extension,
+    browser: options.firefox ? extension : undefined,
+    Promise,
+    console,
+    URLSearchParams,
+    URL: mockURL,
+    Blob: globalThis.Blob,
     location: { search: options.search ?? "" },
     fetch: async () => ({ ok: true, async json() { return vocabulary; } }),
     confirm: options.confirm ?? (() => true),
     globalThis: null,
   };
   context.globalThis = context;
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, "..", "shared", "date.js"), "utf8"), context);
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, "..", "shared", "vocabulary.js"), "utf8"), context);
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, "..", "shared", "theme.js"), "utf8"), context);
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, "..", "shared", "streak.js"), "utf8"), context);
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, "..", "shared", "export.js"), "utf8"), context);
   vm.runInNewContext(atlasSource("atlas.js"), context, { filename: path.join(atlas, "atlas.js") });
-  return { api: context.KalimatAtlas, elements, levels, interests, calls, context };
+  return { api: context.KalimatAtlas, elements, levels, interests, calls, context, downloads, storageData, storageListeners, createdUrls, recordedBlobs };
 }
 
 test("popup ships separate native files without unsafe markup or timer work", () => {
@@ -122,7 +435,6 @@ test("popup ships separate native files without unsafe markup or timer work", ()
   assert.doesNotMatch(html, /<script(?![^>]+\bsrc=)[^>]*>/i);
   assert.doesNotMatch(html, /<style\b/i);
 });
-
 test("popup exposes RTL accessible onboarding and assigned-word controls", () => {
   const html = source("popup.html");
   assert.match(html, /href="#main"[^>]*>تجاوز إلى المحتوى/);
@@ -153,7 +465,6 @@ test("popup exposes RTL accessible onboarding and assigned-word controls", () =>
   assert.match(source("popup.css"), /\.reminder-row button\s*\{[^}]*grid-column:\s*3/);
   assert.match(source("popup.css"), /\.reminder-row button\[aria-pressed="true"\]::after\s*\{[^}]*translateX\(20px\)/);
 });
-
 test("popup renders practical context before the literary fallback as safe text", () => {
   const { api, elements } = popupApi();
   assert.ok(api);
@@ -162,7 +473,6 @@ test("popup renders practical context before the literary fallback as safe text"
   api.renderAssigned({ kind: "assigned", word: { id: "w1", word: "كلمة", meaningAr: "معنى", meaningEn: "meaning", exampleAr: "مثال أدبي", pronunciation: "/test/" } });
   assert.equal(elements.get("example").textContent, "مثال أدبي");
 });
-
 test("popup shows English practical context only when enabled and preserves text content", () => {
   const { api, elements, inputs } = popupApi();
   api.renderAssigned({ kind: "assigned", word: { id: "w1", word: "<img onerror=alert(1)>", meaningAr: "معنى", meaningEn: "meaning", contextAr: "سياق", contextEn: "<img onerror=alert(1)>", exampleAr: "مثال", pronunciation: "/test/" } });
@@ -967,4 +1277,291 @@ test("Atlas clear does not retain a profile-only warning as a reminder warning",
   fixture.levels[0].checked = true;
   await fixture.api.saveSettings();
   assert.equal(fixture.elements.get("warning").hidden, true);
+});
+
+test("popup exposes theme-select, streak-badge, and export controls in HTML", () => {
+  const html = source("popup.html");
+  assert.match(html, /<select\s+id="theme-select"[^>]*aria-label="اختر السمة"/);
+  assert.match(html, /<option\s+value="paper">ورقي<\/option>/);
+  assert.match(html, /<option\s+value="emerald">زمردي<\/option>/);
+  assert.match(html, /<option\s+value="midnight">ليلي<\/option>/);
+  assert.match(html, /<span\s+id="streak-badge"[^>]*class="streak-badge"/);
+  assert.match(html, /<button\s+id="btn-export-anki"[^>]*>تصدير إلى Anki<\/button>/);
+  assert.match(html, /<button\s+id="btn-export-card"[^>]*>بطاقة للمشاركة<\/button>/);
+  assert.match(html, /<script\s+src="\.\.\/shared\/theme\.js"><\/script>/);
+  assert.match(html, /<script\s+src="\.\.\/shared\/streak\.js"><\/script>/);
+  assert.match(html, /<script\s+src="\.\.\/shared\/export\.js"><\/script>/);
+});
+
+test("popup ThemeController initializes, binds theme select, and synchronizes theme across views", async () => {
+  const fixture = popupApi({
+    "assignment.get": { kind: "assigned", wordId: "w1", dateKey: "2026-08-14" },
+    "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } },
+  }, { theme: "emerald" });
+  await fixture.api.initialize();
+
+  const themeSelect = fixture.elements.get("theme-select");
+  assert.equal(themeSelect.value, "emerald");
+  assert.equal(fixture.context.document.documentElement.getAttribute("data-theme"), "emerald");
+
+  themeSelect.value = "midnight";
+  if (themeSelect.listeners["change"]) {
+    await themeSelect.listeners["change"]();
+  }
+  assert.equal(fixture.context.document.documentElement.getAttribute("data-theme"), "midnight");
+  assert.equal(fixture.storageData["kalimat.theme"], "midnight");
+
+  for (const listener of fixture.storageListeners) {
+    listener({ "kalimat.theme": { newValue: "paper" } }, "local");
+  }
+  assert.equal(themeSelect.value, "paper");
+  assert.equal(fixture.context.document.documentElement.getAttribute("data-theme"), "paper");
+});
+
+test("popup calculates streak and formats Classical Arabic pluralization on badge", async () => {
+  const vocabulary = Array.from({ length: 5 }, (_, index) => ({
+    id: `w${index + 1}`,
+    word: `كلمة${index + 1}`,
+    normalized: `كلمة${index + 1}`,
+    meaningAr: "معنى",
+    meaningEn: "meaning",
+    pronunciation: `/w${index + 1}/`,
+    exampleAr: "مثال",
+    contextAr: "سياق",
+  }));
+  const assignments = {
+    "2026-08-10": { wordId: "w1", status: "known" },
+    "2026-08-11": { wordId: "w2", status: "known" },
+    "2026-08-12": { wordId: "w3", status: "known" },
+    "2026-08-13": { wordId: "w4", status: "known" },
+    "2026-08-14": { wordId: "w5", status: "known" },
+  };
+  const profile = { assignments, assignmentOrdinal: 5, level: 1, interests: ["classical-arabic"], showEnglish: true, wordStates: {} };
+  const fixture = popupApi({
+    "assignment.get": { kind: "assigned", wordId: "w5", dateKey: "2026-08-14" },
+    "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } },
+    "word.feedback": { kind: "ok", wordId: "w5", dateKey: "2026-08-14", status: "known" },
+  }, { profile, vocabulary });
+  await fixture.api.initialize();
+
+  const streakBadge = fixture.elements.get("streak-badge");
+  assert.match(streakBadge.textContent, /🔥\s*٥\s*أيام\s*متتالية/);
+
+  fixture.api.updateStreak({}, "2026-08-14");
+  assert.equal(streakBadge.textContent, "🔥 لا يوجد تتابع بعد");
+
+  fixture.api.updateStreak({ "2026-08-14": { wordId: "w1" } }, "2026-08-14");
+  assert.equal(streakBadge.textContent, "🔥 يوم واحد");
+
+  fixture.api.updateStreak({ "2026-08-13": { wordId: "w1" }, "2026-08-14": { wordId: "w2" } }, "2026-08-14");
+  assert.equal(streakBadge.textContent, "🔥 يومان متتاليان");
+
+  const elevenDays = {};
+  for (let d = 4; d <= 14; d++) {
+    const dayStr = d < 10 ? `0${d}` : `${d}`;
+    elevenDays[`2026-08-${dayStr}`] = { wordId: `w${d}`, status: "known" };
+  }
+  fixture.api.updateStreak(elevenDays, "2026-08-14");
+  assert.match(streakBadge.textContent, /🔥\s*١١\s*يوماً\s*متتالياً/);
+});
+
+test("popup Anki CSV export triggers download with UTF-8 BOM, RFC 4180 escaping, and 7 lexical columns", async () => {
+  const vocabulary = [
+    {
+      id: "w1",
+      word: "كِتَابٌ",
+      meaningAr: "مُؤَلَّفٌ مَكْتُوبٌ",
+      meaningEn: "book, \"volume\"",
+      pronunciation: "/kitaab/",
+      contextAr: "قَرَأْتُ كِتَابًا",
+      contextEn: "I read a book",
+      exampleAr: "خَيْرُ جَلِيسٍ فِي الزَّمَانِ كِتَابُ",
+      root: "ك-ت-ب",
+      pattern: "فِعَال",
+      partOfSpeech: "noun",
+      register: "classical",
+    },
+  ];
+  const profile = {
+    assignments: { "2026-08-14": { wordId: "w1", status: "known" } },
+    assignmentOrdinal: 1,
+    level: 1,
+    interests: ["classical-arabic"],
+    showEnglish: true,
+    wordStates: { w1: { status: "known", saved: true } },
+  };
+  const fixture = popupApi({
+    "assignment.get": { kind: "assigned", wordId: "w1", dateKey: "2026-08-14" },
+    "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } },
+  }, { profile, vocabulary });
+  await fixture.api.initialize();
+  await fixture.api.renderAssigned({ word: vocabulary[0], dateKey: "2026-08-14", status: "known", saved: true });
+
+  await fixture.api.exportAnki();
+
+  assert.equal(fixture.downloads.length, 1);
+  assert.equal(fixture.downloads[0].download, "kalimat-anki-deck.csv");
+  const blob = fixture.recordedBlobs.get(fixture.downloads[0].href);
+  assert.ok(blob);
+  const buffer = Buffer.from(await blob.arrayBuffer());
+  assert.equal(buffer[0], 0xEF, "Byte 0 must be UTF-8 BOM EF");
+  assert.equal(buffer[1], 0xBB, "Byte 1 must be UTF-8 BOM BB");
+  assert.equal(buffer[2], 0xBF, "Byte 2 must be UTF-8 BOM BF");
+  const csvContent = await blob.text();
+  const lines = csvContent.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  assert.equal(lines[0], '"Word","Root","Weight","Vocalization","Meaning","English Meaning","Example"');
+  assert.match(lines[1], /"كِتَابٌ"/);
+  assert.match(lines[1], /"ك-ت-ب"/);
+  assert.match(lines[1], /"book, ""volume"""/);
+});
+
+test("popup 1080x1080 social card export triggers Canvas generation with correct filename and geometry", async () => {
+  const word = {
+    id: "w1",
+    word: "سَلَام",
+    meaningAr: "أمان وطمأنينة",
+    meaningEn: "peace and security",
+    pronunciation: "/salaam/",
+    contextAr: "يَعُمُّ السَّلَامُ الأَرْجَاءَ",
+    exampleAr: "سَلَامٌ هِيَ حَتَّى مَطْلَعِ الفَجْرِ",
+  };
+  const fixture = popupApi({
+    "assignment.get": { kind: "assigned", wordId: "w1", dateKey: "2026-08-14" },
+    "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } },
+  }, { profile: { assignments: {} }, vocabulary: [word] });
+  await fixture.api.initialize();
+  await fixture.api.renderAssigned({ word, dateKey: "2026-08-14" });
+
+  await fixture.api.exportCard();
+
+  assert.equal(fixture.downloads.length, 1);
+  assert.equal(fixture.downloads[0].download, "kalimat-word-w1.png");
+});
+
+test("Atlas exposes theme-select, streak-badge, and export controls in HTML", () => {
+  const html = atlasSource("atlas.html");
+  assert.match(html, /<select\s+id="theme-select"[^>]*aria-label="اختر السمة"/);
+  assert.match(html, /<option\s+value="paper">ورقي<\/option>/);
+  assert.match(html, /<option\s+value="emerald">زمردي<\/option>/);
+  assert.match(html, /<option\s+value="midnight">ليلي<\/option>/);
+  assert.match(html, /<span\s+id="streak-badge"[^>]*class="streak-badge"/);
+  assert.match(html, /<button\s+id="today-export-card"[^>]*>بطاقة للمشاركة<\/button>/);
+  assert.match(html, /<button\s+id="history-export-anki"[^>]*>تصدير إلى Anki \(CSV\)<\/button>/);
+  assert.match(html, /<button\s+id="btn-export-anki"[^>]*>تصدير بطاقات Anki \(CSV\)<\/button>/);
+  assert.match(html, /<script\s+src="\.\.\/shared\/theme\.js"><\/script>/);
+  assert.match(html, /<script\s+src="\.\.\/shared\/streak\.js"><\/script>/);
+  assert.match(html, /<script\s+src="\.\.\/shared\/export\.js"><\/script>/);
+});
+
+test("Atlas ThemeController initializes, binds select, and persists theme changes", async () => {
+  const profile = atlasProfile({ assignments: { "2026-08-14": { wordId: "w1" } }, assignmentOrdinal: 1 });
+  const fixture = atlasApi({
+    "assignment.get": { kind: "assigned", wordId: "w1", dateKey: "2026-08-14" },
+    "state.export": { kind: "export", text: JSON.stringify(profile) },
+    "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } },
+  }, { theme: "midnight" });
+  await fixture.api.initialize();
+
+  const themeSelect = fixture.elements.get("theme-select");
+  assert.equal(themeSelect.value, "midnight");
+  assert.equal(fixture.context.document.documentElement.getAttribute("data-theme"), "midnight");
+
+  themeSelect.value = "emerald";
+  if (themeSelect.listeners["change"]) {
+    await themeSelect.listeners["change"]();
+  }
+  assert.equal(fixture.context.document.documentElement.getAttribute("data-theme"), "emerald");
+  assert.equal(fixture.storageData["kalimat.theme"], "emerald");
+
+  for (const listener of fixture.storageListeners) {
+    listener({ "kalimat.theme": { newValue: "paper" } }, "local");
+  }
+  assert.equal(themeSelect.value, "paper");
+  assert.equal(fixture.context.document.documentElement.getAttribute("data-theme"), "paper");
+});
+
+test("Atlas streak badge calculates consecutive days and updates on feedback and save", async () => {
+  const today = new Date();
+  const dateKey = (offset) => {
+    const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() + offset);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  };
+  const todayKey = dateKey(0);
+  const yesterdayKey = dateKey(-1);
+  const twoDaysAgoKey = dateKey(-2);
+  const profile = atlasProfile({
+    assignments: {
+      [twoDaysAgoKey]: { wordId: "w1", status: "known" },
+      [yesterdayKey]: { wordId: "w2", status: "known" },
+      [todayKey]: { wordId: "w1", status: "known" },
+    },
+    assignmentOrdinal: 3,
+  });
+  const fixture = atlasApi({
+    "assignment.get": { kind: "assigned", wordId: "w1", dateKey: todayKey },
+    "state.export": { kind: "export", text: JSON.stringify(profile) },
+    "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } },
+    "word.feedback": { kind: "ok", wordId: "w1", dateKey: todayKey, status: "known" },
+    "word.save": { kind: "ok", wordId: "w1", saved: true },
+  });
+  await fixture.api.initialize();
+
+  const streakBadge = fixture.elements.get("streak-badge");
+  assert.match(streakBadge.textContent, /🔥\s*٣\s*أيام\s*متتالية/);
+
+  await fixture.api.feedback("known");
+  assert.match(streakBadge.textContent, /🔥\s*٣\s*أيام\s*متتالية/);
+});
+
+test("Atlas Anki CSV and Social Card exports download valid deck and 1080x1080 PNG", async () => {
+  const word = {
+    id: "w1",
+    word: "كِتَابٌ",
+    meaningAr: "مُؤَلَّفٌ",
+    meaningEn: "book",
+    pronunciation: "/kitaab/",
+    contextAr: "قَرَأْتُ كِتَابًا",
+    exampleAr: "خَيْرُ جَلِيسٍ",
+    root: "ك-ت-ب",
+    pattern: "فِعَال",
+  };
+  const profile = atlasProfile({
+    assignments: { "2026-08-14": { wordId: "w1", status: "known" } },
+    assignmentOrdinal: 1,
+    wordStates: { w1: { status: "known", saved: true } },
+  });
+  const fixture = atlasApi({
+    "assignment.get": { kind: "assigned", wordId: "w1", dateKey: "2026-08-14" },
+    "state.export": { kind: "export", text: JSON.stringify(profile) },
+    "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } },
+  }, { vocabulary: [word] });
+  await fixture.api.initialize();
+
+  await fixture.api.exportAnkiCSV();
+  assert.equal(fixture.downloads.length, 1);
+  assert.equal(fixture.downloads[0].download, "kalimat-anki-deck.csv");
+
+  await fixture.api.exportSocialCard(word, fixture.elements.get("today-export-card"));
+  assert.equal(fixture.downloads.length, 2);
+  assert.equal(fixture.downloads[1].download, "kalimat-word-w1.png");
+});
+
+test("All popup and atlas files maintain zero CSP violations and no unsafe sinks", () => {
+  const popupHtml = source("popup.html");
+  const popupCss = source("popup.css");
+  const popupJs = source("popup.js");
+  const atlasHtml = atlasSource("atlas.html");
+  const atlasCss = atlasSource("atlas.css");
+  const atlasJs = atlasSource("atlas.js");
+
+  for (const [name, content] of [["popup.html", popupHtml], ["atlas.html", atlasHtml]]) {
+    assert.doesNotMatch(content, /\son[a-z]+\s*=/i, `${name} has inline event handler`);
+    assert.doesNotMatch(content, /<script(?![^>]+\bsrc=)[^>]*>/i, `${name} has inline script`);
+    assert.doesNotMatch(content, /<style\b/i, `${name} has inline style tag`);
+  }
+
+  for (const [name, content] of [["popup.js", popupJs], ["atlas.js", atlasJs]]) {
+    const withoutApprovedRemote = content.replace(/https:\/\/ar\.wiktionary\.org[^\s"'`)]*/g, "");
+    assert.doesNotMatch(withoutApprovedRemote, /https?:\/\/|\b(?:innerHTML|outerHTML)\b|\b(?:setInterval|setTimeout)\s*\(/, `${name} contains unsafe sink or timer`);
+  }
 });

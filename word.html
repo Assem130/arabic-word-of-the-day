@@ -5,10 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="كلمة اليوم من كَلِمات: معناها، نطقها، جذرها، وسياقها.">
     <title>كَلِمات | كلمة اليوم</title>
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; media-src 'self' https://translate.google.com; connect-src 'self' https://translate.google.com; object-src 'none'; base-uri 'self'; form-action 'none'; worker-src 'self'; manifest-src 'self'">
+    <link rel="manifest" href="manifest.webmanifest">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="revamp.css">
 </head>
 <body class="word-page">
@@ -23,7 +25,12 @@
             <symbol id="i-xmark" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
             <symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></symbol>
             <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
-            <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+            <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+            <symbol id="i-star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+            <symbol id="i-star-filled" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+            <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+            <symbol id="i-keyboard" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M8 16h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+            <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" fill="none" stroke="currentColor" stroke-width="2"/><line x1="21" y1="21" x2="16.65" y2="16.65" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
         </defs>
     </svg>
 
@@ -36,7 +43,21 @@
                 </a>
                 <p class="nav-note">كلمة اليوم</p>
                 <div class="nav-actions">
-                    <button class="icon-button" id="btn-toggle-history" title="المخزون اللغوي" aria-label="فتح المخزون اللغوي">
+                    <button id="due-review-badge" class="due-review-badge" type="button" title="المراجعات المستحقة اليوم (Q)" aria-label="المراجعات المستحقة اليوم: 0 كلمات" role="status">
+                        <span class="due-icon badge-icon">⚡</span>
+                        <span class="due-count" id="due-count">0</span>
+                        <span class="due-label">مراجعة</span>
+                    </button>
+                    <div id="streak-badge" class="streak-badge" title="تتابع القراءة اليومي" aria-label="تتابع القراءة اليومي">🔥 لا يوجد تتابع بعد</div>
+                    <select id="theme-select" class="theme-select" aria-label="اختر المظهر">
+                        <option value="paper">كلاسيكي ورقي</option>
+                        <option value="emerald">أندلسي زمردي</option>
+                        <option value="midnight">واحة الليل</option>
+                    </select>
+                    <button class="icon-button" id="btn-toggle-explorer" title="معجم الجذور والأوزان (E)" aria-label="فتح معجم الجذور والأوزان">
+                        <svg class="icon"><use href="#i-search"/></svg>
+                    </button>
+                    <button class="icon-button" id="btn-toggle-history" title="المخزون اللغوي (H)" aria-label="فتح المخزون اللغوي">
                         <svg class="icon"><use href="#i-calendar"/></svg>
                         <span class="badge" id="history-count">0</span>
                     </button>
@@ -56,17 +77,30 @@
                 </div>
                 <div class="identity-word">
                     <p class="card-kicker">كلمة اليوم</p>
-                    <h1 class="main-word" id="main-word" aria-label="الكلمة اليومية">...</h1>
-                    <button class="speak-button" id="btn-speak" title="استمع إلى النطق">
-                        <svg class="icon"><use href="#i-volume-high"/></svg>
-                        <span>استمع إلى النطق</span>
-                    </button>
+                    <div class="word-headline-wrap">
+                        <h1 class="main-word" id="main-word" aria-label="الكلمة اليومية">...</h1>
+                        <button class="favorite-button" id="btn-favorite" type="button" title="إضافة إلى المفضلة (F)" aria-label="إضافة إلى المفضلة" aria-pressed="false">
+                            <svg class="icon"><use href="#i-star"/></svg>
+                        </button>
+                    </div>
+                    <div class="audio-controls-group">
+                        <button class="speak-button" id="btn-speak" type="button" title="استمع إلى النطق (Space)" aria-pressed="false" aria-busy="false" aria-label="استمع إلى نطق الكلمة">
+                            <svg class="icon" aria-hidden="true"><use href="#i-volume-high"/></svg>
+                            <span>استمع إلى النطق</span>
+                        </button>
+                        <button class="audio-option-btn" id="btn-audio-speed" type="button" title="تغيير سرعة النطق">0.85x</button>
+                        <button class="audio-option-btn" id="btn-audio-repeat" type="button" title="تكرار النطق للحفظ">تكرار x1</button>
+                    </div>
                 </div>
                 <div class="linguistic-data" aria-label="بيانات لغوية">
                     <div><span>الضبط</span><strong id="word-vocalization">...</strong></div>
                     <div><span>الوزن</span><strong id="word-weight">...</strong></div>
                     <div><span>الجذر</span><strong id="word-root">...</strong></div>
                     <div><span>التصنيف</span><strong id="word-category">...</strong></div>
+                </div>
+                <div class="related-words-section" id="related-words-section" hidden>
+                    <p class="related-label">ألفاظ تشترك في الجذر أو الوزن في المعجم:</p>
+                    <div class="related-words-list" id="related-words-container"></div>
                 </div>
             </article>
 
@@ -77,7 +111,19 @@
                         <div class="meaning-text" id="word-meaning">...</div>
                         <p class="meaning-english" id="word-meaning-en" dir="ltr" lang="en">...</p>
                         <p class="word-pronunciation" id="word-pronunciation" dir="ltr">...</p>
-                        <blockquote class="example-panel" id="word-example-text">...</blockquote>
+                        <div class="example-container">
+                            <blockquote class="example-panel" id="word-example-text">...</blockquote>
+                            <div class="example-actions">
+                                <button class="example-action-btn" id="btn-speak-example" type="button" title="استمع إلى الشاهد الشعري" aria-pressed="false" aria-busy="false" aria-label="استمع إلى نطق الشاهد الأدبي">
+                                    <svg class="icon" aria-hidden="true"><use href="#i-volume-high"/></svg>
+                                    <span>استمع للشاهد</span>
+                                </button>
+                                <button class="example-action-btn" id="btn-copy-quote" type="button" title="نسخ الشاهد مع التوثيق">
+                                    <svg class="icon"><use href="#i-copy"/></svg>
+                                    <span>نسخ الشاهد</span>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                     <aside class="reading-sidebar">
                         <p>أضفها إلى ذاكرتك بالعودة إلى معناها وصوتها في أي وقت.</p>
@@ -88,9 +134,13 @@
                     </aside>
                 </div>
                 <div class="app-menu-dropdown" id="app-menu-dropdown" hidden>
+                    <button id="btn-menu-explorer" type="button"><svg class="icon"><use href="#i-search"/></svg> معجم الجذور والأوزان (E)</button>
+                    <button id="btn-menu-practice" type="button"><svg class="icon"><use href="#i-sparkles"/></svg> اختبر حفظك (Q)</button>
                     <button id="btn-share"><svg class="icon"><use href="#i-share"/></svg> مشاركة الكلمة</button>
                     <button id="btn-copy-link"><svg class="icon"><use href="#i-copy"/></svg> نسخ تفاصيلها</button>
+                    <button id="btn-export-card" type="button"><svg class="icon"><use href="#i-share"/></svg> تصدير بطاقة الكلمة (PNG)</button>
                     <button id="btn-toggle-english" type="button" aria-pressed="true">إخفاء الإنجليزية</button>
+                    <button id="btn-menu-shortcuts" type="button"><svg class="icon"><use href="#i-keyboard"/></svg> اختصارات المفاتيح (?)</button>
                     <button id="btn-export-history" type="button">تصدير المخزون</button>
                     <button id="btn-import-history" type="button">استيراد المخزون</button>
                     <input id="input-import-history" type="file" accept="application/json,.json" hidden>
@@ -99,6 +149,78 @@
         </section>
     </main>
 
+    <dialog class="lexicon-dialog" id="lexicon-dialog" aria-labelledby="lexicon-modal-title">
+        <header>
+            <div>
+                <p>المعجم الشامل</p>
+                <h2 id="lexicon-modal-title">معجم الجذور والأوزان</h2>
+            </div>
+            <button class="icon-button" id="btn-close-lexicon" type="button" aria-label="إغلاق المعجم">
+                <svg class="icon"><use href="#i-xmark"/></svg>
+            </button>
+        </header>
+
+        <div class="lexicon-modal-content">
+            <div class="lexicon-toolbar">
+                <div class="lexicon-search-bar">
+                    <div class="lexicon-search-wrap">
+                        <svg class="icon search-icon" aria-hidden="true"><use href="#i-search"/></svg>
+                        <input type="search" id="input-modal-lexicon-search" class="lexicon-search-input" placeholder="ابحث باللفظ، الجذر (مثال: س م د ع)، الوزن، أو المعنى..." aria-label="البحث في المعجم">
+                    </div>
+                    <button type="button" id="btn-clear-modal-lexicon-filters" class="lexicon-clear-btn" title="مسح جميع الفلاتر" hidden>
+                        <svg class="icon"><use href="#i-xmark"/></svg>
+                        <span>مسح الفلاتر</span>
+                    </button>
+                </div>
+
+                <div class="lexicon-filters-grid">
+                    <div class="lexicon-filter-group">
+                        <label for="select-modal-lexicon-root" class="lexicon-filter-label">الجذر اللغوي:</label>
+                        <select id="select-modal-lexicon-root" class="lexicon-select" aria-label="تصفية حسب الجذر اللغوي">
+                            <option value="">جميع الجذور (٣٣٢ جذراً)</option>
+                        </select>
+                    </div>
+
+                    <div class="lexicon-filter-group">
+                        <label for="select-modal-lexicon-weight" class="lexicon-filter-label">الوزن الصرفي:</label>
+                        <select id="select-modal-lexicon-weight" class="lexicon-select" aria-label="تصفية حسب الوزن الصرفي">
+                            <option value="">جميع الأوزان الصرفية (٦٦ وزناً)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="lexicon-subfilters">
+                    <div class="lexicon-category-wrapper">
+                        <span class="lexicon-subfilter-title">التصنيفات (١٢ حقلاً):</span>
+                        <div class="lexicon-category-chips" id="modal-lexicon-category-chips" role="group" aria-label="التصنيفات الموضوعية">
+                            <!-- Category chips rendered dynamically -->
+                        </div>
+                    </div>
+
+                    <div class="lexicon-letter-wrapper">
+                        <span class="lexicon-subfilter-title">فهرس الحروف:</span>
+                        <div class="lexicon-letter-bar" id="modal-lexicon-letter-bar" role="group" aria-label="فهرس الحروف">
+                            <!-- Letter buttons rendered dynamically -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="lexicon-results-bar">
+                    <span id="modal-lexicon-results-count" class="lexicon-results-count" role="status" aria-live="polite">عرض ٣٦٥ من أصل ٣٦٥ لفظاً</span>
+                </div>
+            </div>
+
+            <div id="modal-lexicon-grid" class="lexicon-grid" role="region" aria-label="قائمة مفردات المعجم">
+                <!-- Cards rendered dynamically -->
+            </div>
+
+            <div id="modal-lexicon-empty-state" class="lexicon-empty-state" hidden>
+                <p>لم نجد ألفاظاً مطابقة لمعايير البحث الحالية.</p>
+                <button type="button" id="btn-reset-modal-lexicon-empty" class="primary-button">إعادة ضبط الفلاتر</button>
+            </div>
+        </div>
+    </dialog>
+
     <dialog class="history-dialog" id="history-dialog" aria-labelledby="history-title">
         <header>
             <div><p>مخزونك اللغوي</p><h2 id="history-title">الكلمات التي مرّت من هنا</h2></div>
@@ -106,13 +228,64 @@
                 <svg class="icon"><use href="#i-xmark"/></svg>
             </button>
         </header>
+        <div class="history-dialog-toolbar">
+            <div class="history-search-box">
+                <svg class="icon search-icon"><use href="#i-search"/></svg>
+                <input type="search" id="input-search-history" class="history-search-input" placeholder="ابحث في الكلمات أو الجذور أو المعاني..." aria-label="البحث في المخزون اللغوي">
+            </div>
+            <div class="history-filter-tabs" role="tablist" aria-label="تصفية المخزون">
+                <button type="button" id="tab-history-all" class="history-tab active" role="tab" aria-selected="true">الكل (<span id="count-history-all">0</span>)</button>
+                <button type="button" id="tab-history-favs" class="history-tab" role="tab" aria-selected="false">المفضلة ⭐ (<span id="count-history-favs">0</span>)</button>
+            </div>
+            <div class="history-dialog-actions">
+                <button id="btn-start-practice" type="button" class="history-action-btn highlight"><svg class="icon"><use href="#i-sparkles"/></svg> اختبر حفظك</button>
+                <button id="btn-export-anki" type="button" class="history-action-btn">تصدير Anki (CSV)</button>
+            </div>
+        </div>
         <div class="drawer-content">
             <p class="drawer-empty-msg" id="drawer-empty-msg">لم تفتح أي كلمات بعد.</p>
             <ul class="history-list" id="history-list"></ul>
         </div>
     </dialog>
 
-    <p id="storage-warning" class="storage-warning" role="alert" hidden>تعذّر حفظ المخزون على هذا الجهاز؛ ستبقى الجلسة الحالية متاحة.</p>
+    <dialog class="practice-dialog" id="practice-dialog" role="dialog" aria-modal="true" aria-labelledby="practice-title">
+        <header>
+            <div><p>تثبيت الذاكرة</p><h2 id="practice-title">مراجعة التكرار المتباعد</h2></div>
+            <button class="icon-button" id="btn-close-practice" type="button" aria-label="إغلاق المراجعة">
+                <svg class="icon"><use href="#i-xmark"/></svg>
+            </button>
+        </header>
+        <div class="practice-body" id="practice-body">
+            <!-- Rendered by app.js -->
+        </div>
+    </dialog>
+
+    <dialog class="shortcuts-dialog" id="shortcuts-dialog" aria-labelledby="shortcuts-title">
+        <header>
+            <div><p>لوحة المفاتيح</p><h2 id="shortcuts-title">اختصارات التنقل</h2></div>
+            <button class="icon-button" id="btn-close-shortcuts" type="button" aria-label="إغلاق نافذة الاختصارات">
+                <svg class="icon"><use href="#i-xmark"/></svg>
+            </button>
+        </header>
+        <div class="shortcuts-body">
+            <ul class="shortcuts-list">
+                <li><span class="key-combo"><kbd>Space</kbd> / <kbd>P</kbd></span> <span>استماع لنطق الكلمة</span></li>
+                <li><span class="key-combo"><kbd>F</kbd></span> <span>إضافة / إزالة من المفضلة</span></li>
+                <li><span class="key-combo"><kbd>E</kbd></span> <span>فتح / إغلاق معجم الجذور والأوزان</span></li>
+                <li><span class="key-combo"><kbd>H</kbd></span> <span>فتح / إغلاق المخزون اللغوي</span></li>
+                <li><span class="key-combo"><kbd>Q</kbd></span> <span>بدء اختبار التثبيت السريع</span></li>
+                <li><span class="key-combo"><kbd>→</kbd> / <kbd>←</kbd></span> <span>التنقل بين كلمات المخزون</span></li>
+                <li><span class="key-combo"><kbd>?</kbd></span> <span>عرض نافذة الاختصارات</span></li>
+                <li><span class="key-combo"><kbd>Esc</kbd></span> <span>إغلاق النوافذ المفتوحة</span></li>
+            </ul>
+        </div>
+    </dialog>
+
+    <div id="storage-warning" class="storage-warning" role="alert" hidden>
+        <span>تعذّر حفظ المخزون على هذا الجهاز؛ ستبقى الجلسة الحالية متاحة.</span>
+        <button id="btn-reset-storage" type="button" class="reset-storage-button">إعادة ضبط التخزين</button>
+    </div>
+    <div id="audio-announcer" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
     <script src="words.js" charset="utf-8"></script>
     <script src="app-core.js" charset="utf-8"></script>

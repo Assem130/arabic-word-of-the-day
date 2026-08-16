@@ -5,6 +5,8 @@ PORT = 8000
 
 # ponytail: Simple custom server to enforce UTF-8 charset header and prevent Mojibake on Windows
 class UTF8ServerHandler(http.server.SimpleHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+
     def send_header(self, keyword, value):
         if keyword.lower() == 'content-type':
             # Append charset=utf-8 if serving HTML, JS, CSS, or JSON text files
@@ -14,11 +16,10 @@ class UTF8ServerHandler(http.server.SimpleHTTPRequestHandler):
         super().send_header(keyword, value)
 
 # Allow port reuse immediately upon restart
-socketserver.TCPServer.allow_reuse_address = True
+socketserver.ThreadingTCPServer.allow_reuse_address = True
 
 if __name__ == "__main__":
-    # ponytail: bind localhost only — this is a local dev server, no reason to expose it to the LAN
-    with socketserver.TCPServer(("127.0.0.1", PORT), UTF8ServerHandler) as httpd:
+    with socketserver.ThreadingTCPServer(("127.0.0.1", PORT), UTF8ServerHandler) as httpd:
         print(f"Serving 'Kalimat' app at http://localhost:{PORT} with UTF-8 support...")
         try:
             httpd.serve_forever()

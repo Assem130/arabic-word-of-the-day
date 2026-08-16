@@ -244,7 +244,7 @@ async function warningReminder(result) {
 }
 
 async function reminderPermissions() {
-  if (typeof ExtApi.alarms?.get !== "function" || typeof ExtApi.alarms?.create !== "function" || typeof ExtApi.alarms?.clear !== "function" || typeof ExtApi.notifications?.create !== "function") return false;
+  if (typeof ExtApi?.alarms?.get !== "function" || typeof ExtApi?.alarms?.create !== "function" || typeof ExtApi?.alarms?.clear !== "function" || typeof ExtApi?.notifications?.create !== "function") return false;
   try {
     return await ExtApi.permissions.contains({ permissions: ["alarms", "notifications"] });
   } catch (_) {
@@ -253,11 +253,11 @@ async function reminderPermissions() {
 }
 
 async function clearReminder() {
-  if (ExtApi.alarms) await ExtApi.alarms.clear(REMINDER_ALARM);
+  if (ExtApi?.alarms) await ExtApi.alarms.clear(REMINDER_ALARM);
 }
 
 async function readReminderAlarm() {
-  if (typeof ExtApi.alarms?.get !== "function") return { alarm: null, alarmSnapshotKnown: false };
+  if (typeof ExtApi?.alarms?.get !== "function") return { alarm: null, alarmSnapshotKnown: false };
   try {
     return { alarm: await ExtApi.alarms.get(REMINDER_ALARM), alarmSnapshotKnown: true };
   } catch (_) {
@@ -366,7 +366,7 @@ async function alarmFired(alarm) {
   catch (_) { await setReminderWarning(true); return; }
   const settings = await ensureReminderNow();
   if (settings.enabled) {
-    if (typeof ExtApi.notifications?.create !== "function") return warningReminder(settings);
+    if (typeof ExtApi?.notifications?.create !== "function") return warningReminder(settings);
     await ExtApi.notifications.create(REMINDER_ALARM, {
       type: "basic",
       iconUrl: ExtApi.runtime.getURL("icons/icon-128.png"),
@@ -376,12 +376,55 @@ async function alarmFired(alarm) {
   }
 }
 
+function escapeXml(unsafe) {
+  if (typeof unsafe !== "string") return "";
+  return unsafe
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+async function updateBadge(profile, vocabulary) {
+  if (!ExtApi?.action || typeof ExtApi.action.setBadgeText !== "function") return;
+  try {
+    const todayKey = dependencies.date.todayDateKey ? dependencies.date.todayDateKey() : dependencies.date.getLocalDateKey(new Date());
+    const dueWords = dependencies.state.getDueReviewWords ? dependencies.state.getDueReviewWords(profile, vocabulary, todayKey) : [];
+    const count = dueWords.length;
+    if (count > 0) {
+      await ExtApi.action.setBadgeText({ text: String(count) });
+      if (typeof ExtApi.action.setBadgeBackgroundColor === "function") {
+        await ExtApi.action.setBadgeBackgroundColor({ color: "#2E7D32" });
+      }
+    } else {
+      await ExtApi.action.setBadgeText({ text: "" });
+    }
+  } catch (_) {}
+}
+
+function ensureContextMenu() {
+  if (typeof ExtApi?.contextMenus?.create === "function") {
+    try {
+      ExtApi.contextMenus.create({
+        id: "kalimat-lookup-selection",
+        title: "ابحث في كَلِمات",
+        contexts: ["selection"],
+      }, () => {
+        if (ExtApi.runtime?.lastError) {
+          // Ignored if already created
+        }
+      });
+    } catch (_) {}
+  }
+}
+
 function registerReminderListeners() {
-  if (!alarmListenerRegistered && typeof ExtApi.alarms?.onAlarm?.addListener === "function") {
+  if (!alarmListenerRegistered && typeof ExtApi?.alarms?.onAlarm?.addListener === "function") {
     ExtApi.alarms.onAlarm.addListener(eventEntry(alarmFired));
     alarmListenerRegistered = true;
   }
-  if (!notificationListenerRegistered && typeof ExtApi.notifications?.onClicked?.addListener === "function") {
+  if (!notificationListenerRegistered && typeof ExtApi?.notifications?.onClicked?.addListener === "function") {
     ExtApi.notifications.onClicked.addListener(eventEntry(notificationClick));
     notificationListenerRegistered = true;
   }
@@ -393,6 +436,42 @@ function handleMessage(message) {
     if (message.type === "assignment.get") {
       if (!exactMessage(message, new Set(["type", "dateKey"])) || (message.dateKey !== undefined && !dependencies.date.isDateKey(message.dateKey))) throw new TypeError("Invalid assignment.");
       return assignment(message.dateKey);
+    }
+    if (message.type === "review.queue") {
+      if (!exactMessage(message, new Set(["type", "dateKey", "limit"]))) throw new TypeError("Invalid review queue.");
+      const vocabulary = await getVocabulary();
+      const loaded = await loadProfile(vocabulary);
+      if (loaded.recoveryRaw !== undefined) return recovery(loaded);
+      const dateKey = message.dateKey || (dependencies.date.todayDateKey ? dependencies.date.todayDateKey() : dependencies.date.getLocalDateKey(new Date()));
+      const dueWords = dependencies.state.getDueReviewWords(loaded.profile, vocabulary, dateKey, message.limit);
+      return { kind: "queue", words: dueWords, dueCount: dueWords.length };
+    }
+    if (message.type === "word.review") {
+      if (!exactMessage(message, new Set(["type", "wordId", "rating", "dateKey"]))) throw new TypeError("Invalid review.");
+      const vocabulary = await getVocabulary();
+      const loaded = await loadProfile(vocabulary);
+      if (loaded.recoveryRaw !== undefined) return recovery(loaded);
+      const dateKey = message.dateKey || (dependencies.date.todayDateKey ? dependencies.date.todayDateKey() : dependencies.date.getLocalDateKey(new Date()));
+      const updatedProfile = dependencies.state.recordReview(loaded.profile, message.wordId, message.rating, dateKey, vocabulary);
+      const warningResult = loaded.recoveryRaw !== undefined ? await saveProfile(updatedProfile) : await persistProfile(updatedProfile, loaded);
+      await updateBadge(updatedProfile, vocabulary);
+      const dueWords = dependencies.state.getDueReviewWords(updatedProfile, vocabulary, dateKey);
+      const targetId = typeof message.wordId === "number" ? message.wordId : (String(message.wordId).startsWith("w") ? parseInt(String(message.wordId).slice(1), 10) : message.wordId);
+      return {
+        kind: "ok",
+        srs: updatedProfile.srs ? (updatedProfile.srs[targetId] || updatedProfile.srs[message.wordId]) : null,
+        dueCount: dueWords.length,
+        storageWarning: warningResult,
+      };
+    }
+    if (message.type === "review.stats") {
+      if (!exactMessage(message, new Set(["type", "dateKey"]))) throw new TypeError("Invalid review stats.");
+      const vocabulary = await getVocabulary();
+      const loaded = await loadProfile(vocabulary);
+      if (loaded.recoveryRaw !== undefined) return recovery(loaded);
+      const dateKey = message.dateKey || (dependencies.date.todayDateKey ? dependencies.date.todayDateKey() : dependencies.date.getLocalDateKey(new Date()));
+      const stats = dependencies.state.getReviewStats(loaded.profile, vocabulary, dateKey);
+      return { kind: "stats", stats };
     }
     if (message.type === "settings.get") {
       if (!exactMessage(message, new Set(["type"]))) throw new TypeError("Invalid settings.");
@@ -466,7 +545,7 @@ function handleMessage(message) {
       }
 
       let hasHostPerm = false;
-      if (typeof ExtApi.permissions?.contains === "function") {
+      if (typeof ExtApi?.permissions?.contains === "function") {
         try {
           hasHostPerm = await ExtApi.permissions.contains({ origins: ["https://ar.wiktionary.org/*"] });
         } catch (_) {
@@ -487,13 +566,70 @@ function handleMessage(message) {
   });
 }
 
-ExtApi.runtime.onMessage.addListener(handleMessage);
-ExtApi.runtime.onStartup.addListener(eventEntry(ensureReminderNow));
-ExtApi.runtime.onInstalled.addListener(eventEntry(ensureReminderNow));
+ExtApi?.runtime?.onMessage?.addListener?.(handleMessage);
+ExtApi?.runtime?.onStartup?.addListener?.(eventEntry(ensureReminderNow));
+ExtApi?.runtime?.onInstalled?.addListener?.(eventEntry(ensureReminderNow));
 registerReminderListeners();
-if (ExtApi.permissions?.onRemoved) ExtApi.permissions.onRemoved.addListener(eventEntry(async (removed) => {
+
+if (typeof ExtApi?.contextMenus?.onClicked?.addListener === "function") {
+  ExtApi.contextMenus.onClicked.addListener(eventEntry(async (info) => {
+    const text = typeof info?.selectionText === "string" ? info.selectionText.trim() : "";
+    if (!text) return;
+    if (typeof ExtApi.tabs?.create === "function") {
+      await ExtApi.tabs.create({ url: ExtApi.runtime.getURL(`atlas/atlas.html?view=explore&q=${encodeURIComponent(text)}`) });
+    }
+  }));
+}
+
+if (typeof ExtApi?.omnibox?.onInputChanged?.addListener === "function") {
+  ExtApi.omnibox.onInputChanged.addListener(async (text, suggest) => {
+    try {
+      const query = (text || "").trim();
+      if (!query) {
+        suggest([]);
+        return;
+      }
+      const vocabulary = await getVocabulary();
+      let ranked;
+      if (typeof dependencies.vocabulary.rankVocabulary === "function") {
+        ranked = dependencies.vocabulary.rankVocabulary(vocabulary, query);
+      } else {
+        const norm = query.normalize("NFD").replace(/[\u064B-\u065F\u0670]/g, "");
+        ranked = vocabulary.filter((w) => (w.word && w.word.includes(norm)) || (w.meaningAr && w.meaningAr.includes(norm)));
+      }
+
+      const suggestions = ranked.slice(0, 6).map((word) => {
+        const headword = escapeXml(word.word || "");
+        const meaning = escapeXml(word.meaningAr || word.meaning || "");
+        const en = escapeXml(word.englishMeaning || word.meaningEn || "");
+        const desc = `<match>${headword}</match> <dim>—</dim> ${meaning} <dim>(${en})</dim>`;
+        return {
+          content: String(word.id),
+          description: desc,
+        };
+      });
+      suggest(suggestions);
+    } catch (_) {
+      suggest([]);
+    }
+  });
+}
+
+if (typeof ExtApi?.omnibox?.onInputEntered?.addListener === "function") {
+  ExtApi.omnibox.onInputEntered.addListener(async (text) => {
+    try {
+      const query = (text || "").trim();
+      if (!query) return;
+      if (typeof ExtApi.tabs?.create === "function") {
+        await ExtApi.tabs.create({ url: ExtApi.runtime.getURL(`atlas/atlas.html?view=explore&q=${encodeURIComponent(query)}`) });
+      }
+    } catch (_) {}
+  });
+}
+
+if (ExtApi?.permissions?.onRemoved) ExtApi.permissions.onRemoved.addListener(eventEntry(async (removed) => {
   if (removed?.permissions?.some((permission) => permission === "alarms" || permission === "notifications")) await ensureReminderNow();
 }));
-eventEntry(ensureReminderNow)();
+if (ExtApi) eventEntry(ensureReminderNow)();
 
-if (typeof module === "object" && module.exports) module.exports = { handleMessage, ensureReminder };
+if (typeof module === "object" && module.exports) module.exports = { handleMessage, ensureReminder, updateBadge, escapeXml, ensureContextMenu };

@@ -28,10 +28,14 @@ const runtimeFiles = [
   "popup/popup.html",
   "popup/popup.js",
   "shared/date.js",
+  "shared/export.js",
   "shared/lookup.js",
   "shared/selector.js",
   "shared/state.js",
+  "shared/streak.js",
   "shared/theme.css",
+  "shared/theme-init.js",
+  "shared/theme.js",
   "shared/vocabulary.js",
 ];
 const expectedPackageFiles = new Set([...runtimeFiles, "manifest.json"]);
@@ -56,8 +60,9 @@ function packageManifest(browser) {
 
 function assertSafeManifest(value, browser = "chrome") {
   assert.equal(value.manifest_version, 3);
-  assert.deepEqual(value.permissions, ["storage"]);
+  assert.deepEqual(value.permissions, ["storage", "contextMenus"]);
   assert.deepEqual(value.optional_permissions, ["alarms", "notifications"]);
+  assert.deepEqual(value.omnibox, { keyword: "km" });
   if (browser === "chrome") {
     assert.deepEqual(value.optional_host_permissions, ["https://ar.wiktionary.org/*"]);
   } else {

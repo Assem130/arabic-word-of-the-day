@@ -21,5 +21,25 @@
     return `${year}-${month}-${day}`;
   }
 
-  return { getLocalDateKey, isDateKey };
+  function todayDateKey() {
+    return getLocalDateKey(new Date());
+  }
+
+  function addDaysToDateKey(dateKey, days) {
+    if (!isDateKey(dateKey) || typeof days !== "number") return dateKey;
+    const [y, m, d] = dateKey.split("-").map(Number);
+    const date = new Date(Date.UTC(y, m - 1, d + days));
+    return date.toISOString().slice(0, 10);
+  }
+
+  function getDaysDifference(dateKey1, dateKey2) {
+    if (!isDateKey(dateKey1) || !isDateKey(dateKey2)) return 0;
+    const [y1, m1, d1] = dateKey1.split("-").map(Number);
+    const [y2, m2, d2] = dateKey2.split("-").map(Number);
+    const ord1 = Math.floor(Date.UTC(y1, m1 - 1, d1) / 86400000);
+    const ord2 = Math.floor(Date.UTC(y2, m2 - 1, d2) / 86400000);
+    return ord2 - ord1;
+  }
+
+  return { getLocalDateKey, todayDateKey, isDateKey, addDaysToDateKey, getDaysDifference };
 });
