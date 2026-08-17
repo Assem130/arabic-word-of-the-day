@@ -7,6 +7,8 @@ const vm = require("node:vm");
 
 globalThis.crypto ??= webcrypto;
 
+const realVocabulary = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "data", "vocabulary.json"), "utf8"));
+
 function word(id, overrides = {}) {
   return {
     id,
@@ -171,6 +173,37 @@ test("first-run background serves settings and assignments without optional remi
     assert.deepEqual(await fixture.background.handleMessage({ type: "settings.get" }), { kind: "settings", reminder: { enabled: false, time: "09:00" } });
     assert.equal((await fixture.background.handleMessage({ type: "assignment.get" })).kind, "assigned");
   } finally { fixture?.restore(); }
+});
+
+test("real numeric vocabulary keeps assignment, save, and review canonical and transactional", async () => {
+  await withBackground({ vocabulary: realVocabulary, permissions: false, reminderApis: false }, async ({ background, values }) => {
+    await withLocalDay("2026-08-17", async () => {
+      const assigned = await background.handleMessage({ type: "assignment.get" });
+      assert.equal(assigned.kind, "assigned");
+      assert.equal(Number.isInteger(assigned.wordId), true);
+      assert.ok(assigned.wordId >= 1 && assigned.wordId <= realVocabulary.length);
+
+      const saved = await background.handleMessage({ type: "word.save", wordId: `w${assigned.wordId}`, saved: true });
+      assert.equal(saved.kind, "ok");
+      assert.equal(saved.wordId, assigned.wordId);
+      assert.equal(saved.saved, true);
+
+      const beforeInvalid = JSON.stringify(values["kalimat.profile"]);
+      await assert.rejects(background.handleMessage({ type: "word.review", wordId: "w999", rating: "good", dateKey: "2026-08-17" }), /unknown/i);
+      await assert.rejects(background.handleMessage({ type: "word.review", wordId: assigned.wordId, rating: "invalid", dateKey: "2026-08-17" }), /rating/i);
+      assert.equal(JSON.stringify(values["kalimat.profile"]), beforeInvalid);
+
+      const reviewed = await background.handleMessage({ type: "word.review", wordId: `w${assigned.wordId}`, rating: "good", dateKey: "2026-08-17" });
+      assert.equal(reviewed.kind, "ok");
+      assert.equal(reviewed.srs.wordId, assigned.wordId);
+      assert.equal(reviewed.srs.reviewCount, 1);
+      const afterReview = JSON.stringify(values["kalimat.profile"]);
+
+      const replay = await background.handleMessage({ type: "word.review", wordId: assigned.wordId, rating: "good", dateKey: "2026-08-17" });
+      assert.equal(replay.srs.reviewCount, 1);
+      assert.equal(JSON.stringify(values["kalimat.profile"]), afterReview);
+    });
+  });
 });
 
 test("browser background bootstrap imports the five shared domain modules", async () => {

@@ -74,7 +74,7 @@ test("getDueReviewWords sorts by urgency: daysOverdue desc, interval asc, ef asc
   assert.equal(due[2].daysOverdue, 1);
 });
 
-test("recordReview updates SRS, history, and legacy wordStates idempotently", () => {
+test("recordReview updates canonical SRS, history, and wordStates idempotently", () => {
   let profile = State.createProfile({ seedHex: "0".repeat(32) });
   profile = State.recordReview(profile, 1, "good", "2026-08-16", vocabulary);
 
@@ -84,7 +84,7 @@ test("recordReview updates SRS, history, and legacy wordStates idempotently", ()
   assert.ok(profile.history[1]);
   assert.equal(profile.history[1].firstSeen, "2026-08-16");
   assert.equal(profile.wordStates[1]?.status, "known");
-  assert.equal(profile.wordStates["w1"]?.status, "known");
+  assert.equal(profile.wordStates["w1"], undefined);
 });
 
 test("getReviewStats calculates correct statistics across learning and mastered cards", () => {

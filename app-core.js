@@ -672,9 +672,8 @@
     }
 
     function getNaturalAudioUrl(text) {
-        if (!text || typeof text !== "string") return "";
-        const clean = extractSpokenText(text);
-        return `https://translate.google.com/translate_tts?ie=UTF-8&tl=ar&client=tw-ob&q=${encodeURIComponent(clean)}`;
+        // Local-first policy: remote TTS is intentionally disabled.
+        return "";
     }
 
     function addDaysToDateKey(dateKey, days) {
@@ -1695,19 +1694,24 @@
 
             const arVoice = findBestArabicVoice ? findBestArabicVoice(voices) : null;
             const UtteranceClass = window.SpeechSynthesisUtterance || (typeof SpeechSynthesisUtterance !== "undefined" ? SpeechSynthesisUtterance : null);
-            if (!UtteranceClass) {
+            const fallbackMessage = "لم يتم العثور على صوت عربي على هذا الجهاز. يُرجى تفعيل أو تثبيت حزمة الصوت العربي من إعدادات النظام للاستماع للنطق.";
+            if (!arVoice || !UtteranceClass) {
                 resetBtn();
+                const toast = document.getElementById("toast");
+                if (toast) {
+                    toast.textContent = fallbackMessage;
+                    toast.classList.add("show");
+                    setTimeout(() => toast.classList.remove("show"), 2500);
+                }
+                const announcer = document.getElementById("audio-announcer");
+                if (announcer) announcer.textContent = fallbackMessage;
                 return;
             }
 
             try {
                 const utterance = new UtteranceClass(cleanWord);
-                if (arVoice) {
-                    utterance.voice = arVoice;
-                    utterance.lang = arVoice.lang || "ar-SA";
-                } else {
-                    utterance.lang = "ar-SA";
-                }
+                utterance.voice = arVoice;
+                utterance.lang = arVoice.lang || "ar-SA";
                 utterance.rate = 0.85;
 
                 window._activeUtterance = utterance;

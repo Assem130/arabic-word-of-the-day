@@ -37,6 +37,8 @@
   const MAX_ASSIGNMENTS = 5000;
   const MAX_ARRAY = 16;
   const MAX_RECORD_BYTES = 16 * 1024;
+  const MAX_CANONICAL_ID = 365;
+  const MAX_REVIEW_LIMIT = 100;
   const encoder = new TextEncoder();
   const INTERESTS = new Set(["classical-arabic", "daily-life", "family", "food", "language", "travel"]);
   const STATUSES = new Set(["known", "difficult"]);
@@ -91,6 +93,62 @@
     return value;
   }
 
+  function numericAlias(value) {
+    const text = typeof value === "number" ? String(value) : String(value ?? "").trim();
+    const match = /^(?:w)?(\d+)$/i.exec(text);
+    if (!match) return null;
+    const parsed = Number(match[1]);
+    return Number.isSafeInteger(parsed) && parsed >= 1 && parsed <= MAX_CANONICAL_ID ? parsed : null;
+  }
+
+  function vocabularyIndex(vocabulary) {
+    if (!Array.isArray(vocabulary) || vocabulary.length > MAX_RECORDS) fail("vocabulary");
+    const canonicalMode = vocabulary.some((word) => word && typeof word.id === "number")
+      || (vocabulary.length === MAX_CANONICAL_ID && vocabulary.every((word) => numericAlias(word?.id) !== null));
+    const aliases = new Map();
+    const records = new Map();
+    const aliasesByCanonical = new Map();
+    for (const word of vocabulary) {
+      if (!word || (typeof word.id !== "string" && typeof word.id !== "number")) fail("vocabulary");
+      const numeric = canonicalMode ? numericAlias(word.id) : null;
+      const canonical = numeric ?? word.id;
+      if (records.has(canonical) && records.get(canonical) !== word) fail("vocabulary ID collision");
+      records.set(canonical, word);
+      const aliasesForWord = aliasesByCanonical.get(canonical) || [];
+      const rawAliases = [String(word.id), String(canonical)];
+      if (numeric !== null) rawAliases.push(`w${numeric}`);
+      for (const alias of rawAliases) {
+        const prior = aliases.get(alias);
+        if (prior !== undefined && prior !== canonical) fail("vocabulary ID collision");
+        aliases.set(alias, canonical);
+        if (!aliasesForWord.includes(alias)) aliasesForWord.push(alias);
+      }
+      aliasesByCanonical.set(canonical, aliasesForWord);
+    }
+    return { aliases, records, aliasesByCanonical };
+  }
+
+  function canonicalWordId(value, index, label = "word ID") {
+    id(value, label);
+    if (!index) return value;
+    const canonical = index.aliases.get(String(value));
+    if (canonical === undefined) fail(`${label} unknown`);
+    return canonical;
+  }
+
+  function canonicalKey(value, index, label = "word ID") {
+    return String(canonicalWordId(value, index, label));
+  }
+
+  function sameValue(left, right) {
+    return JSON.stringify(left) === JSON.stringify(right);
+  }
+
+  function putUnique(map, key, value, label) {
+    if (Object.hasOwn(map, key) && !sameValue(map[key], value)) fail(`${label} collision`);
+    map[key] = value;
+  }
+
   function recordSize(value, label) {
     if (encoder.encode(JSON.stringify(value)).byteLength > MAX_RECORD_BYTES) fail(label);
   }
@@ -118,11 +176,11 @@
     return result;
   }
 
-  function copyAssignment(value) {
+  function copyAssignment(value, index = null) {
     recordSize(value, "assignment size");
     safeKeys(value, ASSIGNMENT_KEYS, "assignment");
     if (!Object.hasOwn(value, "wordId")) fail("assignment wordId");
-    const result = { wordId: id(value.wordId, "assignment wordId") };
+    const result = { wordId: canonicalWordId(value.wordId, index, "assignment wordId") };
     if (Object.hasOwn(value, "status")) {
       if (!STATUSES.has(value.status)) fail("assignment status");
       result.status = value.status;
@@ -131,26 +189,7 @@
   }
 
   function vocabularyIds(vocabulary) {
-    if (!Array.isArray(vocabulary) || vocabulary.length > MAX_RECORDS) fail("vocabulary");
-    const ids = new Set();
-    for (const word of vocabulary) {
-      if (!word) fail("vocabulary");
-      if (typeof word.id === "string") {
-        ids.add(word.id);
-        const match = /^w(\d+)$/.exec(word.id);
-        if (match) {
-          ids.add(Number(match[1]));
-          ids.add(match[1]);
-        }
-      } else if (typeof word.id === "number") {
-        ids.add(word.id);
-        ids.add(String(word.id));
-        ids.add(`w${word.id}`);
-      } else {
-        fail("vocabulary");
-      }
-    }
-    return ids;
+    return vocabularyIndex(vocabulary).aliases;
   }
 
   function mapRatingToGrade(rating) {
@@ -174,7 +213,7 @@
 
   function createDefaultSrsItem(wordId, initialDateKey) {
     const today = isDateKey(initialDateKey) ? initialDateKey : getLocalDateKey(new Date());
-    const numericId = typeof wordId === "number" ? wordId : (String(wordId).startsWith("w") ? parseInt(String(wordId).slice(1), 10) : Number(wordId));
+    const numericId = typeof wordId === "number" ? wordId : (/^\d+$/.test(String(wordId)) ? Number(wordId) : null);
     return {
       wordId: Number.isInteger(numericId) ? numericId : wordId,
       repetition: 0,
@@ -268,9 +307,16 @@
     if (!Array.isArray(raw.interests) || raw.interests.length > 3 || raw.interests.some((interest) => !INTERESTS.has(interest)) || new Set(raw.interests).size !== raw.interests.length) fail("interests");
     if (Object.hasOwn(raw, "showEnglish") && typeof raw.showEnglish !== "boolean") fail("showEnglish");
     if (!Array.isArray(raw.recentIds) || raw.recentIds.length > MAX_ARRAY) fail("recentIds");
-    const allowedIds = vocabulary ? vocabularyIds(vocabulary) : null;
-    const recentIds = raw.recentIds.map((value) => id(value, "recent ID"));
-    if (allowedIds && recentIds.some((value) => !allowedIds.has(value))) fail("recent ID");
+    const index = vocabulary ? vocabularyIndex(vocabulary) : null;
+    const recentIds = [];
+    const seenRecent = new Set();
+    for (const value of raw.recentIds) {
+      const canonical = canonicalWordId(value, index, "recent ID");
+      if (!seenRecent.has(String(canonical))) {
+        recentIds.push(canonical);
+        seenRecent.add(String(canonical));
+      }
+    }
     if (raw.evidenceCutoff !== null && !isDateKey(raw.evidenceCutoff)) fail("evidence cutoff");
     if (!plainObject(raw.wordStates) || !plainObject(raw.assignments)) fail("keyed state");
     const wordStateEntries = Object.entries(raw.wordStates);
@@ -279,15 +325,13 @@
 
     const wordStates = nullMap();
     for (const [wordId, state] of wordStateEntries) {
-      id(wordId, "word ID");
-      if (allowedIds && !allowedIds.has(wordId)) fail("word ID");
-      wordStates[wordId] = copyWordState(state);
+      const canonical = canonicalKey(wordId, index, "word ID");
+      putUnique(wordStates, canonical, copyWordState(state), "word ID");
     }
     const assignments = nullMap();
     for (const [dateKey, assignment] of assignmentEntries) {
       if (!isDateKey(dateKey)) fail("assignment date");
-      const copy = copyAssignment(assignment);
-      if (allowedIds && !allowedIds.has(copy.wordId)) fail("assignment wordId");
+      const copy = copyAssignment(assignment, index);
       assignments[dateKey] = copy;
     }
     const assignmentOrdinal = Object.hasOwn(raw, "assignmentOrdinal") ? raw.assignmentOrdinal : assignmentEntries.length;
@@ -298,9 +342,11 @@
     if (raw.srs && typeof raw.srs === "object" && !Array.isArray(raw.srs)) {
       for (const [rawWordId, item] of Object.entries(raw.srs)) {
         if (item && typeof item === "object") {
-          const wId = item.wordId ?? rawWordId;
+          const rawKeyId = canonicalWordId(rawWordId, index, "srs word ID");
+          const wId = canonicalWordId(item.wordId ?? rawWordId, index, "srs word ID");
+          if (String(rawKeyId) !== String(wId)) fail("srs word ID collision");
           srs[wId] = {
-            wordId: Number.isInteger(Number(wId)) ? Number(wId) : wId,
+            wordId: wId,
             repetition: Number.isInteger(item.repetition) && item.repetition >= 0 ? item.repetition : 0,
             interval: typeof item.interval === "number" && item.interval >= 0 ? Math.round(item.interval) : 0,
             ef: typeof item.ef === "number" && !isNaN(item.ef) ? Math.max(1.3, Math.round(item.ef * 100) / 100) : 2.5,
@@ -317,24 +363,26 @@
     const history = nullMap();
     if (raw.history && typeof raw.history === "object" && !Array.isArray(raw.history)) {
       for (const [rawWordId, item] of Object.entries(raw.history)) {
+        const canonical = canonicalKey(rawWordId, index, "history word ID");
         const firstSeen = (item && typeof item === "object" && isDateKey(item.firstSeen))
           ? item.firstSeen
           : ((item && typeof item === "object" && isDateKey(item.date)) ? item.date : getLocalDateKey(new Date()));
-        history[rawWordId] = { firstSeen };
+        putUnique(history, canonical, { firstSeen }, "history word ID");
       }
     }
 
     const favorites = nullMap();
     if (raw.favorites && typeof raw.favorites === "object" && !Array.isArray(raw.favorites)) {
       for (const [rawWordId, val] of Object.entries(raw.favorites)) {
-        if (val) favorites[rawWordId] = true;
+        const canonical = canonicalKey(rawWordId, index, "favorite word ID");
+        if (val) favorites[canonical] = true;
       }
     }
 
     // Populate SRS/History/Favorites from wordStates if not already populated
     for (const [wId, ws] of Object.entries(wordStates)) {
-      const numericId = typeof wId === "number" ? wId : (String(wId).startsWith("w") ? parseInt(String(wId).slice(1), 10) : Number(wId));
-      const targetId = Number.isInteger(numericId) ? numericId : wId;
+      const numericId = numericAlias(wId);
+      const targetId = index?.aliases.has(String(wId)) ? index.aliases.get(String(wId)) : (numericId ?? wId);
 
       if (ws.saved && !favorites[targetId] && !favorites[wId]) {
         favorites[targetId] = true;
@@ -440,16 +488,19 @@
     return status && { status, dates: new Set(responses.map(([dateKey]) => dateKey)) };
   }
 
-  function applyFeedback(profile, input) {
-    const current = copyProfile(profile);
+  function applyFeedback(profile, input, vocabulary = null) {
+    const index = vocabulary ? vocabularyIndex(vocabulary) : null;
+    const current = copyProfile(profile, vocabulary);
     if (!plainObject(input) || Object.keys(input).some((key) => !new Set(["dateKey", "wordId", "status"]).has(key))) fail("feedback");
-    if (!isDateKey(input.dateKey) || !STATUSES.has(input.status) || id(input.wordId, "feedback wordId") !== input.wordId) fail("feedback");
+    if (!isDateKey(input.dateKey) || !STATUSES.has(input.status)) fail("feedback");
+    const targetId = canonicalWordId(input.wordId, index, "feedback wordId");
     const assignment = current.assignments[input.dateKey];
-    if (!assignment || assignment.wordId !== input.wordId) fail("feedback assignment");
+    if (!assignment || String(assignment.wordId) !== String(targetId)) fail("feedback assignment");
 
     const priorShift = shiftAtCutoff(current);
-    const previous = current.wordStates[input.wordId] || {};
-    current.wordStates[input.wordId] = { ...previous, status: input.status, dateKey: input.dateKey };
+    const stateKey = String(targetId);
+    const previous = current.wordStates[stateKey] || {};
+    current.wordStates[stateKey] = { ...previous, status: input.status, dateKey: input.dateKey };
     current.assignments[input.dateKey] = { ...assignment, status: input.status };
     if (priorShift && priorShift.dates.has(input.dateKey) && priorShift.status === assignment.status && assignment.status !== input.status) {
       current.level += priorShift.status === "known" ? -1 : 1;
@@ -469,8 +520,6 @@
     }
 
     // Also update SM-2 state accordingly
-    const numericId = typeof input.wordId === "number" ? input.wordId : (String(input.wordId).startsWith("w") ? parseInt(String(input.wordId).slice(1), 10) : Number(input.wordId));
-    const targetId = Number.isInteger(numericId) ? numericId : input.wordId;
     const currentSrs = current.srs[targetId] || current.srs[input.wordId] || createDefaultSrsItem(targetId, input.dateKey);
     const rating = input.status === "known" ? "good" : "again";
     const sm2Result = calculateSM2(currentSrs, rating, input.dateKey);
@@ -480,52 +529,72 @@
     return current;
   }
 
+  function canonicalReviewRating(rating) {
+    if (typeof rating === "number") {
+      if (!Number.isInteger(rating) || rating < 0 || rating > 5) fail("review rating");
+      return rating === 1 ? "again" : rating === 3 ? "hard" : rating === 4 ? "good" : rating === 5 ? "easy" : String(rating);
+    }
+    if (typeof rating !== "string") fail("review rating");
+    const trimmed = rating.trim().toLowerCase();
+    if (["again", "أعد", "اعد", "مجددا", "مجدداً"].includes(trimmed)) return "again";
+    if (["hard", "صعب"].includes(trimmed)) return "hard";
+    if (["good", "جيد"].includes(trimmed)) return "good";
+    if (["easy", "سهل"].includes(trimmed)) return "easy";
+    if (/^[0-5]$/.test(trimmed)) return canonicalReviewRating(Number(trimmed));
+    fail("review rating");
+  }
+
   function recordReview(profile, wordId, rating, dateKey, vocabulary = null) {
+    const index = vocabulary ? vocabularyIndex(vocabulary) : null;
+    const targetId = canonicalWordId(wordId, index, "review wordId");
+    if (!isDateKey(dateKey)) fail("review date");
+    const canonicalRating = canonicalReviewRating(rating);
     const current = copyProfile(profile, vocabulary);
-    const todayKey = isDateKey(dateKey) ? dateKey : getLocalDateKey(new Date());
-    const numericId = typeof wordId === "number" ? wordId : (String(wordId).startsWith("w") ? parseInt(String(wordId).slice(1), 10) : Number(wordId));
-    const targetId = Number.isInteger(numericId) ? numericId : wordId;
+    const todayKey = dateKey;
 
     const currentSrs = current.srs[targetId] || current.srs[wordId] || createDefaultSrsItem(targetId, todayKey);
-    const sm2Result = calculateSM2(currentSrs, rating, todayKey);
+    if (Array.isArray(currentSrs.history) && currentSrs.history.some((entry) => {
+      if (!entry || entry.date !== todayKey) return false;
+      try { return canonicalReviewRating(entry.rating ?? entry.grade) === canonicalRating; } catch (_) { return false; }
+    })) return current;
+    const sm2Result = calculateSM2(currentSrs, canonicalRating, todayKey);
     sm2Result.wordId = targetId;
 
-    current.srs[targetId] = sm2Result;
+    const persistedSrs = { ...sm2Result };
+    delete persistedSrs.historyEntry;
+    current.srs[targetId] = persistedSrs;
     if (!current.history[targetId]) {
       current.history[targetId] = { firstSeen: todayKey };
     }
 
     // Sync to legacy wordStates for backward compatibility
-    const legacyKey = typeof wordId === "string" ? wordId : `w${wordId}`;
-    const prevWs = current.wordStates[legacyKey] || current.wordStates[wordId] || {};
+    const stateKey = String(targetId);
+    const prevWs = current.wordStates[stateKey] || {};
     const status = sm2Result.repetition > 0 ? "known" : "difficult";
-    current.wordStates[legacyKey] = { ...prevWs, status, dateKey: todayKey };
-    if (typeof wordId === "number") {
-      current.wordStates[wordId] = { ...prevWs, status, dateKey: todayKey };
-    }
+    current.wordStates[stateKey] = { ...prevWs, status, dateKey: todayKey };
 
     return current;
   }
 
   function getDueReviewWords(profile, vocabulary, dateKey, limit = null) {
     if (!Array.isArray(vocabulary) || vocabulary.length === 0) return [];
-    const todayKey = isDateKey(dateKey) ? dateKey : getLocalDateKey(new Date());
+    if (!isDateKey(dateKey)) fail("review queue date");
+    if (limit !== null && (!Number.isSafeInteger(limit) || limit < 1 || limit > MAX_REVIEW_LIMIT)) fail("review queue limit");
+    const todayKey = dateKey;
     const current = copyProfile(profile, vocabulary);
+    const index = vocabularyIndex(vocabulary);
 
     const wordsMap = new Map();
     for (const w of vocabulary) {
       if (w) {
-        wordsMap.set(w.id, w);
-        wordsMap.set(String(w.id), w);
-        if (typeof w.id === "number") wordsMap.set(`w${w.id}`, w);
-        if (typeof w.id === "string" && w.id.startsWith("w")) wordsMap.set(parseInt(w.id.slice(1), 10), w);
+        wordsMap.set(canonicalWordId(w.id, index), w);
       }
     }
 
     const dueItems = [];
     for (const [rawId, srsItem] of Object.entries(current.srs)) {
       if (!srsItem || typeof srsItem !== "object") continue;
-      const id = srsItem.wordId !== undefined ? srsItem.wordId : rawId;
+      const id = srsItem.wordId !== undefined ? canonicalWordId(srsItem.wordId, index, "review word ID") : canonicalWordId(rawId, index, "review word ID");
       const word = wordsMap.get(id);
       if (!word) continue;
 
@@ -565,7 +634,8 @@
   }
 
   function getReviewStats(profile, vocabulary, dateKey) {
-    const todayKey = isDateKey(dateKey) ? dateKey : getLocalDateKey(new Date());
+    if (!isDateKey(dateKey)) fail("review stats date");
+    const todayKey = dateKey;
     const current = copyProfile(profile, vocabulary);
     const srsList = Object.values(current.srs);
 
@@ -675,6 +745,9 @@
     calculateSM2,
     createDefaultSrsItem,
     mapRatingToGrade,
+    canonicalReviewRating,
+    normalizeWordId: canonicalWordId,
+    vocabularyIndex,
     migrateLegacyToV2,
     migrateState,
     parseImport,

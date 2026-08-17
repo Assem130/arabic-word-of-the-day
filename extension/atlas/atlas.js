@@ -83,17 +83,6 @@
     }
     const found = state.vocabulary.find((word) => word.id === id || String(word.id) === String(id) || `w${word.id}` === String(id));
     if (found) return found;
-    if (id) {
-      return {
-        id,
-        word: "كلمة",
-        meaningAr: "معنى",
-        meaningEn: "meaning",
-        pronunciation: "/kalima/",
-        exampleAr: "مثال",
-        contextAr: "سياق",
-      };
-    }
     return null;
   }
 
@@ -182,7 +171,7 @@
     elements["today-card"].hidden = !word;
     elements["today-empty"].hidden = !!word;
     setTodayActions(!!word);
-    const wordState = word && state.profile?.wordStates?.[word.id];
+    const wordState = word && (state.profile?.wordStates?.[String(word.id)] || state.profile?.wordStates?.[`w${word.id}`]);
     elements["today-save"].setAttribute("aria-pressed", String(wordState?.saved === true));
     elements["today-known"].setAttribute("aria-pressed", String(wordState?.status === "known"));
     elements["today-difficult"].setAttribute("aria-pressed", String(wordState?.status === "difficult"));
@@ -210,6 +199,8 @@
 
   function search() {
     const rawQuery = elements["atlas-search"].value;
+    elements["explore-card"].replaceChildren();
+    elements["explore-card"].hidden = true;
     let matches;
     if (globalThis.KalimatVocabulary && typeof globalThis.KalimatVocabulary.rankVocabulary === "function") {
       matches = globalThis.KalimatVocabulary.rankVocabulary(state.vocabulary, rawQuery);
@@ -283,8 +274,12 @@
 
     const link = document.createElement("a");
     link.className = "online-source-link";
-    const safeTarget = encodeURIComponent(targetTerm);
-    link.href = `https://ar.wiktionary.org/wiki/${safeTarget}`;
+    let sourceUrl = "";
+    try {
+      const parsed = new URL(result.sourceUrl || "");
+      if (parsed.protocol === "https:" && parsed.hostname === "ar.wiktionary.org") sourceUrl = parsed.href;
+    } catch (_) {}
+    link.href = sourceUrl || `https://ar.wiktionary.org/wiki/${encodeURIComponent(targetTerm)}`;
     link.target = "_blank";
     link.rel = "noopener noreferrer";
     link.textContent = "عرض في ويكاموس العربي";
@@ -395,6 +390,7 @@
     elements["settings-english"].checked = profile.showEnglish !== false;
     elements["settings-time"].value = state.reminder.time;
     elements["settings-reminder"].setAttribute("aria-pressed", String(state.reminder.enabled));
+    elements["settings-reminder"].setAttribute("aria-checked", String(state.reminder.enabled));
     elements["settings-reminder"].textContent = state.reminder.enabled ? "إيقاف التذكير اليومي" : "تفعيل التذكير اليومي";
   }
 
@@ -558,6 +554,7 @@
     const result = await ExtApi.runtime.sendMessage({ type: "state.clear" });
     if (result?.kind !== "ok") throw new Error("Clear failed.");
     state.reminderWarning = result.reminderWarning === true;
+    state.reminder = { ...state.reminder, enabled: false };
     warning(result.storageWarning === true || state.reminderWarning);
     state.profile = null;
     state.today = null;
@@ -607,7 +604,8 @@
 
   async function toggleSave() {
     if (!state.today?.word) return;
-    const current = state.profile?.wordStates?.[state.today.word.id]?.saved === true;
+    const currentState = state.profile?.wordStates?.[String(state.today.word.id)] || state.profile?.wordStates?.[`w${state.today.word.id}`];
+    const current = currentState?.saved === true;
     const btn = elements["today-save"];
     if (btn?.disabled) return;
     if (btn) {
@@ -696,6 +694,11 @@
     const dateKey = globalThis.KalimatDate.isDateKey(query) ? query : undefined;
     const requestedView = params.get("view");
     const requestedQuery = params.get("q") ?? "";
+    const requestedId = params.get("id");
+    const directWord = requestedId && requestedId.length <= 64 && !/[\u0000-\u001F\u007F]/.test(requestedId)
+      ? wordById(requestedId)
+      : null;
+    if (requestedId && !directWord) return renderError("الكلمة غير متاحة.");
     const exploreRequested = !params.has("date")
       && requestedView === "explore"
       && requestedQuery.length <= 256
@@ -716,6 +719,11 @@
     state.recoveryRaw = null;
     warning(exported.storageWarning === true || assignment.storageWarning === true || state.reminderWarning);
     hydrateSettings();
+    if (directWord) {
+      viewWord(directWord);
+      show("explore");
+      return;
+    }
     updateStreakBadge(assignment?.dateKey);
     if (assignment?.kind === "assigned") {
       const word = wordById(assignment.wordId);
@@ -867,8 +875,8 @@
       elements["card-back-meaning-en"].textContent = word.meaningEn || word.englishMeaning || "";
       elements["card-back-meaning-en"].hidden = state.profile?.showEnglish === false || !elements["card-back-meaning-en"].textContent;
     }
-    if (elements["card-back-example-ar"]) elements["card-back-example-ar"].textContent = word.contextAr || word.exampleAr || "";
-    if (elements["card-back-context"]) elements["card-back-context"].textContent = word.literaryAr || word.example || "";
+    if (elements["card-back-example-ar"]) elements["card-back-example-ar"].textContent = word.exampleAr || word.example || "";
+    if (elements["card-back-context"]) elements["card-back-context"].textContent = word.contextAr || word.context || "";
   }
 
   function showPracticeFinished() {
@@ -887,19 +895,25 @@
     if (currentReviewIndex >= reviewQueue.length) return;
     const currentItem = reviewQueue[currentReviewIndex];
     const wordId = currentItem.word?.id ?? currentItem.wordId ?? currentItem.id;
+    const buttons = [elements["rate-again"], elements["rate-hard"], elements["rate-good"], elements["rate-easy"]].filter(Boolean);
+    buttons.forEach((button) => { button.disabled = true; button.setAttribute("aria-busy", "true"); });
     try {
-      await ExtApi.runtime.sendMessage({
+      const result = await ExtApi.runtime.sendMessage({
         type: "word.review",
         wordId,
         rating,
-        dateKey: state.today?.dateKey,
+        dateKey: state.today?.dateKey || (globalThis.KalimatDate?.todayDateKey ? globalThis.KalimatDate.todayDateKey() : new Date().toISOString().slice(0, 10)),
       });
-    } catch (_) {}
-    currentReviewIndex++;
-    if (currentReviewIndex < reviewQueue.length) {
-      showPracticeCard(currentReviewIndex);
-    } else {
-      showPracticeFinished();
+      if (result?.kind === "recovery") return renderRecovery(result.recoveryRaw);
+      if (result?.kind !== "ok") throw new Error("Review unchanged.");
+      currentReviewIndex++;
+      if (currentReviewIndex < reviewQueue.length) showPracticeCard(currentReviewIndex);
+      else showPracticeFinished();
+      status("تم حفظ المراجعة.");
+    } catch (_) {
+      status("تعذّر حفظ المراجعة. حاول مجددًا.");
+    } finally {
+      buttons.forEach((button) => { button.disabled = false; button.setAttribute("aria-busy", "false"); });
     }
   }
 
@@ -978,7 +992,7 @@
     elements["recovery-export"].addEventListener("click", () => exportState().catch(() => status("تعذّر التصدير.")));
     elements["recovery-import"].addEventListener("change", () => importState(elements["recovery-import"]));
     elements["recovery-clear"].addEventListener("click", () => clearState().catch(() => status("تعذّر مسح البيانات.")));
-    elements["onboarding-settings"].addEventListener("click", () => show("settings"));
+    elements["onboarding-settings"].addEventListener("click", () => { show("settings"); hydrateSettings(); });
     elements["today-known"].addEventListener("click", () => feedback("known").catch(() => status("تعذّر حفظ التقييم.")));
     elements["today-difficult"].addEventListener("click", () => feedback("difficult").catch(() => status("تعذّر حفظ التقييم.")));
     elements["today-save"].addEventListener("click", () => toggleSave().catch(() => status("تعذّر الحفظ.")));

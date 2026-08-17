@@ -84,9 +84,9 @@ test("existing assignments and word state remain readable across the 0.2.0 corpu
   });
   const result = validateStoredProfile(stored, currentVocabulary);
   assert.equal(result.canPersist, true);
-  assert.equal(result.profile.assignments["2026-07-30"].wordId, "w60");
-  assert.equal(result.profile.wordStates.w57.saved, true);
-  assert.deepEqual(result.profile.recentIds, ["w57", "w60"]);
+  assert.equal(result.profile.assignments["2026-07-30"].wordId, 60);
+  assert.equal(result.profile.wordStates[57].saved, true);
+  assert.deepEqual(result.profile.recentIds, [57, 60]);
 });
 
 test("unknown or malformed showEnglish data remains read-only recovery", () => {

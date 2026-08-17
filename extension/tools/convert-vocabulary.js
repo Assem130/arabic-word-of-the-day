@@ -4,6 +4,14 @@ const fs = require("node:fs");
 const path = require("node:path");
 const words = require("../../words.js");
 const { validateVocabulary } = require("../shared/vocabulary.js");
+const existingOutputPath = path.join(__dirname, "..", "data", "vocabulary.json");
+let existingMetadata = new Map();
+try {
+  const existing = JSON.parse(fs.readFileSync(existingOutputPath, "utf8"));
+  existingMetadata = new Map(existing.filter((record) => record && record.id !== undefined).map((record) => [record.id, record]));
+} catch (_) {
+  // A clean checkout can still run the converter once metadata is complete.
+}
 
 const METADATA = [
   { sourceId: 1, id: 1, contentVersion: 2, difficultyBand: "advanced", usefulnessBand: "low", topics: ["classical-arabic", "language"], partOfSpeech: "noun", register: "classical", reviewed: true },
@@ -114,17 +122,8 @@ function normalizeArabic(value) {
 }
 
 const vocabulary = words.map((seed, index) => {
-  const metadata = METADATA[index] || {
-    sourceId: seed.id,
-    id: `w${seed.id}`,
-    contentVersion: 2,
-    difficultyBand: "advanced",
-    usefulnessBand: "medium",
-    topics: CATEGORY_TOPICS[seed.category] || ["classical-arabic"],
-    partOfSpeech: "noun",
-    register: "classical",
-    reviewed: true,
-  };
+  const metadata = METADATA[index] || existingMetadata.get(seed.id);
+  if (!metadata || metadata.reviewed !== true) throw new TypeError(`Missing reviewed metadata for source ${seed.id}.`);
   const source = { ...seed, ...SOURCE_OVERRIDES[seed.id] };
   return {
     id: seed.id,
@@ -148,7 +147,7 @@ const vocabulary = words.map((seed, index) => {
     englishMeaning: source.englishMeaning,
     meaningEn: source.englishMeaning,
     example: source.example,
-    exampleAr: source.context,
+    exampleAr: source.example,
     context: source.context,
     contextAr: source.context,
     contextEnglish: source.contextEnglish,
