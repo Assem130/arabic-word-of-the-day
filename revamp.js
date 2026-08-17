@@ -110,7 +110,11 @@ document.addEventListener("DOMContentLoaded", () => {
             document.querySelectorAll(".horizontal-accordion details").forEach(panel => { panel.open = true; });
         }
     }
-    if (typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        const heroCopy = typeof document.querySelector === "function" ? document.querySelector(".hero-copy") : null;
+        if (heroCopy) heroCopy.classList.add("is-visible");
+        return;
+    }
 
     if (typeof document.querySelector === "function") {
         const heroCopy = document.querySelector(".hero-copy");

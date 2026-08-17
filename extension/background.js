@@ -64,12 +64,16 @@ function validReminder(value) {
 
 async function getVocabulary() {
   if (!vocabularyPromise) {
-    vocabularyPromise = fetch(ExtApi.runtime.getURL("data/vocabulary.json"))
+    const pending = fetch(ExtApi.runtime.getURL("data/vocabulary.json"))
       .then((response) => {
         if (!response.ok) throw new Error("Vocabulary unavailable.");
         return response.json();
       })
       .then(dependencies.vocabulary.validateVocabulary);
+    vocabularyPromise = pending.catch((error) => {
+      vocabularyPromise = null;
+      throw error;
+    });
   }
   return vocabularyPromise;
 }
@@ -446,8 +450,15 @@ function handleMessage(message) {
       const loaded = await loadProfile(vocabulary);
       if (loaded.recoveryRaw !== undefined) return recovery(loaded);
       const dateKey = message.dateKey || (dependencies.date.todayDateKey ? dependencies.date.todayDateKey() : dependencies.date.getLocalDateKey(new Date()));
-      const dueWords = dependencies.state.getDueReviewWords(loaded.profile, vocabulary, dateKey, message.limit === undefined ? null : message.limit);
-      return { kind: "queue", words: dueWords, dueCount: dueWords.length };
+      const configuredLimit = loaded.profile.preferences?.dailyReviewLimit;
+      const limit = message.limit === undefined
+        ? (Number.isSafeInteger(configuredLimit) && configuredLimit >= 1 && configuredLimit <= 100 ? configuredLimit : 20)
+        : message.limit;
+      const dueWords = dependencies.state.getDueReviewWords(loaded.profile, vocabulary, dateKey, limit);
+      const stats = dependencies.state.getReviewStats(loaded.profile, vocabulary, dateKey);
+      const dueCount = Number.isInteger(stats?.dueCount) ? stats.dueCount : dueWords.length;
+      const visibleCount = dueWords.length;
+      return { kind: "queue", words: dueWords, dueCount, visibleCount, remainingCount: Math.max(0, dueCount - visibleCount) };
     }
     if (message.type === "word.review") {
       if (!exactMessage(message, new Set(["type", "wordId", "rating", "dateKey"])) || !Object.hasOwn(message, "dateKey") || !dependencies.date.isDateKey(message.dateKey)) throw new TypeError("Invalid review.");

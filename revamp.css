@@ -530,24 +530,39 @@ html[data-theme="midnight"] .practice-progress-bar-fill {
     perspective: 1200px;
     width: 100%;
     margin: 10px 0 16px;
+    display: flex;
+    flex-direction: column;
 }
 
 .flashcard-card {
     position: relative;
     width: 100%;
     min-height: 320px;
-    cursor: pointer;
     transform-style: preserve-3d;
     transition: transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1);
     border-radius: 14px;
-    outline: none;
 }
 
-.flashcard-card:focus-visible {
+.card-front-flip {
+    align-self: flex-start;
+    margin-bottom: 10px;
+    padding: 8px 16px;
+    border: 1px solid var(--line-dark);
+    border-radius: 999px;
+    background: var(--ink);
+    color: var(--paper-light);
+    font: 600 .8rem var(--sans);
+}
+
+.card-front-flip:hover {
+    background: var(--ink-soft);
+}
+
+.card-front-flip:focus-visible {
     outline: 3px solid var(--ink);
     outline-offset: 4px;
 }
-html[data-theme="midnight"] .flashcard-card:focus-visible {
+html[data-theme="midnight"] .card-front-flip:focus-visible {
     outline-color: var(--lime);
 }
 

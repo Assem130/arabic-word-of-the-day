@@ -20,7 +20,22 @@
   let reminderQueue = null;
   let themeController = null;
   let reviewQueue = [];
+  let reviewMeta = { dueCount: 0, visibleCount: 0, remainingCount: 0 };
+  let reviewQueueLoad = null;
   let currentReviewIndex = 0;
+
+  function toArabicDigits(value) {
+    if (globalThis.KalimatStreak?.toArabicDigits) return globalThis.KalimatStreak.toArabicDigits(value);
+    return String(value ?? "").replace(/[0-9]/g, (digit) => "٠١٢٣٤٥٦٧٨٩"[digit]);
+  }
+
+  function formatReviewCount(count) {
+    const value = Math.max(0, Number(count) || 0);
+    if (value === 1) return "مراجعة واحدة";
+    if (value === 2) return "مراجعتين";
+    if (value >= 3 && value <= 10) return `${toArabicDigits(value)} مراجعات`;
+    return `${toArabicDigits(value)} مراجعة`;
+  }
 
   function show(name) {
     state.view = name;
@@ -103,22 +118,38 @@
     elements.streakBadge.textContent = `🔥 ${digits}`;
   }
 
-  async function loadDueReviews() {
-    try {
-      const res = await ExtApi.runtime.sendMessage({ type: "review.queue" });
-      if (res && res.kind === "queue") {
-        reviewQueue = Array.isArray(res.words) ? res.words : [];
-        const count = typeof res.dueCount === "number" ? res.dueCount : reviewQueue.length;
-        if (elements.dueReviewBadge) {
-          if (count > 0) {
-            elements.dueReviewBadge.hidden = false;
-            elements.dueReviewBadge.textContent = `${count} مستحقة`;
-          } else {
-            elements.dueReviewBadge.hidden = true;
+  function loadDueReviews() {
+    if (reviewQueueLoad) return reviewQueueLoad;
+
+    reviewQueue = [];
+    reviewMeta = { dueCount: 0, visibleCount: 0, remainingCount: 0 };
+    reviewQueueLoad = (async () => {
+      try {
+        const res = await ExtApi.runtime.sendMessage({ type: "review.queue" });
+        if (res && res.kind === "queue") {
+          reviewQueue = Array.isArray(res.words) ? res.words : [];
+          const dueCount = typeof res.dueCount === "number" ? res.dueCount : reviewQueue.length;
+          const visibleCount = typeof res.visibleCount === "number" ? res.visibleCount : reviewQueue.length;
+          const remainingCount = typeof res.remainingCount === "number" ? res.remainingCount : Math.max(0, dueCount - visibleCount);
+          reviewMeta = { dueCount, visibleCount, remainingCount };
+          if (elements.dueReviewBadge) {
+            if (dueCount > 0) {
+              elements.dueReviewBadge.hidden = false;
+              elements.dueReviewBadge.textContent = `${dueCount} مستحقة`;
+              elements.dueReviewBadge.setAttribute("aria-label", `المراجعات المستحقة اليوم: ${toArabicDigits(dueCount)} ${formatReviewCount(dueCount)}`);
+            } else {
+              elements.dueReviewBadge.hidden = true;
+            }
           }
         }
-      }
-    } catch (_) {}
+      } catch (_) {}
+    })();
+    const pending = reviewQueueLoad;
+    const clearPending = () => {
+      if (reviewQueueLoad === pending) reviewQueueLoad = null;
+    };
+    pending.then(clearPending, clearPending);
+    return pending;
   }
 
   function openPracticeModal() {
@@ -170,6 +201,18 @@
     const word = item.word || item;
 
     if (elements.flashcardCard) elements.flashcardCard.classList.remove("flipped");
+    if (elements.cardFrontFlip) {
+      elements.cardFrontFlip.setAttribute("aria-pressed", "false");
+      elements.cardFrontFlip.setAttribute("aria-label", "اقلب البطاقة");
+      elements.cardFrontFlip.textContent = "اقلب البطاقة";
+    }
+    const reviewOptions = item.reviewOptions || {};
+    for (const [key, button] of [["again", elements.rateAgain], ["hard", elements.rateHard], ["good", elements.rateGood], ["easy", elements.rateEasy]]) {
+      const label = reviewOptions[key]?.label;
+      if (!button || !label) continue;
+      const interval = button.querySelector?.(".rate-interval");
+      if (interval) interval.textContent = label;
+    }
     if (elements.practiceProgress) {
       elements.practiceProgress.textContent = `${index + 1} / ${reviewQueue.length}`;
     }
@@ -189,13 +232,35 @@
   function showPracticeFinished() {
     if (elements.practiceBody) elements.practiceBody.hidden = true;
     if (elements.practiceFinished) elements.practiceFinished.hidden = false;
-    if (elements.dueReviewBadge) elements.dueReviewBadge.hidden = true;
+    const remainingCount = Math.max(0, reviewMeta.remainingCount);
+    const finishedMessage = elements.practiceFinishedMessage;
+    if (remainingCount > 0) {
+      const message = `أتممت ${toArabicDigits(reviewMeta.visibleCount)} من ${toArabicDigits(reviewMeta.dueCount)} مراجعة؛ تبقت ${formatReviewCount(remainingCount)}.`;
+      if (finishedMessage) finishedMessage.textContent = message;
+      if (elements.dueReviewBadge) {
+        elements.dueReviewBadge.hidden = false;
+        elements.dueReviewBadge.textContent = `${remainingCount} مستحقة`;
+        elements.dueReviewBadge.setAttribute("aria-label", `المراجعات المتبقية بعد الجلسة: ${toArabicDigits(remainingCount)} ${formatReviewCount(remainingCount)}`);
+      }
+      status(message);
+    } else {
+      if (finishedMessage) finishedMessage.textContent = "🎉 أحسنت! أنهيت جميع مراجعات اليوم.";
+      if (elements.dueReviewBadge) elements.dueReviewBadge.hidden = true;
+    }
   }
 
   function flipCard() {
-    if (elements.flashcardCard) {
-      elements.flashcardCard.classList.toggle("flipped");
+    const card = elements.flashcardCard;
+    if (!card) return;
+    card.classList.toggle("flipped");
+    const flipped = card.classList.contains("flipped");
+    const label = flipped ? "أخفِ المعنى" : "اقلب البطاقة";
+    if (elements.cardFrontFlip) {
+      elements.cardFrontFlip.setAttribute("aria-pressed", String(flipped));
+      elements.cardFrontFlip.setAttribute("aria-label", label);
+      elements.cardFrontFlip.textContent = label;
     }
+    status(flipped ? "كُشف المعنى." : "أُخفي المعنى.");
   }
 
   async function submitRating(rating) {
@@ -214,9 +279,13 @@
       if (result?.kind === "recovery") return renderRecovery();
       if (result?.kind !== "ok") throw new Error("Review unchanged.");
       currentReviewIndex++;
-      if (currentReviewIndex < reviewQueue.length) showPracticeCard(currentReviewIndex);
-      else showPracticeFinished();
-      status("تم حفظ المراجعة.");
+      if (currentReviewIndex < reviewQueue.length) {
+        showPracticeCard(currentReviewIndex);
+        status("تم حفظ المراجعة.");
+      } else {
+        showPracticeFinished();
+        if (reviewMeta.remainingCount === 0) status("تم حفظ المراجعة.");
+      }
     } catch (_) {
       status("تعذّر حفظ المراجعة. حاول مجددًا.");
     } finally {
@@ -264,8 +333,10 @@
       practiceProgress: byId("practice-progress"),
       practiceClose: byId("practice-close"),
       practiceFinished: byId("practice-finished"),
+      practiceFinishedMessage: byId("practice-finished-message"),
       practiceFinishBtn: byId("practice-finish-btn"),
       flashcardCard: byId("flashcard-card"),
+      cardFrontFlip: byId("card-front-flip"),
       cardFrontWord: byId("card-front-word"),
       cardFrontVocalization: byId("card-front-vocalization"),
       cardFrontWeight: byId("card-front-weight"),
@@ -700,7 +771,7 @@
     if (elements.dueReviewBadge) elements.dueReviewBadge.addEventListener("click", openPracticeModal);
     if (elements.practiceClose) elements.practiceClose.addEventListener("click", closePracticeModal);
     if (elements.practiceFinishBtn) elements.practiceFinishBtn.addEventListener("click", closePracticeModal);
-    if (elements.flashcardCard) elements.flashcardCard.addEventListener("click", flipCard);
+    if (elements.cardFrontFlip) elements.cardFrontFlip.addEventListener("click", flipCard);
     if (elements.cardFrontSpeak) {
       elements.cardFrontSpeak.addEventListener("click", (e) => {
         e.stopPropagation();

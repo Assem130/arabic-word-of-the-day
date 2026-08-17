@@ -213,6 +213,21 @@ test("SM-2 Engine — Standard interval progression for Easy and Hard", async (t
     assert.equal(hardRes.nextReviewDate, "2026-08-30");
 });
 
+test("SM-2 review options expose exact next dates and Arabic interval labels", () => {
+    const today = "2026-08-17";
+    const firstReview = Core.createDefaultSrsItem(1, today);
+    const options = Core.getReviewOptions(firstReview, today);
+
+    assert.equal(options.again.interval, Core.calculateSM2(firstReview, "again", today).interval);
+    assert.equal(options.again.nextReviewDate, "2026-08-18");
+    assert.equal(options.easy.label, "غدًا");
+
+    const later = Core.getReviewOptions({ repetition: 1, interval: 1, ef: 2.5 }, today);
+    assert.equal(later.good.interval, 6);
+    assert.equal(later.good.nextReviewDate, "2026-08-23");
+    assert.equal(later.good.label, "بعد 6 يوم");
+});
+
 test("SM-2 Engine — Lapse Handling and Recovery Cycle", async (t) => {
     let item = {
         wordId: 42,

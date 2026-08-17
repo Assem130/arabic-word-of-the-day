@@ -62,6 +62,7 @@
     "streak",
     "streakData",
   ]);
+  const PREFERENCE_KEYS = new Set(["showEnglish", "speechRate", "speechRepeat", "dailyReviewLimit"]);
   const WORD_STATE_KEYS = new Set(["status", "dateKey", "saved"]);
   const ASSIGNMENT_KEYS = new Set(["wordId", "status"]);
   const DANGEROUS_KEYS = new Set(["__proto__", "constructor", "prototype"]);
@@ -328,12 +329,25 @@
     return withSrsAliases(result);
   }
 
+  function getReviewOptions(item, reviewDateKey) {
+    const entries = ["again", "hard", "good", "easy"].map((rating) => {
+      const next = calculateSM2(item, rating, reviewDateKey);
+      const label = next.interval === 1 ? "غدًا" : `بعد ${next.interval} يوم`;
+      return [rating, {
+        interval: next.interval,
+        nextReviewDate: next.nextReviewDate,
+        label,
+      }];
+    });
+    return Object.fromEntries(entries);
+  }
+
   function copyProfile(raw, vocabulary, assignmentMaximum = MAX_ASSIGNMENTS) {
     safeKeys(raw, PROFILE_KEYS, "profile");
     for (const key of ["schemaVersion", "algorithmVersion", "seedHex", "level", "interests", "wordStates", "assignments", "recentIds", "evidenceCutoff"]) {
       if (!Object.hasOwn(raw, key)) fail(`profile ${key}`);
     }
-    if ((raw.schemaVersion !== SCHEMA_VERSION && raw.schemaVersion !== 2 && raw.schemaVersion !== 3) || raw.algorithmVersion !== ALGORITHM_VERSION) fail("schema version");
+    if (raw.schemaVersion !== SCHEMA_VERSION || raw.algorithmVersion !== ALGORITHM_VERSION) fail("schema version");
     if (typeof raw.seedHex !== "string" || !/^[0-9a-f]{32}$/.test(raw.seedHex)) fail("seedHex");
     if (!Number.isInteger(raw.level) || raw.level < 1 || raw.level > 4) fail("level");
     if (!Array.isArray(raw.interests) || raw.interests.length > 3 || raw.interests.some((interest) => !INTERESTS.has(interest)) || new Set(raw.interests).size !== raw.interests.length) fail("interests");
@@ -444,12 +458,19 @@
       }
     }
 
+    const suppliedPreferences = Object.hasOwn(raw, "preferences");
+    const rawPreferences = suppliedPreferences ? raw.preferences : null;
+    if (suppliedPreferences) safeKeys(rawPreferences, PREFERENCE_KEYS, "preferences");
     const preferences = {
-      showEnglish: raw.preferences?.showEnglish ?? raw.showEnglish ?? true,
-      speechRate: typeof raw.preferences?.speechRate === "number" ? raw.preferences.speechRate : 0.85,
-      speechRepeat: typeof raw.preferences?.speechRepeat === "number" ? raw.preferences.speechRepeat : 1,
-      dailyReviewLimit: typeof raw.preferences?.dailyReviewLimit === "number" ? raw.preferences.dailyReviewLimit : 20,
+      showEnglish: Object.hasOwn(rawPreferences ?? {}, "showEnglish") ? rawPreferences.showEnglish : (raw.showEnglish ?? true),
+      speechRate: Object.hasOwn(rawPreferences ?? {}, "speechRate") ? rawPreferences.speechRate : 0.85,
+      speechRepeat: Object.hasOwn(rawPreferences ?? {}, "speechRepeat") ? rawPreferences.speechRepeat : 1,
+      dailyReviewLimit: Object.hasOwn(rawPreferences ?? {}, "dailyReviewLimit") ? rawPreferences.dailyReviewLimit : 20,
     };
+    if (typeof preferences.showEnglish !== "boolean") fail("preferences showEnglish");
+    if (!Number.isFinite(preferences.speechRate) || preferences.speechRate < 0.5 || preferences.speechRate > 1.5) fail("preferences speechRate");
+    if (preferences.speechRepeat !== 1 && preferences.speechRepeat !== 3) fail("preferences speechRepeat");
+    if (!Number.isInteger(preferences.dailyReviewLimit) || preferences.dailyReviewLimit < 1 || preferences.dailyReviewLimit > MAX_REVIEW_LIMIT) fail("preferences dailyReviewLimit");
 
     const streak = raw.streak || raw.streakData || null;
 
@@ -641,6 +662,7 @@
         dueItems.push({
           word,
           srs: srsItem,
+          reviewOptions: getReviewOptions(srsItem, todayKey),
           isOverdue: daysOverdue > 0,
           daysOverdue,
         });
@@ -720,6 +742,7 @@
     return {
       totalCards,
       dueToday,
+      dueCount: dueToday,
       reviewedToday,
       retentionRate,
       learningCount,
@@ -780,6 +803,7 @@
     getDueReviewWords,
     getReviewStats,
     calculateSM2,
+    getReviewOptions,
     createDefaultSrsItem,
     mapRatingToGrade,
     canonicalReviewRating,

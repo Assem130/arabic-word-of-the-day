@@ -112,6 +112,7 @@ function loadBackground(options = {}) {
   }
   globalThis.fetch = async (url, fetchOptions) => {
     if (typeof url === "string" && url.includes("vocabulary.json")) {
+      if (typeof options.vocabularyFetch === "function") return options.vocabularyFetch(url, fetchOptions);
       return { ok: true, async json() { return fake.vocabulary; }, async text() { return JSON.stringify(fake.vocabulary); } };
     }
     if (typeof options.fetch === "function") return options.fetch(url, fetchOptions);
@@ -208,6 +209,52 @@ test("real numeric vocabulary keeps assignment, save, and review canonical and t
       assert.equal(replay.srs.reviewCount, 1);
       assert.equal(JSON.stringify(values["kalimat.profile"]), afterReview);
     });
+  });
+});
+
+test("a rejected vocabulary load is cleared so the next message can retry", async () => {
+  let attempts = 0;
+  await withBackground({
+    vocabularyFetch: async () => {
+      attempts += 1;
+      if (attempts === 1) return { ok: false, status: 503 };
+      return { ok: true, async json() { return [word("w1"), word("w2")]; } };
+    },
+  }, async ({ background, vocabulary }) => {
+    await assert.rejects(background.handleMessage({ type: "assignment.get" }), /Vocabulary unavailable/);
+    let result;
+    await withLocalDay("2026-07-30", async () => { result = await background.handleMessage({ type: "assignment.get" }); });
+    assert.equal(result.kind, "assigned");
+    assert.equal(result.word.id, result.wordId);
+    assert.ok(vocabulary.some((item) => item.id === result.word.id));
+  });
+  assert.equal(attempts, 2);
+});
+
+test("review queue reports total and remaining counts when the daily limit caps visibility", async () => {
+  const vocabulary = Array.from({ length: 21 }, (_, index) => word(`w${index + 1}`));
+  const base = profile({
+    srs: Object.fromEntries(vocabulary.map((item) => [item.id, {
+      wordId: item.id,
+      repetition: 0,
+      interval: 0,
+      ef: 2.5,
+      nextReviewDate: "2026-08-17",
+      lastReviewedDate: null,
+      reviewCount: 0,
+      lapses: 0,
+      history: [],
+    }])),
+    history: Object.fromEntries(vocabulary.map((item) => [item.id, { firstSeen: "2026-08-17" }])),
+  });
+
+  await withBackground({ profile: base, vocabulary, permissions: false, reminderApis: false }, async ({ background }) => {
+    const result = await background.handleMessage({ type: "review.queue", dateKey: "2026-08-17" });
+    assert.equal(result.kind, "queue");
+    assert.equal(result.dueCount, 21);
+    assert.equal(result.visibleCount, 20);
+    assert.equal(result.remainingCount, 1);
+    assert.equal(result.words.length, 20);
   });
 });
 
