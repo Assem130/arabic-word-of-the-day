@@ -599,6 +599,7 @@ assert.doesNotMatch(revamp, /function\s+setupThemeController\s*\(/, "revamp.js m
 
 assert.match(css, /@media \(hover: none\)/, "touch users must be able to read accordion details");
 assert.match(css, /button:focus-visible, a:focus-visible, summary:focus-visible, \[tabindex\]:focus-visible \{ outline: 3px solid var\(--ink\)/, "focus must remain visible on light surfaces");
+assert.match(css, /\.card-front-flip:focus-visible/, "review flip control must expose a visible focus ring");
 assert.match(css, /\.nav :is\(button, a\):focus-visible, \.word-identity :is\(button, a\):focus-visible \{ outline: 3px solid var\(--lime\)/, "focus must remain visible on dark surfaces");
 assert.equal((homePage.match(/<details>/g) || []).length, 3, "landing page must expose three native disclosure cards");
 assert.equal((homePage.match(/<summary><span>/g) || []).length, 3, "each disclosure card must have a native summary");
@@ -632,6 +633,27 @@ assert.equal(revampDocumentElement.getAttribute("data-theme"), "paper", "revamp.
 assert.equal(themeSelectEl.value, "paper", "revamp.js must set theme-select value to paper");
 themeSelectEl.emit("change", { target: { value: "midnight" } });
 assert.equal(revampDocumentElement.getAttribute("data-theme"), "midnight", "revamp.js theme change must update data-theme attribute");
+
+const reducedMotionListeners = new Map();
+const reducedHeroCopy = new FakeElement("div");
+const reducedThemeSelect = new FakeElement("select");
+const reducedMotionContext = {
+    document: {
+        documentElement: new FakeElement("html"),
+        addEventListener(type, listener) { reducedMotionListeners.set(type, listener); },
+        querySelector(selector) { return selector === ".hero-copy" ? reducedHeroCopy : null; },
+        querySelectorAll() { return []; },
+        getElementById(id) { return id === "theme-select" ? reducedThemeSelect : null; }
+    },
+    matchMedia(query) { return { matches: query === "(prefers-reduced-motion: reduce)" }; },
+    window: {}
+};
+reducedMotionContext.globalThis = reducedMotionContext;
+reducedMotionContext.window = reducedMotionContext;
+vm.runInNewContext(fs.readFileSync("app-core.js", "utf8"), reducedMotionContext);
+vm.runInNewContext(revamp, reducedMotionContext);
+reducedMotionListeners.get("DOMContentLoaded")();
+assert.equal(reducedHeroCopy.classList.values.has("is-visible"), true, "reduced-motion hero copy must remain visible");
 const exportSource = appSource.slice(appSource.indexOf("function exportHistory()"), appSource.indexOf("async function importHistory"));
 assert.match(exportSource, /link\.hidden = true;[\s\S]*document\.body\.appendChild\(link\);[\s\S]*link\.click\(\);[\s\S]*link\.remove\(\);[\s\S]*setTimeout\(\(\) => URL\.revokeObjectURL\(url\), 0\);[\s\S]*setMenuOpen\(false\);\s*showToast/, "history export must clean up its temporary link, defer URL cleanup, close the menu, then toast");
 for (const word of words) {

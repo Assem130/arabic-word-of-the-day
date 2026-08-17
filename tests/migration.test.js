@@ -45,6 +45,16 @@ test("Schema Migration — Null, Undefined & Empty States", async (t) => {
     });
 });
 
+test("Schema Migration — review limit accepts only bounded integers", () => {
+    const overLimit = Core.migrateState({ preferences: { dailyReviewLimit: 101 } }, "2026-08-17");
+    const fractional = Core.migrateState({ preferences: { dailyReviewLimit: 2.5 } }, "2026-08-17");
+    const valid = Core.migrateState({ preferences: { dailyReviewLimit: 15 } }, "2026-08-17");
+
+    assert.equal(overLimit.preferences.dailyReviewLimit, 20);
+    assert.equal(fractional.preferences.dailyReviewLimit, 20);
+    assert.equal(valid.preferences.dailyReviewLimit, 15);
+});
+
 test("Schema Migration — Legacy v0 (learnedWords Array)", async (t) => {
     await t.test("migrates learnedWords array with objects [{ id: 1 }, { id: 2 }]", () => {
         const v0State = {

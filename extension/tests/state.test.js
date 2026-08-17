@@ -7,6 +7,8 @@ const {
   createProfile,
   validateStoredProfile,
   applyFeedback,
+  getDueReviewWords,
+  getReviewOptions,
   parseImport,
   serializeExport,
   pruneAssignments,
@@ -38,6 +40,42 @@ test("future and corrupt state stays recoverable and read-only", () => {
   assert.deepEqual(result.recoveryRaw, raw);
 });
 
+test("future schemas and malformed preferences stay recoverable and read-only", () => {
+  const base = profileWithAssignment("2026-07-30");
+  for (const raw of [
+    { ...base, schemaVersion: 2 },
+    { ...base, schemaVersion: 3 },
+    { ...base, preferences: { ...base.preferences, speechRate: 9 } },
+    { ...base, preferences: { ...base.preferences, dailyReviewLimit: -1 } },
+    { ...base, preferences: "bad" },
+    { ...base, preferences: { ...base.preferences, unexpected: true } },
+  ]) {
+    rejected(raw);
+  }
+});
+
+test("supplied preference fields validate while missing fields use defaults", () => {
+  const base = profileWithAssignment("2026-07-30");
+  const partial = validateStoredProfile({ ...base, preferences: { speechRate: 1.25 } }, vocabulary);
+  assert.equal(partial.canPersist, true);
+  assert.deepEqual(partial.profile.preferences, {
+    showEnglish: true,
+    speechRate: 1.25,
+    speechRepeat: 1,
+    dailyReviewLimit: 20,
+  });
+  for (const preferences of [
+    { showEnglish: "yes" },
+    { speechRate: 0.49 },
+    { speechRate: 1.51 },
+    { speechRepeat: 2 },
+    { dailyReviewLimit: 2.5 },
+    { dailyReviewLimit: 101 },
+  ]) {
+    rejected({ ...base, preferences });
+  }
+});
+
 test("clear-data defaults create a bounded canonical profile", () => {
   const profile = createProfile({});
   assert.equal(profile.schemaVersion, 1);
@@ -50,6 +88,28 @@ test("clear-data defaults create a bounded canonical profile", () => {
   assert.equal(Object.getPrototypeOf(profile.assignments), null);
   assert.equal(profile.evidenceCutoff, null);
   assert.equal(profile.assignmentOrdinal, 0);
+});
+
+test("review queue is bounded and carries exact SM-2 options", () => {
+  const reviewVocabulary = Array.from({ length: 21 }, (_, index) => ({ id: `w${index + 1}` }));
+  const reviewProfile = createProfile({ seedHex: seed, level: 1, interests: ["language"] });
+  reviewProfile.srs = Object.fromEntries(reviewVocabulary.map((item) => [item.id, {
+    wordId: item.id,
+    repetition: 0,
+    interval: 0,
+    ef: 2.5,
+    nextReviewDate: "2026-08-17",
+    lastReviewedDate: null,
+    reviewCount: 0,
+    lapses: 0,
+    history: [],
+  }]));
+  reviewProfile.history = Object.fromEntries(reviewVocabulary.map((item) => [item.id, { firstSeen: "2026-08-17" }]));
+
+  const due = getDueReviewWords(reviewProfile, reviewVocabulary, "2026-08-17", 20);
+  assert.equal(due.length, 20);
+  assert.equal(due[0].reviewOptions.good.nextReviewDate, "2026-08-18");
+  assert.deepEqual(due[0].reviewOptions.easy, getReviewOptions(due[0].srs, "2026-08-17").easy);
 });
 
 test("legacy profiles migrate a bounded lifetime assignment ordinal without recovery mode", () => {
@@ -167,6 +227,8 @@ test("imports reject bounded hostile data before returning a separate profile", 
 
   assert.throws(() => parseImport("x".repeat(2 * 1024 * 1024 + 1), vocabulary), /import/i);
   assert.throws(() => parseImport("[]", vocabulary), /import/i);
+  assert.throws(() => parseImport(JSON.stringify({ ...valid, schemaVersion: 2 }), vocabulary), /import/i);
+  assert.throws(() => parseImport(JSON.stringify({ ...valid, schemaVersion: 3 }), vocabulary), /import/i);
   assert.throws(() => parseImport(JSON.stringify({ ...valid, unknown: true }), vocabulary), /import/i);
   assert.throws(() => parseImport('{"schemaVersion":1,"__proto__":{}}', vocabulary), /import/i);
   assert.throws(() => parseImport(JSON.stringify({ ...valid, assignments: { "2026-07-30": { wordId: "x".repeat(65) } } }), vocabulary), /import/i);

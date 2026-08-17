@@ -85,7 +85,21 @@ let shortcutsDialogInvoker = null;
 let activeReviewQueue = [];
 let activeReviewIndex = 0;
 let isFlashcardFlipped = false;
+let activeReviewDueCount = 0;
+let activeReviewRemainingCount = 0;
 let sessionReviewStats = { totalReviewed: 0, ratings: { again: 0, hard: 0, good: 0, easy: 0 } };
+
+function toArabicDigits(value) {
+    return String(value ?? "").replace(/[0-9]/g, (digit) => "٠١٢٣٤٥٦٧٨٩"[digit]);
+}
+
+function formatReviewCount(count) {
+    const value = Math.max(0, Number(count) || 0);
+    if (value === 1) return "مراجعة واحدة";
+    if (value === 2) return "مراجعتين";
+    if (value >= 3 && value <= 10) return `${toArabicDigits(value)} مراجعات`;
+    return `${toArabicDigits(value)} مراجعة`;
+}
 
 document.addEventListener("DOMContentLoaded", () => {
     if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
@@ -1443,10 +1457,8 @@ function setupEventListeners() {
             } else if (event.key === " " || event.code === "Space" || event.key === "Enter") {
                 const tag = document.activeElement?.tagName;
                 if (tag !== "BUTTON" && tag !== "A" && tag !== "INPUT") {
-                    if (!isFlashcardFlipped) {
-                        event.preventDefault();
-                        flipFlashcard();
-                    }
+                    event.preventDefault();
+                    flipFlashcard();
                 }
             } else if (event.key === "1" || event.key === "Digit1" || event.key === "Numpad1" || event.key === "١") {
                 if (isFlashcardFlipped) {
@@ -1678,11 +1690,21 @@ function startSpacedRepetitionReview() {
 
     practiceDialogInvoker = document.activeElement;
     const todayKey = activeDateKey || (Core ? Core.getLocalDateKey(new Date()) : "");
+    const stats = (Core && typeof Core.getReviewStats === "function")
+        ? Core.getReviewStats(appState, todayKey, WORDS_DB)
+        : null;
+    const configuredLimit = Number.isInteger(appState.preferences?.dailyReviewLimit)
+        && appState.preferences.dailyReviewLimit >= 1
+        && appState.preferences.dailyReviewLimit <= 100
+        ? appState.preferences.dailyReviewLimit
+        : 20;
     const dueItems = (Core && typeof Core.getDueReviewWords === "function")
-        ? Core.getDueReviewWords(appState, WORDS_DB, todayKey)
+        ? Core.getDueReviewWords(appState, WORDS_DB, todayKey, configuredLimit)
         : [];
 
     activeReviewQueue = Array.isArray(dueItems) ? dueItems : [];
+    activeReviewDueCount = Number.isInteger(stats?.dueCount) ? stats.dueCount : activeReviewQueue.length;
+    activeReviewRemainingCount = Math.max(0, activeReviewDueCount - activeReviewQueue.length);
 
     activeReviewIndex = 0;
     sessionReviewStats = { totalReviewed: 0, ratings: { again: 0, hard: 0, good: 0, easy: 0 } };
@@ -1789,13 +1811,19 @@ function renderFlashcardStep() {
     scene.className = "flashcard-scene";
     scene.id = "flashcard-scene";
 
+    const flipButton = document.createElement("button");
+    flipButton.type = "button";
+    flipButton.className = "card-front-flip";
+    flipButton.id = "card-front-flip";
+    flipButton.setAttribute("aria-pressed", "false");
+    flipButton.setAttribute("aria-label", "اقلب البطاقة");
+    flipButton.textContent = "اقلب البطاقة";
+
     const card = document.createElement("div");
     card.className = "flashcard-card";
     card.id = "flashcard-card";
-    card.tabIndex = 0;
-    card.setAttribute("role", "button");
-    card.setAttribute("aria-pressed", "false");
-    card.setAttribute("aria-label", "بطاقة الكلمة: اضغط مسافة أو انقر لقلب البطاقة");
+    card.setAttribute("role", "group");
+    card.setAttribute("aria-label", "بطاقة الكلمة");
 
     // Front Face
     const front = document.createElement("div");
@@ -1856,7 +1884,7 @@ function renderFlashcardStep() {
 
     const frontHint = document.createElement("p");
     frontHint.className = "flashcard-hint-text";
-    frontHint.innerHTML = "اضغط <kbd>Space</kbd> أو انقر لكشف المعنى";
+    frontHint.textContent = "استخدم زر «اقلب البطاقة» لكشف المعنى";
 
     frontBottom.append(frontAudioBtn, frontHint);
     front.append(frontMeta, frontCenter, frontBottom);
@@ -1924,7 +1952,6 @@ function renderFlashcardStep() {
 
     back.append(backMeta, backCenter, backBottom);
     card.append(front, back);
-    scene.appendChild(card);
 
     // 4-Tier SM-2 Rating Controls Bar
     const ratingBar = document.createElement("div");
@@ -1935,10 +1962,10 @@ function renderFlashcardStep() {
     ratingBar.hidden = true;
 
     const ratingConfigs = [
-        { grade: 1, key: "1", canonical: "again", title: "مجدداً", interval: "< يوم", class: "rating-again", aria: "إعادة (اضغط 1): لم أتذكرها" },
-        { grade: 3, key: "2", canonical: "hard", title: "صعب", interval: "+1-2 ي", class: "rating-hard", aria: "صعب (اضغط 2): تذكرتها بصعوبة" },
-        { grade: 4, key: "3", canonical: "good", title: "جيد", interval: "+4-6 ي", class: "rating-good", aria: "جيد (اضغط 3): تذكرتها جيداً" },
-        { grade: 5, key: "4", canonical: "easy", title: "سهل", interval: "+10-15 ي", class: "rating-easy", aria: "سهل (اضغط 4): راسخة تماماً" }
+        { grade: 1, key: "1", canonical: "again", title: "مجدداً", class: "rating-again", aria: "إعادة (اضغط 1): لم أتذكرها" },
+        { grade: 3, key: "2", canonical: "hard", title: "صعب", class: "rating-hard", aria: "صعب (اضغط 2): تذكرتها بصعوبة" },
+        { grade: 4, key: "3", canonical: "good", title: "جيد", class: "rating-good", aria: "جيد (اضغط 3): تذكرتها جيداً" },
+        { grade: 5, key: "4", canonical: "easy", title: "سهل", class: "rating-easy", aria: "سهل (اضغط 4): راسخة تماماً" }
     ];
 
     ratingConfigs.forEach(cfg => {
@@ -1958,7 +1985,7 @@ function renderFlashcardStep() {
 
         const intSpan = document.createElement("span");
         intSpan.className = "rating-interval";
-        intSpan.textContent = cfg.interval;
+        intSpan.textContent = currentItem.reviewOptions?.[cfg.canonical]?.label || "—";
 
         btn.append(keyBadge, titleSpan, intSpan);
 
@@ -1970,50 +1997,43 @@ function renderFlashcardStep() {
         ratingBar.appendChild(btn);
     });
 
-    // Flip Handlers
-    card.addEventListener("click", () => {
-        if (!isFlashcardFlipped) flipFlashcard();
-    });
+    flipButton.addEventListener("click", flipFlashcard);
 
-    card.addEventListener("keydown", (e) => {
-        if ((e.key === " " || e.key === "Enter" || e.code === "Space") && !isFlashcardFlipped) {
-            e.preventDefault();
-            flipFlashcard();
-        }
-    });
-
+    scene.append(flipButton, card);
     container.append(headerStatus, scene, ratingBar);
     practiceBody.appendChild(container);
 
-    if (typeof card.focus === "function") {
-        card.focus();
+    if (typeof flipButton.focus === "function") {
+        flipButton.focus();
     }
 }
 
 function flipFlashcard() {
-    if (isFlashcardFlipped) return;
-    isFlashcardFlipped = true;
-
     const card = document.getElementById("flashcard-card");
-    if (card) {
-        card.classList.add("is-flipped");
-        card.setAttribute("aria-pressed", "true");
+    if (!card) return;
+    card.classList.toggle("is-flipped");
+    isFlashcardFlipped = card.classList.contains("is-flipped");
+
+    const flipButton = document.getElementById("card-front-flip");
+    if (flipButton) {
+        const label = isFlashcardFlipped ? "أخفِ المعنى" : "اقلب البطاقة";
+        flipButton.setAttribute("aria-pressed", String(isFlashcardFlipped));
+        flipButton.setAttribute("aria-label", label);
+        flipButton.textContent = label;
     }
 
     const ratingBar = document.getElementById("flashcard-rating-bar");
     if (ratingBar) {
-        ratingBar.hidden = false;
+        ratingBar.hidden = !isFlashcardFlipped;
     }
 
-    const currentItem = activeReviewQueue[activeReviewIndex];
-    if (currentItem && currentItem.word) {
-        announceAudioStatus(`تم كشف المعنى: ${currentItem.word.meaning}. اضغط 1 للإعادة، 2 لصعب، 3 لجيد، 4 لسهل.`);
-    }
+    announceAudioStatus(isFlashcardFlipped ? "كُشف المعنى." : "أُخفي المعنى.");
 
-    // Move focus to the 'Good' (3) button or first rating button
-    const goodBtn = ratingBar?.querySelector?.('.rating-good') || ratingBar?.querySelector?.('button');
-    if (goodBtn && typeof goodBtn.focus === "function") {
-        goodBtn.focus();
+    if (isFlashcardFlipped) {
+        const goodBtn = ratingBar?.querySelector?.('.rating-good') || ratingBar?.querySelector?.('button');
+        if (goodBtn && typeof goodBtn.focus === "function") goodBtn.focus();
+    } else if (flipButton && typeof flipButton.focus === "function") {
+        flipButton.focus();
     }
 }
 
@@ -2068,7 +2088,11 @@ function renderReviewCompletionSummary() {
 
     const desc = document.createElement("p");
     desc.className = "practice-summary-desc";
-    desc.textContent = `أحسنت! راجعت ${wordPlural} بنجاح. المراجعة اليومية المنتظمة تثبت المفردات في الذاكرة طويلة المدى.`;
+    const remainingCount = Math.max(0, activeReviewRemainingCount + activeReviewQueue.length - count);
+    const cappedMessage = remainingCount > 0
+        ? `أتممت ${toArabicDigits(count)} من ${toArabicDigits(activeReviewDueCount)} مراجعة؛ تبقت ${formatReviewCount(remainingCount)}.`
+        : "";
+    desc.textContent = cappedMessage || `أحسنت! راجعت ${wordPlural} بنجاح. المراجعة اليومية المنتظمة تثبت المفردات في الذاكرة طويلة المدى.`;
 
     const todayKey = activeDateKey || (Core ? Core.getLocalDateKey(new Date()) : "");
     const stats = (Core && typeof Core.getReviewStats === "function") ? Core.getReviewStats(appState, todayKey, WORDS_DB) : null;
@@ -2102,7 +2126,12 @@ function renderReviewCompletionSummary() {
     summary.append(title, desc, statsGrid, closeBtn);
     practiceBody.appendChild(summary);
 
-    announceAudioStatus(`🎉 أحسنت! اكتملت مراجعة اليوم بنجاح. راجعت ${wordPlural}.`);
+    if (remainingCount > 0 && dueReviewBadge) {
+        dueReviewBadge.hidden = false;
+        dueReviewBadge.setAttribute("aria-label", `المراجعات المتبقية بعد الجلسة: ${toArabicDigits(remainingCount)} ${formatReviewCount(remainingCount)}`);
+        if (dueCountEl) dueCountEl.textContent = String(remainingCount);
+    }
+    announceAudioStatus(cappedMessage || `🎉 أحسنت! اكتملت مراجعة اليوم بنجاح. راجعت ${wordPlural}.`);
     if (typeof closeBtn.focus === "function") {
         closeBtn.focus();
     }

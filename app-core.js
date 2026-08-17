@@ -837,6 +837,19 @@
         return calculateNextReview(item, rating, reviewDateKey);
     }
 
+    function getReviewOptions(item, reviewDateKey) {
+        const entries = ["again", "hard", "good", "easy"].map((rating) => {
+            const next = calculateSM2(item, rating, reviewDateKey);
+            const label = next.interval === 1 ? "غدًا" : `بعد ${next.interval} يوم`;
+            return [rating, {
+                interval: next.interval,
+                nextReviewDate: next.nextReviewDate,
+                label
+            }];
+        });
+        return Object.fromEntries(entries);
+    }
+
     function migrateState(rawState, currentDateKey, validIds = null) {
         const fallbackDate = isDateKey(currentDateKey) ? currentDateKey : getLocalDateKey(new Date());
 
@@ -878,8 +891,8 @@
             if (typeof raw.preferences.speechRepeat === "number" && (raw.preferences.speechRepeat === 1 || raw.preferences.speechRepeat === 3)) {
                 state.preferences.speechRepeat = raw.preferences.speechRepeat;
             }
-            if (typeof raw.preferences.dailyReviewLimit === "number" && raw.preferences.dailyReviewLimit >= 1) {
-                state.preferences.dailyReviewLimit = Math.round(raw.preferences.dailyReviewLimit);
+            if (Number.isInteger(raw.preferences.dailyReviewLimit) && raw.preferences.dailyReviewLimit >= 1 && raw.preferences.dailyReviewLimit <= 100) {
+                state.preferences.dailyReviewLimit = raw.preferences.dailyReviewLimit;
             }
         }
 
@@ -1055,6 +1068,7 @@
                     id,
                     ...(word ? { word } : {}),
                     srs: srsItem,
+                    reviewOptions: getReviewOptions(srsItem, todayKey),
                     isOverdue: daysOverdue > 0,
                     daysOverdue
                 });
@@ -1831,6 +1845,7 @@
         createDefaultSrsItem,
         calculateNextReview,
         calculateSM2,
+        getReviewOptions,
         migrateState,
         getDueReviewWords,
         recordReview,

@@ -76,13 +76,31 @@ class FakeCanvasElement {
 
 function element() {
   const attributes = Object.create(null);
+  const classes = new Set();
   return {
-    textContent: "", hidden: false, disabled: false, checked: false, value: "", dataset: {}, attributes, focuses: 0, children: [],
-    classList: { add() {}, remove() {}, toggle() {} },
+    textContent: "", hidden: false, disabled: false, checked: false, value: "", dataset: {}, attributes, focuses: 0, children: [], open: false, className: "",
+    classList: {
+      add(...names) { names.forEach((name) => classes.add(name)); },
+      remove(...names) { names.forEach((name) => classes.delete(name)); },
+      toggle(name, force) {
+        const next = force === undefined ? !classes.has(name) : Boolean(force);
+        if (next) classes.add(name); else classes.delete(name);
+        return next;
+      },
+      contains(name) { return classes.has(name); },
+    },
     setAttribute(name, value) { this.attributes[name] = { name, value: String(value) }; },
     getAttribute(name) { return this.attributes[name]?.value ?? null; },
+    hasAttribute(name) { return Object.hasOwn(this.attributes, name); },
+    removeAttribute(name) { delete this.attributes[name]; },
     addEventListener(type, listener) { this.listeners[type] = listener; }, listeners: {}, focus() { this.focuses += 1; },
     append(...nodes) { this.children.push(...nodes); }, replaceChildren(...nodes) { this.children = nodes; }, get childElementCount() { return this.children.length; },
+    querySelector(selector) {
+      if (selector === ".rate-interval") return this.children.find((child) => child?.className === "rate-interval") || null;
+      return null;
+    },
+    showModal() { this.open = true; },
+    close() { this.open = false; },
   };
 }
 
@@ -94,8 +112,17 @@ function popupApi(responses = {}, options = {}) {
     "pronunciation", "fixed-label", "save", "speak", "reminder", "reminder-time",
     "onboarding-submit", "onboarding-skip", "explore", "explore-empty", "recovery-reset",
     "known", "difficult", "theme-select", "streak-badge", "btn-export-anki", "btn-export-card",
+    "due-review-badge", "practice-dialog", "practice-body", "practice-progress", "practice-close",
+    "practice-finished", "practice-finished-message", "practice-finish-btn", "flashcard-card", "card-front-flip", "card-front-word",
+    "card-front-vocalization", "card-front-weight", "card-front-root", "card-front-speak", "card-back-meaning-ar",
+    "card-back-meaning-en", "card-back-example-ar", "card-back-context", "rate-again", "rate-hard", "rate-good", "rate-easy",
   ];
   for (const id of ids) elements.set(id, element());
+  for (const id of ["rate-again", "rate-hard", "rate-good", "rate-easy"]) {
+    const interval = element();
+    interval.className = "rate-interval";
+    elements.get(id).children = [interval];
+  }
   elements.get("reminder-time").value = "09:00";
   elements.get("theme-select").value = options.theme || "paper";
   elements.get("streak-badge").textContent = "🔥 لا يوجد تتابع بعد";
@@ -260,8 +287,17 @@ function atlasApi(responses = {}, options = {}) {
     "settings-reminder", "export", "import-file", "clear", "recovery-export", "recovery-import",
     "recovery-clear", "onboarding-settings", "today-save", "today-known", "today-difficult", "explore-lookup",
     "theme-select", "streak-badge", "today-export-card", "history-export-anki", "btn-export-anki",
+    "due-review-badge", "practice-dialog", "practice-body", "practice-progress", "practice-close",
+    "practice-finished", "practice-finished-message", "practice-finish-btn", "flashcard-card", "card-front-flip", "card-front-word",
+    "card-front-vocalization", "card-front-weight", "card-front-root", "card-front-speak", "card-back-meaning-ar",
+    "card-back-meaning-en", "card-back-example-ar", "card-back-context", "rate-again", "rate-hard", "rate-good", "rate-easy",
   ];
   for (const id of ids) elements.set(id, element());
+  for (const id of ["rate-again", "rate-hard", "rate-good", "rate-easy"]) {
+    const interval = element();
+    interval.className = "rate-interval";
+    elements.get(id).children = [interval];
+  }
   elements.get("history-filter").value = "all";
   elements.get("theme-select").value = options.theme || "paper";
   elements.get("streak-badge").textContent = "🔥 لا يوجد تتابع بعد";
@@ -465,6 +501,17 @@ test("popup exposes RTL accessible onboarding and assigned-word controls", () =>
   assert.match(source("popup.css"), /\.reminder-row button\s*\{[^}]*grid-column:\s*3/);
   assert.match(source("popup.css"), /\.reminder-row button\[aria-pressed="true"\]::after\s*\{[^}]*translateX\(20px\)/);
 });
+
+test("popup and Atlas expose a persistent accessible flip control", () => {
+  for (const [name, html, css] of [["popup", source("popup.html"), source("popup.css")], ["atlas", atlasSource("atlas.html"), atlasSource("atlas.css")]]) {
+    assert.match(html, /class="flashcard-scene"[\s\S]*id="card-front-flip"[^>]*aria-pressed="false"[\s\S]*id="flashcard-card"/);
+    assert.match(html, /id="flashcard-card"[^>]*role="group"(?![^>]*tabindex)/);
+    assert.match(css, /\.card-front-flip[^\{]*\{[\s\S]*\.card-front-flip:focus-visible/);
+    assert.match(html, /id="card-front-speak"[^>]*type="button"/);
+    assert.ok(name);
+  }
+});
+
 test("popup renders practical context before the literary fallback as safe text", () => {
   const { api, elements } = popupApi();
   assert.ok(api);
@@ -472,6 +519,96 @@ test("popup renders practical context before the literary fallback as safe text"
   assert.equal(elements.get("example").textContent, "<img onerror=alert(1)>");
   api.renderAssigned({ kind: "assigned", word: { id: "w1", word: "كلمة", meaningAr: "معنى", meaningEn: "meaning", exampleAr: "مثال أدبي", pronunciation: "/test/" } });
   assert.equal(elements.get("example").textContent, "مثال أدبي");
+});
+
+test("popup renders the current card's exact review intervals", async () => {
+  const word = { id: "w1", word: "كلمة", meaningAr: "معنى", meaningEn: "meaning", pronunciation: "/w1/", exampleAr: "مثال" };
+  const reviewOptions = {
+    again: { interval: 1, nextReviewDate: "2026-08-18", label: "غدًا" },
+    hard: { interval: 1, nextReviewDate: "2026-08-18", label: "غدًا" },
+    good: { interval: 1, nextReviewDate: "2026-08-18", label: "غدًا" },
+    easy: { interval: 1, nextReviewDate: "2026-08-18", label: "غدًا" },
+  };
+  const fixture = popupApi({
+    "assignment.get": { kind: "assigned", wordId: "w1", dateKey: "2026-08-17" },
+    "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } },
+    "review.queue": { kind: "queue", words: [{ word, reviewOptions }], dueCount: 1, visibleCount: 1, remainingCount: 0 },
+  }, { vocabulary: [word], profile: {} });
+  await fixture.api.initialize();
+  await fixture.api.loadDueReviews();
+  fixture.api.openPracticeModal();
+
+  for (const id of ["rate-again", "rate-hard", "rate-good", "rate-easy"]) {
+    assert.equal(fixture.elements.get(id).children[0].textContent, "غدًا");
+  }
+});
+
+test("popup flip control exposes state, keeps speaker independent, and resets for the next card", async () => {
+  const words = [
+    { id: "w1", word: "الأولى", meaningAr: "معنى أول", pronunciation: "/w1/", exampleAr: "مثال" },
+    { id: "w2", word: "الثانية", meaningAr: "معنى ثان", pronunciation: "/w2/", exampleAr: "مثال" },
+  ];
+  const reviewOptions = { again: { label: "غدًا" }, hard: { label: "غدًا" }, good: { label: "غدًا" }, easy: { label: "غدًا" } };
+  const fixture = popupApi({
+    "assignment.get": { kind: "assigned", wordId: "w1", dateKey: "2026-08-17" },
+    "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } },
+    "review.queue": { kind: "queue", words: words.map((word) => ({ word, reviewOptions })), dueCount: 2, visibleCount: 2, remainingCount: 0 },
+    "word.review": { kind: "ok" },
+  }, { vocabulary: words });
+  await fixture.api.initialize();
+  await fixture.api.loadDueReviews();
+  fixture.api.openPracticeModal();
+
+  const flip = fixture.elements.get("card-front-flip");
+  const card = fixture.elements.get("flashcard-card");
+  fixture.elements.get("card-front-speak").listeners.click({ stopPropagation() {} });
+  assert.equal(card.classList.contains("flipped"), false);
+
+  flip.listeners.click({ stopPropagation() {} });
+  assert.equal(flip.getAttribute("aria-pressed"), "true");
+  assert.equal(flip.getAttribute("aria-label"), "أخفِ المعنى");
+  assert.equal(fixture.elements.get("status").textContent, "كُشف المعنى.");
+  flip.listeners.click({ stopPropagation() {} });
+  assert.equal(flip.getAttribute("aria-pressed"), "false");
+  assert.equal(flip.getAttribute("aria-label"), "اقلب البطاقة");
+  assert.equal(fixture.elements.get("status").textContent, "أُخفي المعنى.");
+
+  await fixture.api.submitRating("good");
+  assert.equal(fixture.elements.get("card-front-flip").getAttribute("aria-pressed"), "false");
+  assert.equal(fixture.elements.get("card-front-flip").getAttribute("aria-label"), "اقلب البطاقة");
+});
+
+test("popup does not reopen stale review cards while the post-close queue refresh is pending", async () => {
+  const firstWord = { id: "w1", word: "الأولى", meaningAr: "معنى أول", pronunciation: "/w1/", exampleAr: "مثال" };
+  const remainingWord = { id: "w2", word: "الثانية", meaningAr: "معنى ثان", pronunciation: "/w2/", exampleAr: "مثال" };
+  const reviewOptions = { again: { label: "غدًا" }, hard: { label: "غدًا" }, good: { label: "غدًا" }, easy: { label: "غدًا" } };
+  const initialQueue = { kind: "queue", words: [{ word: firstWord, reviewOptions }], dueCount: 2, visibleCount: 1, remainingCount: 1 };
+  const refreshedQueue = { kind: "queue", words: [{ word: remainingWord, reviewOptions }], dueCount: 1, visibleCount: 1, remainingCount: 0 };
+  let queueCalls = 0;
+  let resolveRefresh;
+  const refreshPending = new Promise((resolve) => { resolveRefresh = resolve; });
+  const fixture = popupApi({
+    "assignment.get": { kind: "assigned", wordId: "w1", dateKey: "2026-08-17" },
+    "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } },
+    "review.queue": () => {
+      queueCalls += 1;
+      return queueCalls === 1 ? initialQueue : refreshPending;
+    },
+  }, { vocabulary: [firstWord, remainingWord], profile: {} });
+  await fixture.api.initialize();
+  await fixture.api.loadDueReviews();
+  fixture.api.openPracticeModal();
+  assert.equal(fixture.elements.get("practice-dialog").open, true);
+
+  fixture.api.closePracticeModal();
+  fixture.api.openPracticeModal();
+  assert.equal(queueCalls, 2);
+  assert.equal(fixture.elements.get("practice-dialog").open, false, "reopen waits for the authoritative refresh");
+
+  resolveRefresh(refreshedQueue);
+  await new Promise(setImmediate);
+  assert.equal(fixture.elements.get("practice-dialog").open, true);
+  assert.equal(fixture.elements.get("card-front-word").textContent, "الثانية");
 });
 test("popup shows English practical context only when enabled and preserves text content", () => {
   const { api, elements, inputs } = popupApi();
@@ -1224,6 +1361,99 @@ test("Atlas renders practical context before the literary example and honors Eng
   const hidden = atlasApi({ ...responses, "state.export": { kind: "export", text: JSON.stringify(atlasProfile({ showEnglish: false, assignments: { "2026-07-30": { wordId: "w1" } }, assignmentOrdinal: 1 })) } }, { vocabulary: [word] });
   await hidden.api.initialize();
   assert.equal(hidden.elements.get("today-card").children.some((node) => node.className === "context english"), false);
+});
+
+test("Atlas renders the current card's exact review intervals", async () => {
+  const word = { id: "w1", word: "كلمة", meaningAr: "معنى", meaningEn: "meaning", pronunciation: "/w1/", exampleAr: "مثال" };
+  const reviewOptions = {
+    again: { interval: 1, nextReviewDate: "2026-08-18", label: "غدًا" },
+    hard: { interval: 1, nextReviewDate: "2026-08-18", label: "غدًا" },
+    good: { interval: 1, nextReviewDate: "2026-08-18", label: "غدًا" },
+    easy: { interval: 1, nextReviewDate: "2026-08-18", label: "غدًا" },
+  };
+  const fixture = atlasApi({
+    "assignment.get": { kind: "assigned", wordId: "w1", dateKey: "2026-08-17" },
+    "state.export": { kind: "export", text: JSON.stringify(atlasProfile({ assignments: { "2026-08-17": { wordId: "w1" } }, assignmentOrdinal: 1 })) },
+    "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } },
+    "review.queue": { kind: "queue", words: [{ word, reviewOptions }], dueCount: 1, visibleCount: 1, remainingCount: 0 },
+  }, { vocabulary: [word] });
+  await fixture.api.initialize();
+  await fixture.api.loadDueReviews();
+  fixture.api.openPracticeModal();
+
+  for (const id of ["rate-again", "rate-hard", "rate-good", "rate-easy"]) {
+    assert.equal(fixture.elements.get(id).children[0].textContent, "غدًا");
+  }
+});
+
+test("Atlas flip control exposes state, keeps speaker independent, and resets for the next card", async () => {
+  const words = [
+    { id: "w1", word: "الأولى", meaningAr: "معنى أول", pronunciation: "/w1/", exampleAr: "مثال" },
+    { id: "w2", word: "الثانية", meaningAr: "معنى ثان", pronunciation: "/w2/", exampleAr: "مثال" },
+  ];
+  const reviewOptions = { again: { label: "غدًا" }, hard: { label: "غدًا" }, good: { label: "غدًا" }, easy: { label: "غدًا" } };
+  const fixture = atlasApi({
+    "assignment.get": { kind: "assigned", wordId: "w1", dateKey: "2026-08-17" },
+    "state.export": { kind: "export", text: JSON.stringify(atlasProfile({ assignments: { "2026-08-17": { wordId: "w1" } }, assignmentOrdinal: 1 })) },
+    "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } },
+    "review.queue": { kind: "queue", words: words.map((word) => ({ word, reviewOptions })), dueCount: 2, visibleCount: 2, remainingCount: 0 },
+    "word.review": { kind: "ok" },
+  }, { vocabulary: words });
+  await fixture.api.initialize();
+  await fixture.api.loadDueReviews();
+  fixture.api.openPracticeModal();
+
+  const flip = fixture.elements.get("card-front-flip");
+  const card = fixture.elements.get("flashcard-card");
+  fixture.elements.get("card-front-speak").listeners.click({ stopPropagation() {} });
+  assert.equal(card.classList.contains("flipped"), false);
+
+  flip.listeners.click({ stopPropagation() {} });
+  assert.equal(flip.getAttribute("aria-pressed"), "true");
+  assert.equal(flip.getAttribute("aria-label"), "أخفِ المعنى");
+  assert.equal(fixture.elements.get("status").textContent, "كُشف المعنى.");
+  flip.listeners.click({ stopPropagation() {} });
+  assert.equal(flip.getAttribute("aria-pressed"), "false");
+  assert.equal(flip.getAttribute("aria-label"), "اقلب البطاقة");
+  assert.equal(fixture.elements.get("status").textContent, "أُخفي المعنى.");
+
+  await fixture.api.submitRating("good");
+  assert.equal(fixture.elements.get("card-front-flip").getAttribute("aria-pressed"), "false");
+  assert.equal(fixture.elements.get("card-front-flip").getAttribute("aria-label"), "اقلب البطاقة");
+});
+
+test("Atlas does not reopen stale review cards while the post-close queue refresh is pending", async () => {
+  const firstWord = { id: "w1", word: "الأولى", meaningAr: "معنى أول", pronunciation: "/w1/", exampleAr: "مثال" };
+  const remainingWord = { id: "w2", word: "الثانية", meaningAr: "معنى ثان", pronunciation: "/w2/", exampleAr: "مثال" };
+  const reviewOptions = { again: { label: "غدًا" }, hard: { label: "غدًا" }, good: { label: "غدًا" }, easy: { label: "غدًا" } };
+  const initialQueue = { kind: "queue", words: [{ word: firstWord, reviewOptions }], dueCount: 2, visibleCount: 1, remainingCount: 1 };
+  const refreshedQueue = { kind: "queue", words: [{ word: remainingWord, reviewOptions }], dueCount: 1, visibleCount: 1, remainingCount: 0 };
+  let queueCalls = 0;
+  let resolveRefresh;
+  const refreshPending = new Promise((resolve) => { resolveRefresh = resolve; });
+  const fixture = atlasApi({
+    "assignment.get": { kind: "assigned", wordId: "w1", dateKey: "2026-08-17" },
+    "state.export": { kind: "export", text: JSON.stringify(atlasProfile({ assignments: { "2026-08-17": { wordId: "w1" } }, assignmentOrdinal: 1 })) },
+    "settings.get": { kind: "settings", reminder: { enabled: false, time: "09:00" } },
+    "review.queue": () => {
+      queueCalls += 1;
+      return queueCalls === 1 ? initialQueue : refreshPending;
+    },
+  }, { vocabulary: [firstWord, remainingWord] });
+  await fixture.api.initialize();
+  await fixture.api.loadDueReviews();
+  fixture.api.openPracticeModal();
+  assert.equal(fixture.elements.get("practice-dialog").open, true);
+
+  fixture.api.closePracticeModal();
+  fixture.api.openPracticeModal();
+  assert.equal(queueCalls, 2);
+  assert.equal(fixture.elements.get("practice-dialog").open, false, "reopen waits for the authoritative refresh");
+
+  resolveRefresh(refreshedQueue);
+  await new Promise(setImmediate);
+  assert.equal(fixture.elements.get("practice-dialog").open, true);
+  assert.equal(fixture.elements.get("card-front-word").textContent, "الثانية");
 });
 
 test("Atlas search includes practical context and vocabulary metadata", async () => {

@@ -428,7 +428,8 @@ test("2. CSS Stylesheet Review Component Rules & Animations", () => {
 
         // Focus Rings
         assert.match(css, /\.rating-btn:focus-visible/, `${filename} must provide focus-visible on rating buttons`);
-        assert.match(css, /\.flashcard-card:focus-visible/, `${filename} must provide focus-visible on flashcard`);
+        assert.match(css, /\.card-front-flip:focus-visible/, `${filename} must provide focus-visible on the dedicated flip button`);
+        assert.doesNotMatch(css, /\.flashcard-card:focus-visible/, `${filename} must not focus the non-interactive card group`);
 
         // Reduced Motion Media Query
         assert.match(css, /@media\s*\(prefers-reduced-motion:\s*reduce\)/, `${filename} must support prefers-reduced-motion`);
@@ -508,23 +509,46 @@ test("4. Interactive Spaced Repetition Review Lifecycle (Queue, 3D Flip, SM-2 Ra
 
     // Step 2: Verify Flashcard Front Face
     const card = env.doc.getElementById("flashcard-card");
+    const flipButton = env.doc.getElementById("card-front-flip");
     const frontWord = env.doc.getElementById("fc-front-word");
     const frontEase = env.doc.getElementById("fc-front-ease");
     const ratingBar = env.doc.getElementById("flashcard-rating-bar");
 
     assert.notEqual(card, null, "flashcard-card element must exist in DOM");
+    assert.equal(card.getAttribute("role"), "group", "flashcard-card must be a non-interactive group");
+    assert.equal(card.getAttribute("tabindex"), null, "flashcard-card must not expose a tabindex");
+    assert.equal(flipButton.getAttribute("aria-pressed"), "false", "dedicated flip button starts unpressed");
     assert.equal(frontWord.textContent.length > 0, true, "front of card displays Arabic word with tashkeel");
     assert.match(frontEase.textContent, /عامل السهولة:\s*2\.5/, "front displays initial Easiness Factor");
     assert.equal(ratingBar.hidden, true, "rating bar must be hidden before card is flipped");
     assert.equal(KalimatApp.isFlashcardFlipped(), false, "isFlashcardFlipped is initially false");
+    const firstReviewOptions = KalimatApp.getActiveReviewQueue()[0].reviewOptions;
+    const intervalLabels = Array.from(practiceBody.querySelectorAll(".rating-interval"), (node) => node.textContent);
+    assert.deepEqual(intervalLabels, ["again", "hard", "good", "easy"].map((rating) => firstReviewOptions[rating].label), "rating buttons show the card's exact SM-2 labels");
 
     // Step 3: Flip Flashcard (Show Back Face & Reveal Rating Bar)
     KalimatApp.flipFlashcard();
 
     assert.equal(KalimatApp.isFlashcardFlipped(), true, "isFlashcardFlipped becomes true");
     assert.equal(card.classList.contains("is-flipped"), true, "card element receives .is-flipped class");
+    assert.equal(flipButton.getAttribute("aria-pressed"), "true", "flip button exposes the revealed state");
+    assert.equal(flipButton.getAttribute("aria-label"), "أخفِ المعنى", "flip button label changes after reveal");
     assert.equal(ratingBar.hidden, false, "rating bar is revealed when card flips");
-    assert.match(announcer.textContent, /تم كشف المعنى/, "announcer informs user that meaning is revealed");
+    assert.equal(announcer.textContent, "كُشف المعنى.", "announcer informs user that meaning is revealed");
+
+    KalimatApp.flipFlashcard();
+    assert.equal(KalimatApp.isFlashcardFlipped(), false, "second activation hides the card again");
+    assert.equal(flipButton.getAttribute("aria-pressed"), "false", "flip button returns to the unpressed state");
+    assert.equal(flipButton.getAttribute("aria-label"), "اقلب البطاقة", "flip button label resets after hiding");
+    assert.equal(ratingBar.hidden, true, "rating bar hides when the meaning is hidden");
+    assert.equal(announcer.textContent, "أُخفي المعنى.", "announcer reports the hidden state");
+
+    const speaker = env.doc.getElementById("fc-btn-audio");
+    speaker.dispatchEvent({ type: "click", stopPropagation() {} });
+    assert.equal(KalimatApp.isFlashcardFlipped(), false, "speaker activation does not flip the card");
+
+    KalimatApp.flipFlashcard();
+    assert.equal(KalimatApp.isFlashcardFlipped(), true, "card can be revealed again after hiding");
 
     const backMeaning = env.doc.getElementById("fc-back-meaning");
     assert.equal(backMeaning.textContent.length > 0, true, "back of card displays comprehensive Arabic meaning");
@@ -575,6 +599,43 @@ test("4. Interactive Spaced Repetition Review Lifecycle (Queue, 3D Flip, SM-2 Ra
     assert.equal(practiceDialog.open, false, "close button closes practice dialog");
 });
 
+test("Capped review sessions report visible and remaining counts", () => {
+    const { sandbox: initialSandbox } = createDOMEnvironment();
+    const Core = initialSandbox.window.KalimatCore;
+    const today = Core.getLocalDateKey(new Date());
+    const ids = Array.from({ length: 20 }, (_, index) => index + 1);
+    const state = {
+        schemaVersion: 1,
+        history: Object.fromEntries(ids.map((id) => [id, { firstSeen: today }])),
+        srs: Object.fromEntries(ids.map((id) => [id, {
+            wordId: id,
+            repetition: 0,
+            interval: 0,
+            ef: 2.5,
+            nextReviewDate: today,
+            lastReviewedDate: null,
+            reviewCount: 0,
+            lapses: 0,
+            history: []
+        }])),
+        favorites: {},
+        preferences: { showEnglish: true, speechRate: 0.85, speechRepeat: 1, dailyReviewLimit: 20 }
+    };
+
+    const { sandbox, doc } = createDOMEnvironment(state);
+    const KalimatApp = sandbox.window.KalimatApp;
+    KalimatApp.startSpacedRepetitionReview();
+    assert.equal(KalimatApp.getActiveReviewQueue().length, 20);
+    while (KalimatApp.getActiveReviewIndex() < KalimatApp.getActiveReviewQueue().length) {
+        KalimatApp.flipFlashcard();
+        KalimatApp.handleRatingSubmission("good");
+    }
+
+    const summaryDesc = doc.getElementById("practice-body").querySelector(".practice-summary-desc");
+    assert.equal(summaryDesc.textContent, "أتممت ٢٠ من ٢١ مراجعة؛ تبقت مراجعة واحدة.");
+    assert.match(doc.getElementById("due-review-badge").getAttribute("aria-label"), /المراجعات المتبقية.*١/);
+});
+
 // -----------------------------------------------------------------------------
 // Test 5: Keyboard Shortcuts inside Review Modal (Space, 1-4, P, Esc, Tab)
 // -----------------------------------------------------------------------------
@@ -602,6 +663,7 @@ test("5. Modal Keyboard Accessibility & Shortcuts (Space/Enter flip, 1-4/١-٤ r
     assert.equal(KalimatApp.isFlashcardFlipped(), false, "card is unflipped initially");
 
     // Test Spacebar keydown on dialog -> Flips card
+    env.doc.activeElement = practiceDialog;
     let spacePrevented = false;
     practiceDialog.dispatchEvent({
         type: "keydown",
