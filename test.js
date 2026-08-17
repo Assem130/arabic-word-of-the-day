@@ -1205,6 +1205,13 @@ assert.equal(deepLinkedApp.elements["main-word"].textContent, words[4].word, "wo
 const parsedStoredDeep = JSON.parse(deepLinkedApp.localStorage.value("arabic_words_state"));
 assert.equal(Boolean(parsedStoredDeep.history[5]), true, "Deep-linked word must be registered in history");
 
+const archivedToggleApp = loadBrowserApp({ search: "?id=5&date=2026-08-16" });
+await archivedToggleApp.elements["btn-toggle-english"].emit("click");
+assert.equal(archivedToggleApp.elements["archive-preview-note"].hidden, false, "English toggle must preserve archive context");
+const archivedShareText = archivedToggleApp.context.getShareText(words[4], "2026-08-16");
+assert.match(archivedShareText, /كلمة من مخزون/, "Archived share text must identify an archive entry");
+assert.match(archivedShareText, /date=2026-08-16/, "Archived share text must preserve the archive date");
+
 // Test return to today from deep link
 if (words[4].id !== words[Core.getDailyWordIndex(todayStr, words.length)].id) {
     assert.equal(deepLinkedApp.elements["archive-preview-note"].hidden, false, "Deep link for non-today word must show archive notice");

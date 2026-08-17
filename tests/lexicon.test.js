@@ -492,8 +492,8 @@ test("6. Tashkeel Typography & CSS Design Tokens Compliance", () => {
     assert.ok(revampCss.includes("line-height: 1.35") || revampCss.includes("line-height: 1.4"), "Arabic cards must have adequate line-height for stacked tashkeel");
 
     // 6.2 HTML Markup
-    assert.ok(indexHtml.includes('id="lexicon-explorer"'), "index.html must include lexicon-explorer section");
     assert.ok(indexHtml.includes('id="lexicon-grid"'), "index.html must include lexicon-grid");
-    assert.ok(wordHtml.includes('id="lexicon-dialog"'), "word.html must include lexicon-dialog");
-    assert.ok(wordHtml.includes('id="btn-toggle-explorer"'), "word.html must include btn-toggle-explorer");
+    assert.ok(indexHtml.includes('id="lexicon-explorer"'), "index.html must own the lexicon explorer");
+    assert.equal(wordHtml.includes('id="lexicon-dialog"'), false, "word.html must not ship a dead duplicate lexicon dialog");
+    assert.equal(wordHtml.includes('id="btn-toggle-explorer"'), false, "word.html must not advertise an unbound explorer trigger");
 });

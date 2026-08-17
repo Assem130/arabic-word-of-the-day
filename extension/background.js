@@ -137,7 +137,7 @@ function recovery(loaded) {
 
 function assignedResult(profile, dateKey, wordId, vocabulary) {
   const result = { kind: "assigned", wordId, dateKey, word: dependencies.vocabulary.findWord(vocabulary, wordId) };
-  const wordState = profile.wordStates[wordId];
+  const wordState = profile.wordStates[String(wordId)] || profile.wordStates[wordId];
   const status = profile.assignments[dateKey]?.status ?? wordState?.status;
   if (status) result.status = status;
   if (wordState?.saved === true) result.saved = true;
@@ -174,7 +174,7 @@ async function updateProfile(change, resultFields = () => ({})) {
   const loaded = await loadProfile(vocabulary);
   if (loaded.recoveryRaw !== undefined) return recovery(loaded);
   const profile = await change(loaded.profile, vocabulary);
-  return warning({ kind: "ok", ...resultFields(profile) }, await persistProfile(profile, loaded));
+  return warning({ kind: "ok", ...resultFields(profile, vocabulary) }, await persistProfile(profile, loaded));
 }
 
 function exactMessage(message, keys) {
@@ -440,29 +440,35 @@ function handleMessage(message) {
     }
     if (message.type === "review.queue") {
       if (!exactMessage(message, new Set(["type", "dateKey", "limit"]))) throw new TypeError("Invalid review queue.");
+      if (Object.hasOwn(message, "dateKey") && message.dateKey !== undefined && !dependencies.date.isDateKey(message.dateKey)) throw new TypeError("Invalid review queue date.");
+      if (Object.hasOwn(message, "limit") && message.limit !== undefined && (!Number.isSafeInteger(message.limit) || message.limit < 1 || message.limit > 100)) throw new TypeError("Invalid review queue limit.");
       const vocabulary = await getVocabulary();
       const loaded = await loadProfile(vocabulary);
       if (loaded.recoveryRaw !== undefined) return recovery(loaded);
       const dateKey = message.dateKey || (dependencies.date.todayDateKey ? dependencies.date.todayDateKey() : dependencies.date.getLocalDateKey(new Date()));
-      const dueWords = dependencies.state.getDueReviewWords(loaded.profile, vocabulary, dateKey, message.limit);
+      const dueWords = dependencies.state.getDueReviewWords(loaded.profile, vocabulary, dateKey, message.limit === undefined ? null : message.limit);
       return { kind: "queue", words: dueWords, dueCount: dueWords.length };
     }
     if (message.type === "word.review") {
-      if (!exactMessage(message, new Set(["type", "wordId", "rating", "dateKey"]))) throw new TypeError("Invalid review.");
+      if (!exactMessage(message, new Set(["type", "wordId", "rating", "dateKey"])) || !Object.hasOwn(message, "dateKey") || !dependencies.date.isDateKey(message.dateKey)) throw new TypeError("Invalid review.");
       const vocabulary = await getVocabulary();
       const loaded = await loadProfile(vocabulary);
       if (loaded.recoveryRaw !== undefined) return recovery(loaded);
-      const dateKey = message.dateKey || (dependencies.date.todayDateKey ? dependencies.date.todayDateKey() : dependencies.date.getLocalDateKey(new Date()));
+      const dateKey = message.dateKey;
       const updatedProfile = dependencies.state.recordReview(loaded.profile, message.wordId, message.rating, dateKey, vocabulary);
-      const warningResult = loaded.recoveryRaw !== undefined ? await saveProfile(updatedProfile) : await persistProfile(updatedProfile, loaded);
+      const alreadyApplied = sameProfile(updatedProfile, loaded.profile);
+      const warningResult = alreadyApplied
+        ? false
+        : (loaded.recoveryRaw !== undefined ? await saveProfile(updatedProfile) : await persistProfile(updatedProfile, loaded));
+      if (warningResult) throw new Error("Review was not persisted.");
       await updateBadge(updatedProfile, vocabulary);
       const dueWords = dependencies.state.getDueReviewWords(updatedProfile, vocabulary, dateKey);
-      const targetId = typeof message.wordId === "number" ? message.wordId : (String(message.wordId).startsWith("w") ? parseInt(String(message.wordId).slice(1), 10) : message.wordId);
+      const targetId = dependencies.state.normalizeWordId(message.wordId, dependencies.state.vocabularyIndex(vocabulary));
       return {
         kind: "ok",
         srs: updatedProfile.srs ? (updatedProfile.srs[targetId] || updatedProfile.srs[message.wordId]) : null,
         dueCount: dueWords.length,
-        storageWarning: warningResult,
+        storageWarning: false,
       };
     }
     if (message.type === "review.stats") {
@@ -492,14 +498,19 @@ function handleMessage(message) {
     if (message.type === "word.feedback") {
       if (!exactMessage(message, new Set(["type", "dateKey", "wordId", "status"]))) throw new TypeError("Invalid feedback.");
       return updateProfile(
-        (profile) => dependencies.state.applyFeedback(profile, { dateKey: message.dateKey, wordId: message.wordId, status: message.status }),
-        (profile) => ({ wordId: message.wordId, dateKey: message.dateKey, status: profile.assignments[message.dateKey]?.status }),
+        (profile, vocabulary) => dependencies.state.applyFeedback(profile, { dateKey: message.dateKey, wordId: message.wordId, status: message.status }, vocabulary),
+        (profile, vocabulary) => ({ wordId: dependencies.state.normalizeWordId(message.wordId, dependencies.state.vocabularyIndex(vocabulary)), dateKey: message.dateKey, status: profile.assignments[message.dateKey]?.status }),
       );
     }
     if (message.type === "word.save") return updateProfile(async (profile, vocabulary) => {
-      if (!exactMessage(message, new Set(["type", "wordId", "saved"])) || typeof message.wordId !== "string" || typeof message.saved !== "boolean" || !vocabulary.some((word) => word.id === message.wordId)) throw new TypeError("Invalid save.");
-      return { ...profile, wordStates: { ...profile.wordStates, [message.wordId]: { ...profile.wordStates[message.wordId], saved: message.saved } } };
-    }, (profile) => ({ wordId: message.wordId, saved: profile.wordStates[message.wordId]?.saved === true }));
+      if (!exactMessage(message, new Set(["type", "wordId", "saved"])) || typeof message.saved !== "boolean") throw new TypeError("Invalid save.");
+      const wordId = dependencies.state.normalizeWordId(message.wordId, dependencies.state.vocabularyIndex(vocabulary));
+      const key = String(wordId);
+      return { ...profile, wordStates: { ...profile.wordStates, [key]: { ...profile.wordStates[key], saved: message.saved } } };
+    }, (profile, vocabulary) => {
+      const wordId = dependencies.state.normalizeWordId(message.wordId, dependencies.state.vocabularyIndex(vocabulary));
+      return { wordId, saved: profile.wordStates[String(wordId)]?.saved === true };
+    });
     if (message.type === "settings.update") return updateProfile((profile, vocabulary) => {
       if (!exactMessage(message, new Set(["type", "level", "interests", "showEnglish"])) || (message.showEnglish !== undefined && typeof message.showEnglish !== "boolean")) throw new TypeError("Invalid settings.");
       const checked = dependencies.state.validateStoredProfile({ ...profile, level: message.level ?? profile.level, interests: message.interests ?? profile.interests, showEnglish: message.showEnglish ?? profile.showEnglish }, vocabulary);
@@ -568,10 +579,10 @@ function handleMessage(message) {
 }
 
 ExtApi?.runtime?.onMessage?.addListener?.(handleMessage);
-ExtApi?.runtime?.onStartup?.addListener?.(eventEntry(ensureReminderNow));
-ExtApi?.runtime?.onInstalled?.addListener?.(eventEntry(ensureReminderNow));
 registerReminderListeners();
 ensureContextMenu();
+ExtApi?.runtime?.onStartup?.addListener?.(eventEntry(async () => { ensureContextMenu(); await ensureReminderNow(); }));
+ExtApi?.runtime?.onInstalled?.addListener?.(eventEntry(async () => { ensureContextMenu(); await ensureReminderNow(); }));
 
 if (typeof ExtApi?.contextMenus?.onClicked?.addListener === "function") {
   ExtApi.contextMenus.onClicked.addListener(eventEntry(async (info) => {
@@ -622,9 +633,14 @@ if (typeof ExtApi?.omnibox?.onInputEntered?.addListener === "function") {
     try {
       const query = (text || "").trim();
       if (!query) return;
-      if (typeof ExtApi.tabs?.create === "function") {
-        await ExtApi.tabs.create({ url: ExtApi.runtime.getURL(`atlas/atlas.html?view=explore&q=${encodeURIComponent(query)}`) });
-      }
+      const vocabulary = await getVocabulary();
+      let exactId = null;
+      try { exactId = dependencies.state.normalizeWordId(query, dependencies.state.vocabularyIndex(vocabulary)); } catch (_) { exactId = null; }
+      const exactWord = exactId === null ? null : dependencies.vocabulary.findWord(vocabulary, exactId);
+      const target = exactWord
+        ? `atlas/atlas.html?view=explore&id=${encodeURIComponent(String(exactId))}`
+        : `atlas/atlas.html?view=explore&q=${encodeURIComponent(query)}`;
+      if (typeof ExtApi.tabs?.create === "function") await ExtApi.tabs.create({ url: ExtApi.runtime.getURL(target) });
     } catch (_) {}
   });
 }

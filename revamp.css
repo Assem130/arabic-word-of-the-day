@@ -16,8 +16,8 @@ html[data-theme="paper"] {
     --line-light: rgba(243, 239, 229, 0.40);
     --nav-bg: rgba(20, 33, 27, 0.94);
     --content: min(1180px, calc(100% - 40px));
-    --serif: "Amiri", "Readex Pro", "Scheherazade New", "Traditional Arabic", serif;
-    --sans: "Outfit", "Readex Pro", "Segoe UI", sans-serif;
+    --serif: "Amiri", "Readex Pro", "Scheherazade New", "Traditional Arabic", "Noto Naskh Arabic", serif;
+    --sans: "Outfit", "Readex Pro", "Segoe UI", system-ui, sans-serif;
 
     /* Rating Button Tokens - Paper Theme (All >= 4.5:1 contrast) */
     --rating-again-bg: #fee2e2;
@@ -187,7 +187,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible, [tabindex]:focus-v
 .hero a:focus-visible, .horizontal-accordion details:nth-child(-n+2) summary:focus-visible { outline-color: var(--lime); }
 .skip-link { position: fixed; z-index: 100; top: 10px; right: 10px; padding: 10px 14px; background: var(--lime); color: var(--ink); font: 600 .8rem var(--sans); transform: translateY(-160%); }
 .skip-link:focus { transform: none; }
-body:has(.history-dialog[open]), body:has(.practice-dialog[open]), body:has(.lexicon-dialog[open]) { overflow: hidden; }
+body:has(.history-dialog[open]), body:has(.practice-dialog[open]), body:has(.shortcuts-dialog[open]) { overflow: hidden; }
 .page-shell { overflow: clip; }
 .svg-sprite { position: absolute; width: 0; height: 0; }
 .icon { width: 1.1em; height: 1.1em; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
@@ -329,7 +329,7 @@ html[data-theme="midnight"] .due-review-badge.pulse {
 .word-date span, .next-word { color: rgb(243 239 229 / 85%); font: .68rem var(--sans); }
 .word-date strong { font-size: 1.1rem; font-weight: 400; }
 .identity-word { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin: clamp(54px, 9vw, 112px) 0 42px; }
-.main-word { margin: 0; font-size: clamp(6rem, 17vw, 14rem); font-weight: 400; line-height: 1.35; letter-spacing: normal; }
+.main-word { min-width: 0; max-width: 100%; margin: 0; padding-block: .08em .16em; font-size: clamp(6rem, 17vw, 14rem); font-weight: 400; line-height: 1.35; letter-spacing: normal; overflow-wrap: anywhere; }
 .speak-button { padding: 0 18px; background: var(--lime); color: var(--ink); white-space: nowrap; transition: all .2s ease; }
 .speak-button.speaking { outline: 2px solid var(--lime); outline-offset: 2px; }
 .speak-button.loading,
@@ -354,7 +354,7 @@ html[data-theme="midnight"] .due-review-badge.pulse {
 .linguistic-data strong { font-size: 1.25rem; font-weight: 400; line-height: 1.3; }
 .word-reading { padding: clamp(24px, 4vw, 56px); background: var(--paper); color: var(--ink); }
 .reading-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(220px, .7fr); gap: clamp(28px, 5vw, 72px); }
-.reading-label { color: var(--ink-soft); }
+.reading-label { color: var(--ink); }
 .meaning-text { max-width: 25ch; font-size: clamp(2rem, 4vw, 3.7rem); line-height: 1.45; letter-spacing: normal; }
 .word-pronunciation, .meaning-english { direction: ltr; text-align: left; max-width: 62ch; font-family: var(--sans); }
 .word-pronunciation { margin: 28px 0 7px; font-size: .96rem; letter-spacing: .08em; }
@@ -366,7 +366,7 @@ html[data-theme="midnight"] .due-review-badge.pulse {
 .next-word b { color: var(--ink); font-weight: 600; }
 .archive-notice { padding-top: 18px; border-top: 1px solid var(--line-dark); color: var(--ink-soft); font-size: .95rem; }
 .archive-preview-note { margin: 18px 0 0; color: var(--ink-soft); font-size: .95rem; }
-.return-today-button { min-height: 42px; margin-top: 12px; padding: 0 14px; background: var(--ink); color: var(--paper-light); font: 600 .75rem var(--sans); }
+.return-today-button { min-height: 44px; margin-top: 12px; padding: 0 14px; background: var(--ink); color: var(--paper-light); font: 600 .75rem var(--sans); }
 
 .app-menu-dropdown { position: fixed; z-index: 30; top: 87px; left: max(20px, calc((100vw - 1180px) / 2)); min-width: 260px; padding: 6px; border: 1px solid var(--line-dark); background: var(--paper-light); box-shadow: 0 18px 45px rgb(20 33 27 / 20%); }
 .app-menu-dropdown[hidden] { display: none; }
@@ -377,7 +377,7 @@ html[data-theme="midnight"] .due-review-badge.pulse {
    History Dialog & Actions
    ========================================================================== */
 
-.history-dialog { width: min(560px, calc(100% - 32px)); max-height: min(760px, calc(100dvh - 32px)); padding: clamp(22px, 4vw, 44px); border: 0; background: var(--paper-light); color: var(--ink); box-shadow: 0 24px 70px rgb(20 33 27 / 32%); }
+.history-dialog { width: min(560px, calc(100% - 32px)); max-height: min(760px, calc(100dvh - 32px)); padding: clamp(22px, 4vw, 44px); border: 0; background: var(--paper-light); color: var(--ink); box-shadow: 0 24px 70px rgb(20 33 27 / 32%); display: flex; flex-direction: column; overflow: hidden; }
 .history-dialog::backdrop { background: rgb(20 33 27 / 72%); }
 .history-dialog header { display: flex; align-items: start; justify-content: space-between; gap: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--line-dark); }
 .history-dialog header p { margin: 0; color: var(--ink-soft); font: .7rem var(--sans); }
@@ -420,6 +420,7 @@ html[data-theme="midnight"] .due-review-badge.pulse {
 .history-tab:hover { color: var(--ink); background: var(--paper); }
 .history-tab.active, .history-tab[aria-selected="true"] { background: var(--ink); color: var(--paper-light); }
 .history-dialog-actions { display: flex; gap: 8px; }
+.drawer-content { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .history-action-btn.highlight { background: var(--lime); color: var(--ink); border-color: var(--lime); font-weight: 700; }
 .history-action-btn.highlight:hover { filter: brightness(0.95); }
 

@@ -5,6 +5,7 @@ const VALID_WORD_IDS = new Set(WORDS_DB.map(word => word.id));
 let appState = Core.createDefaultState();
 let currentWord = null;
 let activeDateKey = "";
+let activeArchiveDateKey = "";
 let persistenceBlocked = false;
 const MAX_BACKUP_BYTES = 1024 * 1024;
 let voices = [];
@@ -21,6 +22,7 @@ function populateVoices() {
 
 const elMainWord = document.getElementById("main-word");
 const elDateDisplay = document.getElementById("date-display");
+const elDateLabel = document.getElementById("date-label");
 const elVocalization = document.getElementById("word-vocalization");
 const elWeight = document.getElementById("word-weight");
 const elRoot = document.getElementById("word-root");
@@ -78,6 +80,8 @@ let searchHistoryQuery = "";
 let activePlaybackSessionId = 0;
 
 let practiceDialogInvoker = null;
+let historyDialogInvoker = null;
+let shortcutsDialogInvoker = null;
 let activeReviewQueue = [];
 let activeReviewIndex = 0;
 let isFlashcardFlipped = false;
@@ -96,18 +100,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const search = (typeof window !== "undefined" && window.location) ? window.location.search : "";
     const queryId = Core.parseWordIdFromQuery(search, WORDS_DB.length);
+    const queryDateKey = parseArchiveDateKey(search);
     if (queryId !== null) {
         const foundWord = WORDS_DB.find(item => item.id === queryId);
         if (foundWord) {
             const todayWord = determineTodayWord();
-            if (foundWord.id === todayWord.id) {
+            const historyDateKey = appState.history[foundWord.id]?.firstSeen;
+            const archiveDateKey = queryDateKey || historyDateKey || activeDateKey;
+            if (foundWord.id === todayWord.id && !queryDateKey) {
                 renderTodayWord();
             } else {
                 if (!appState.history[foundWord.id]) {
-                    appState.history[foundWord.id] = { firstSeen: activeDateKey };
+                    appState.history[foundWord.id] = { firstSeen: archiveDateKey };
                     saveState();
                 }
-                renderWord(foundWord, activeDateKey);
+                renderWord(foundWord, archiveDateKey);
                 if (archivePreviewNote) archivePreviewNote.hidden = false;
                 if (btnReturnToday) btnReturnToday.hidden = false;
             }
@@ -190,6 +197,7 @@ function renderWord(word, archiveDateKey) {
     stopSpeech();
 
     currentWord = word;
+    activeArchiveDateKey = isValidDateKey(archiveDateKey) ? archiveDateKey : "";
     elMainWord.textContent = word.word;
     elMainWord.setAttribute("aria-label", word.word + (word.vocalization ? " - " + word.vocalization : ""));
     elVocalization.textContent = word.vocalization;
@@ -209,9 +217,12 @@ function renderWord(word, archiveDateKey) {
     renderRelatedWords(word);
     updateAudioControlsUI();
 
-    const isArchivePreview = Boolean(archiveDateKey);
-    elDateDisplay.textContent = isArchivePreview ? getArabicDateFromKey(archiveDateKey) : getFormattedArabicDate(new Date());
+    const isArchivePreview = Boolean(activeArchiveDateKey);
+    const displayDate = isArchivePreview ? getArabicDateFromKey(activeArchiveDateKey) : getFormattedArabicDate(new Date());
+    if (elDateLabel) elDateLabel.textContent = isArchivePreview ? "التاريخ" : "اليوم";
+    elDateDisplay.textContent = displayDate;
     archivePreviewNote.hidden = !isArchivePreview;
+    if (isArchivePreview) archivePreviewNote.textContent = `أنت تستعرض كلمة من مخزونك بتاريخ ${displayDate}، وليست كلمة اليوم.`;
     btnReturnToday.hidden = !isArchivePreview;
     updateHistoryUI();
     updateStreakUI();
@@ -250,7 +261,7 @@ function renderRelatedWords(word) {
                 appState.history[relWord.id] = { firstSeen: activeDateKey || Core.getLocalDateKey(new Date()) };
                 saveState();
             }
-            renderWord(relWord, activeDateKey);
+            renderWord(relWord, activeArchiveDateKey || appState.history[relWord.id]?.firstSeen || activeDateKey);
             showToast(`استعراض كلمة «${relWord.word}» من المعجم`);
         });
         relatedWordsContainer.appendChild(pill);
@@ -313,6 +324,26 @@ function toggleFavorite() {
 
 function getFormattedArabicDate(date) {
     return date.toLocaleDateString("ar-EG", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+}
+
+function isValidDateKey(value) {
+    if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    const [year, month, day] = value.split("-").map(Number);
+    const date = new Date(Date.UTC(year, month - 1, day));
+    return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
+
+function parseArchiveDateKey(search) {
+    let raw = "";
+    try {
+        if (typeof URLSearchParams !== "undefined") {
+            raw = new URLSearchParams(search || "").get("date") || "";
+        } else {
+            const match = String(search || "").match(/(?:^|[?&])date=(\d{4}-\d{2}-\d{2})(?:&|$)/);
+            raw = match ? match[1] : "";
+        }
+    } catch {}
+    return isValidDateKey(raw) ? raw : "";
 }
 
 function getArabicDateFromKey(dateKey) {
@@ -1348,7 +1379,9 @@ function showToast(message) {
 function setupEventListeners() {
     btnToggleHistory.addEventListener("click", () => {
         stopSpeech();
+        historyDialogInvoker = document.activeElement || btnToggleHistory;
         historyDialog.showModal();
+        if (typeof btnCloseHistory.focus === "function") btnCloseHistory.focus();
     });
     btnCloseHistory.addEventListener("click", () => {
         stopSpeech();
@@ -1364,7 +1397,13 @@ function setupEventListeners() {
     }
 
     if (historyDialog) {
-        historyDialog.addEventListener("close", stopSpeech);
+        historyDialog.addEventListener("close", () => {
+            stopSpeech();
+            if (historyDialogInvoker && typeof historyDialogInvoker.focus === "function") {
+                try { historyDialogInvoker.focus(); } catch {}
+            }
+            historyDialogInvoker = null;
+        });
     }
     if (practiceDialog) {
         practiceDialog.addEventListener("close", () => {
@@ -1505,13 +1544,24 @@ function setupEventListeners() {
 
     if (btnMenuShortcuts && shortcutsDialog) {
         btnMenuShortcuts.addEventListener("click", () => {
+            shortcutsDialogInvoker = btnToggleMenu;
             setMenuOpen(false);
             shortcutsDialog.showModal();
+            if (typeof btnCloseShortcuts.focus === "function") btnCloseShortcuts.focus();
         });
     }
 
     if (btnCloseShortcuts && shortcutsDialog) {
         btnCloseShortcuts.addEventListener("click", () => shortcutsDialog.close());
+    }
+    if (shortcutsDialog) {
+        shortcutsDialog.addEventListener("close", () => {
+            stopSpeech();
+            if (shortcutsDialogInvoker && typeof shortcutsDialogInvoker.focus === "function") {
+                try { shortcutsDialogInvoker.focus(); } catch {}
+            }
+            shortcutsDialogInvoker = null;
+        });
     }
 
     btnToggleMenu.addEventListener("click", event => {
@@ -1535,7 +1585,8 @@ function setupEventListeners() {
     btnToggleEnglish.addEventListener("click", () => {
         appState.preferences.showEnglish = !appState.preferences.showEnglish;
         saveState();
-        renderWord(currentWord);
+        renderWord(currentWord, activeArchiveDateKey);
+        setMenuOpen(false);
     });
     btnExportHistory.addEventListener("click", exportHistory);
     if (btnExportCard) {
@@ -1545,9 +1596,15 @@ function setupEventListeners() {
         });
     }
     if (btnExportAnki) {
-        btnExportAnki.addEventListener("click", exportAnkiDeck);
+        btnExportAnki.addEventListener("click", () => {
+            exportAnkiDeck();
+            setMenuOpen(false);
+        });
     }
-    btnImportHistory.addEventListener("click", () => inputImportHistory.click());
+    btnImportHistory.addEventListener("click", () => {
+        setMenuOpen(false);
+        inputImportHistory.click();
+    });
     inputImportHistory.addEventListener("change", async () => {
         const [file] = inputImportHistory.files;
         if (file) await importHistory(file);
@@ -1562,7 +1619,7 @@ function setupEventListeners() {
         const shareText = getShareText(currentWord);
         setMenuOpen(false);
         if (navigator.share) {
-            navigator.share({ title: `كَلِمات | كلمة اليوم: ${currentWord.word}`, text: shareText })
+            navigator.share({ title: getShareTitle(currentWord), text: shareText })
                 .then(() => showToast("تمت المشاركة بنجاح!"))
                 .catch(error => { if (error.name !== "AbortError") copyToClipboard(shareText); });
         } else {
@@ -2109,19 +2166,33 @@ function setupKeyboardShortcuts() {
 }
 
 function setMenuOpen(isOpen) {
+    if (!dropdownMenu || !btnToggleMenu) return;
+    const wasOpen = !dropdownMenu.hidden;
+    const restoreFocus = wasOpen && dropdownMenu.contains(document.activeElement);
     dropdownMenu.hidden = !isOpen;
     btnToggleMenu.setAttribute("aria-expanded", String(isOpen));
     if (isOpen) dropdownMenu.querySelector("button")?.focus();
+    else if (restoreFocus && typeof btnToggleMenu.focus === "function") btnToggleMenu.focus();
 }
 
-function getShareText(word) {
+function getShareTitle(word, archiveDateKey = activeArchiveDateKey) {
+    return archiveDateKey
+        ? `كَلِمات | كلمة من المخزون: ${word.word} — ${getArabicDateFromKey(archiveDateKey)}`
+        : `كَلِمات | كلمة اليوم: ${word.word}`;
+}
+
+function getShareText(word, archiveDateKey = activeArchiveDateKey) {
     const origin = (typeof window !== "undefined" && window.location && window.location.origin) ? window.location.origin : "https://kalimaat.app";
     const pathname = (typeof window !== "undefined" && window.location && window.location.pathname) ? window.location.pathname.replace(/\/[^/]*$/, "/word.html") : "/word.html";
-    const shareUrl = `${origin}${pathname}?id=${word.id}`;
+    const dateKey = isValidDateKey(archiveDateKey) ? archiveDateKey : (activeDateKey || Core.getLocalDateKey(new Date()));
+    const isArchivePreview = Boolean(archiveDateKey);
+    const shareUrl = `${origin}${pathname}?id=${word.id}${isArchivePreview ? `&date=${dateKey}` : ""}`;
+    const dateText = getArabicDateFromKey(dateKey);
 
-    return `✨ كلمة اليوم من تطبيق "كَلِمات" ✨
+    return `✨ ${isArchivePreview ? "كلمة من مخزون" : "كلمة اليوم"} من تطبيق "كَلِمات" ✨
 
 الكلمة: ${word.word}
+التاريخ: ${dateKey} (${dateText})
 النطق: ${word.pronunciation || ""}
 الضبط: ${word.vocalization} (وزن ${word.weight})
 الجذر: ${word.root}

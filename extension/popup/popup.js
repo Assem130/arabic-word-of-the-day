@@ -63,6 +63,7 @@
     elements.reminderTime.disabled = state.view !== "assigned";
     elements.reminder.disabled = state.view !== "assigned";
     elements.reminder.setAttribute("aria-pressed", String(reminder.enabled));
+    elements.reminder.setAttribute("aria-checked", String(reminder.enabled));
     elements.reminder.setAttribute("aria-label", reminder.enabled ? "إيقاف التذكير اليومي" : "تفعيل التذكير اليومي");
     return true;
   }
@@ -181,8 +182,8 @@
       elements.cardBackMeaningEn.textContent = word.meaningEn || word.englishMeaning || "";
       elements.cardBackMeaningEn.hidden = !state.showEnglish || !elements.cardBackMeaningEn.textContent;
     }
-    if (elements.cardBackExampleAr) elements.cardBackExampleAr.textContent = word.contextAr || word.exampleAr || "";
-    if (elements.cardBackContext) elements.cardBackContext.textContent = word.literaryAr || word.example || "";
+    if (elements.cardBackExampleAr) elements.cardBackExampleAr.textContent = word.exampleAr || word.example || "";
+    if (elements.cardBackContext) elements.cardBackContext.textContent = word.contextAr || word.context || "";
   }
 
   function showPracticeFinished() {
@@ -201,19 +202,25 @@
     if (currentReviewIndex >= reviewQueue.length) return;
     const currentItem = reviewQueue[currentReviewIndex];
     const wordId = currentItem.word?.id ?? currentItem.wordId ?? currentItem.id;
+    const buttons = [elements.rateAgain, elements.rateHard, elements.rateGood, elements.rateEasy].filter(Boolean);
+    buttons.forEach((button) => { button.disabled = true; button.setAttribute("aria-busy", "true"); });
     try {
-      await ExtApi.runtime.sendMessage({
+      const result = await ExtApi.runtime.sendMessage({
         type: "word.review",
         wordId,
         rating,
-        dateKey: state.dateKey,
+        dateKey: state.dateKey || (globalThis.KalimatDate?.todayDateKey ? globalThis.KalimatDate.todayDateKey() : new Date().toISOString().slice(0, 10)),
       });
-    } catch (_) {}
-    currentReviewIndex++;
-    if (currentReviewIndex < reviewQueue.length) {
-      showPracticeCard(currentReviewIndex);
-    } else {
-      showPracticeFinished();
+      if (result?.kind === "recovery") return renderRecovery();
+      if (result?.kind !== "ok") throw new Error("Review unchanged.");
+      currentReviewIndex++;
+      if (currentReviewIndex < reviewQueue.length) showPracticeCard(currentReviewIndex);
+      else showPracticeFinished();
+      status("تم حفظ المراجعة.");
+    } catch (_) {
+      status("تعذّر حفظ المراجعة. حاول مجددًا.");
+    } finally {
+      buttons.forEach((button) => { button.disabled = false; button.setAttribute("aria-busy", "false"); });
     }
   }
 
@@ -334,21 +341,7 @@
     } else {
       word = vocab.find((item) => item.id === result.wordId || String(item.id) === String(result.wordId) || `w${item.id}` === String(result.wordId));
     }
-    if (!word) {
-      if (result.wordId) {
-        word = {
-          id: result.wordId,
-          word: "كلمة",
-          meaningAr: "معنى",
-          meaningEn: "meaning",
-          pronunciation: "/kalima/",
-          exampleAr: "مثال",
-          contextAr: "سياق",
-        };
-      } else {
-        throw new Error("Assigned word unavailable.");
-      }
-    }
+    if (!word) throw new Error("Assigned word unavailable.");
     return { ...result, word };
   }
 
@@ -522,6 +515,19 @@
     const cleanWord = String(targetText).replace(/[\u200B-\u200F\uFEFF\u0640]/g, "").trim();
     if (!cleanWord) return;
 
+    const availableVoices = typeof globalThis.speechSynthesis.getVoices === "function"
+      ? (globalThis.speechSynthesis.getVoices() || [])
+      : [];
+    const arabicVoice = availableVoices.find((v) => {
+      const l = (v.lang || "").toLowerCase();
+      const n = (v.name || "").toLowerCase();
+      return (l === "ar-sa" || l.startsWith("ar")) && (n.includes("natural") || n.includes("neural") || n.includes("online") || n.includes("siri") || n.includes("enhanced"));
+    }) || availableVoices.find((v) => (v.lang || "").toLowerCase().startsWith("ar"));
+    if (!arabicVoice) {
+      status("لم يتم العثور على صوت عربي. فعّل حزمة صوت عربية في إعدادات النظام ثم حاول مجددًا.");
+      return;
+    }
+
     const utterance = new SpeechSynthesisUtterance(cleanWord);
     utterance.lang = "ar-SA";
     utterance.rate = 0.95;
@@ -535,19 +541,8 @@
       if (globalThis._activeUtterance === utterance) globalThis._activeUtterance = null;
     };
 
-    const availableVoices = typeof globalThis.speechSynthesis.getVoices === "function"
-      ? (globalThis.speechSynthesis.getVoices() || [])
-      : [];
-    const arabicVoice = availableVoices.find((v) => {
-      const l = (v.lang || "").toLowerCase();
-      const n = (v.name || "").toLowerCase();
-      return (l === "ar-sa" || l.startsWith("ar")) && (n.includes("natural") || n.includes("neural") || n.includes("online") || n.includes("siri") || n.includes("enhanced"));
-    }) || availableVoices.find((v) => (v.lang || "").toLowerCase().startsWith("ar"));
-
-    if (arabicVoice) {
-      utterance.voice = arabicVoice;
-      utterance.lang = arabicVoice.lang || "ar-SA";
-    }
+    utterance.voice = arabicVoice;
+    utterance.lang = arabicVoice.lang || "ar-SA";
 
     try {
       globalThis.speechSynthesis.cancel();
