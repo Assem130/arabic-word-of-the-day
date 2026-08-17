@@ -492,7 +492,7 @@ for (const id of ["word-pronunciation", "word-meaning-en", "btn-toggle-english",
     assert.equal(wordPage.includes(`id="${id}"`), true, `word.html must include ${id}`);
 }
 assert.match(wordPage, /id="btn-toggle-menu"[^>]*aria-expanded="false"/, "menu trigger must expose its collapsed state");
-assert.match(wordPage, /<div class="app-menu-dropdown" id="app-menu-dropdown" hidden>/, "menu must be hidden before it is opened");
+assert.match(wordPage, /<div class="app-menu-dropdown(?:\s+word-menu-dropdown)?" id="app-menu-dropdown" hidden>/, "menu must be hidden before it is opened");
 for (const page of [wordPage, homePage]) {
     assert.match(page, /class="skip-link" href="#main-content"/, "each page needs a skip link");
     assert.match(page, /<main class="page-shell" id="main-content" tabindex="-1">/, "each page needs a main target");
@@ -896,7 +896,7 @@ function loadBrowserApp({ state, rawStorage, storageFails = false, exportProbe, 
 }
 
 async function browserChecks() {
-const menuMarkup = wordPage.match(/<div class="app-menu-dropdown"[^>]*>([\s\S]*?)<\/div>/);
+const menuMarkup = wordPage.match(/<div class="app-menu-dropdown(?:\s+word-menu-dropdown)?"[^>]*>([\s\S]*?)<\/div>/);
 assert.equal(menuMarkup[1].includes("storage-warning"), false, "storage warning must not be hidden inside the menu");
 
 const storageFailure = loadBrowserApp({ storageFails: true });

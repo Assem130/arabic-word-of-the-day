@@ -373,6 +373,32 @@ test("1. HTML Markup & Accessibility Attributes (index.html & word.html)", () =>
     assert.match(wordHtml, /aria-modal="true"/, "word.html practice-dialog must have aria-modal='true'");
 });
 
+test("History dialog stays closed and history rows use the paper surface", () => {
+    assert.match(styleCss, /\.history-dialog:not\(\[open\]\)\s*\{[^}]*display:\s*none\b/, "closed history dialog must stay hidden");
+    assert.match(styleCss, /\.history-list\s*\{[^}]*margin:\s*0[^}]*padding:\s*0[^}]*list-style:\s*none[^}]*background:\s*(?:transparent|var\(--paper-light\))/s, "history list must reset native list styling and use the paper surface");
+    assert.match(styleCss, /\.history-item button\s*\{[^}]*background:\s*(?:transparent|var\(--paper-light\))/s, "history buttons must not use the browser default gray background");
+
+    const env = createDOMEnvironment();
+    const historyDialog = env.doc.getElementById("history-dialog");
+    assert.equal(historyDialog.open, false, "history dialog must start closed");
+    env.doc.getElementById("btn-toggle-history").dispatchEvent({ type: "click" });
+    assert.equal(historyDialog.open, true, "history button must open the dialog");
+    env.doc.getElementById("btn-close-history").dispatchEvent({ type: "click" });
+    assert.equal(historyDialog.open, false, "close button must close the dialog");
+});
+
+test("Word-page utility controls stay inside the disclosure menu", () => {
+    const navActions = wordHtml.match(/<div class="nav-actions">([\s\S]*?)<\/div>/)?.[1] || "";
+    assert.doesNotMatch(navActions, /due-review-badge|streak-badge|theme-select|btn-toggle-history/, "utility controls must not crowd the word-page top bar");
+
+    const menuStart = wordHtml.indexOf('<div class="app-menu-dropdown');
+    const menuEnd = wordHtml.indexOf("</article>", menuStart);
+    const menu = menuStart >= 0 && menuEnd > menuStart ? wordHtml.slice(menuStart, menuEnd) : "";
+    for (const id of ["due-review-badge", "streak-badge", "theme-select", "btn-toggle-history"]) {
+        assert.match(menu, new RegExp(`id="${id}"`), `${id} must remain available in the word-page disclosure menu`);
+    }
+});
+
 // -----------------------------------------------------------------------------
 // Test 2: CSS 3D Flip Card, Rating Buttons & Pulse Animations
 // -----------------------------------------------------------------------------

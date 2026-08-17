@@ -383,12 +383,12 @@ test("4. Interactive Explorer Controller & Reactive DOM Sync (initLexiconExplore
 
         assert.ok(explorer, "initLexiconExplorer must return controller instance");
 
-        // Verify initial populate
+        // Verify search-first initial state
         const grid = sandbox.elements["lexicon-grid"];
-        assert.equal(grid.children.length, 365, "Grid must initially render all 365 cards");
+        assert.equal(grid.children.length, 0, "Grid must stay empty until a query or filter is active");
 
         const countEl = sandbox.elements["lexicon-results-count"];
-        assert.equal(countEl.textContent, "عرض 365 من أصل 365 لفظاً");
+        assert.equal(countEl.textContent, "ابدأ بالبحث أو اختر فلترًا لعرض النتائج");
 
         const rootSelect = sandbox.elements["select-lexicon-root"];
         assert.equal(rootSelect.children.length, 333, "Root dropdown must contain 332 roots + 1 default option");
@@ -409,11 +409,14 @@ test("4. Interactive Explorer Controller & Reactive DOM Sync (initLexiconExplore
         assert.equal(grid.children.length, 1, "Searching 'السميدع' must filter to 1 card");
         assert.equal(countEl.textContent, "عرض لفظ واحد من أصل 365 لفظاً");
         assert.equal(sandbox.elements["btn-clear-lexicon-filters"].hidden, false, "Clear filters button must be shown when filtered");
+        assert.match(grid.children[0].innerHTML, /lexicon-card-meaning/, "Compact cards must retain the Arabic meaning");
+        assert.doesNotMatch(grid.children[0].innerHTML, /lexicon-card-(vocalization|english|example)/, "Compact cards must omit long secondary copy");
 
         // Test Clear Filters
         const clearBtn = sandbox.elements["btn-clear-lexicon-filters"];
         await clearBtn.emit("click", { target: clearBtn });
-        assert.equal(grid.children.length, 365, "Clearing filters must restore all 365 cards");
+        assert.equal(grid.children.length, 0, "Clearing filters must return to the search-first empty state");
+        assert.equal(countEl.textContent, "ابدأ بالبحث أو اختر فلترًا لعرض النتائج");
         assert.equal(clearBtn.hidden, true, "Clear filters button must be hidden after reset");
 
         // Test Root Letter Bar Click
@@ -443,10 +446,11 @@ test("5. Resilient Web Audio V8 GC Anchoring (R4)", async () => {
     global.window = sandbox.windowMock;
 
     try {
-        Core.initLexiconExplorer({
+        const explorer = Core.initLexiconExplorer({
             wordsDb: words,
             gridId: "lexicon-grid"
         });
+        explorer.setCategoryFilter(words[0].category);
 
         const grid = sandbox.elements["lexicon-grid"];
         const firstCard = grid.children[0];
@@ -494,6 +498,13 @@ test("6. Tashkeel Typography & CSS Design Tokens Compliance", () => {
     // 6.2 HTML Markup
     assert.ok(indexHtml.includes('id="lexicon-grid"'), "index.html must include lexicon-grid");
     assert.ok(indexHtml.includes('id="lexicon-explorer"'), "index.html must own the lexicon explorer");
+    assert.match(indexHtml, /id="btn-toggle-menu"[^>]*aria-expanded="false"[^>]*aria-controls="app-menu-dropdown"/, "Homepage menu trigger must expose disclosure state and controls");
+    assert.match(indexHtml, /class="app-menu-dropdown home-menu-dropdown"[^>]*id="app-menu-dropdown"[^>]*hidden/, "Homepage controls must live in a hidden disclosure panel");
+    const navActions = indexHtml.match(/<div class="nav-actions">([\s\S]*?)<\/div>/)?.[1] || "";
+    assert.equal((navActions.match(/class="nav-word-link"/g) || []).length, 1, "Only the word-of-day link may remain visible in the homepage nav actions");
+    assert.equal(navActions.includes("nav-explorer-link"), false, "Explorer link must move into the homepage disclosure");
+    assert.equal((indexHtml.match(/class="accordion-teaser"/g) || []).length, 3, "Each landing-page method card must include a concise teaser");
+    assert.match(revampCss, /\.home-menu-dropdown,\s*\.word-menu-dropdown\s*\{[^}]*left:\s*max\([^}]*right:\s*auto/s, "Homepage menu must anchor from the left side");
     assert.equal(wordHtml.includes('id="lexicon-dialog"'), false, "word.html must not ship a dead duplicate lexicon dialog");
     assert.equal(wordHtml.includes('id="btn-toggle-explorer"'), false, "word.html must not advertise an unbound explorer trigger");
 });

@@ -1447,10 +1447,6 @@
                 weight: currentFilters.weight
             });
 
-            if (resultsCount) {
-                resultsCount.textContent = formatLexiconCountText(filtered.length, wordsDb.length);
-            }
-
             const hasActiveFilters = Boolean(
                 currentFilters.query.trim() ||
                 currentFilters.category !== "all" ||
@@ -1460,6 +1456,21 @@
             );
             if (clearBtn) {
                 clearBtn.hidden = !hasActiveFilters;
+            }
+
+            if (!hasActiveFilters) {
+                if (resultsCount) {
+                    resultsCount.textContent = "ابدأ بالبحث أو اختر فلترًا لعرض النتائج";
+                }
+                if (emptyState) {
+                    emptyState.hidden = true;
+                }
+                grid.replaceChildren();
+                return;
+            }
+
+            if (resultsCount) {
+                resultsCount.textContent = formatLexiconCountText(filtered.length, wordsDb.length);
             }
 
             if (emptyState) {
@@ -1494,10 +1505,7 @@
                         <button type="button" class="lexicon-pill lexicon-pill-weight" data-weight="${word.weight}" title="تصفية حسب وزن «${word.weight}»"><span class="pill-kicker">الوزن:</span> <strong>${word.weight}</strong></button>
                     </div>
                     <div class="lexicon-card-body">
-                        <p class="lexicon-card-vocalization">${word.vocalization}</p>
                         <p class="lexicon-card-meaning">${word.meaning}</p>
-                        <p class="lexicon-card-english" dir="ltr" lang="en">${word.englishMeaning}</p>
-                        <blockquote class="lexicon-card-example">«${word.example}»</blockquote>
                     </div>
                     <div class="lexicon-card-footer">
                         <a href="word.html?id=${word.id}" class="lexicon-read-btn" data-word-id="${word.id}">
