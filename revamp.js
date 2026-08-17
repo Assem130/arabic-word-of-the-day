@@ -45,6 +45,40 @@ document.addEventListener("DOMContentLoaded", () => {
         } catch {}
     }
 
+    const menuButton = document.getElementById("btn-toggle-menu");
+    const menu = document.getElementById("app-menu-dropdown");
+    if (menuButton && menu) {
+        const setMenuOpen = (isOpen) => {
+            const wasOpen = !menu.hidden;
+            const restoreFocus = !isOpen && wasOpen && menu.contains(document.activeElement);
+            menu.hidden = !isOpen;
+            menuButton.setAttribute("aria-expanded", String(isOpen));
+            if (isOpen) {
+                const firstFocusable = menu.querySelector("a[href], button:not([disabled]), select:not([disabled])");
+                if (firstFocusable && typeof firstFocusable.focus === "function") firstFocusable.focus();
+            } else if (restoreFocus && typeof menuButton.focus === "function") {
+                menuButton.focus();
+            }
+        };
+
+        menuButton.addEventListener("click", (event) => {
+            event.stopPropagation();
+            setMenuOpen(menu.hidden);
+        });
+        document.addEventListener("click", (event) => {
+            if (!menu.contains(event.target) && !menuButton.contains(event.target)) setMenuOpen(false);
+        });
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "Escape" && !menu.hidden) {
+                setMenuOpen(false);
+                if (typeof menuButton.focus === "function") menuButton.focus();
+            }
+        });
+        menu.querySelectorAll("a[href]").forEach(link => {
+            link.addEventListener("click", () => setMenuOpen(false));
+        });
+    }
+
     const btnClosePractice = document.getElementById("btn-close-practice");
     const practiceDialog = document.getElementById("practice-dialog");
     if (btnClosePractice && practiceDialog) {

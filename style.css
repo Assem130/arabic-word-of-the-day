@@ -378,11 +378,18 @@ html[data-theme="midnight"] .due-review-badge.pulse {
    ========================================================================== */
 
 .history-dialog { width: min(560px, calc(100% - 32px)); max-height: min(760px, calc(100dvh - 32px)); padding: clamp(22px, 4vw, 44px); border: 0; background: var(--paper-light); color: var(--ink); box-shadow: 0 24px 70px rgb(20 33 27 / 32%); }
+.history-dialog:not([open]) { display: none; }
 .history-dialog::backdrop { background: rgb(20 33 27 / 72%); }
 .history-dialog header { display: flex; align-items: start; justify-content: space-between; gap: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--line-dark); }
 .history-dialog header p { margin: 0; color: var(--ink-soft); font: .7rem var(--sans); }
 .history-dialog h2 { margin: 7px 0 0; font-size: clamp(2rem, 6vw, 3.2rem); font-weight: 400; line-height: 1.1; letter-spacing: normal; }
 .history-dialog .icon-button { border-color: var(--line-dark); color: var(--ink); }
+.drawer-content { padding-top: 12px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.history-list { margin: 0; padding: 0; list-style: none; background: var(--paper-light); }
+.history-item { border-bottom: 1px solid var(--line-dark); }
+.history-item button { width: 100%; padding: 18px 0; background: transparent; text-align: right; }
+.history-item button:hover { color: var(--ink-soft); }
+.history-item-header { display: flex; justify-content: space-between; gap: 16px; align-items: baseline; }
 .word-headline-wrap { display: flex; align-items: baseline; gap: clamp(12px, 2vw, 24px); }
 .favorite-button { width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--line-light); background: transparent; color: rgb(243 239 229 / 85%); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: all .2s ease; }
 .favorite-button:hover { border-color: var(--lime); color: var(--lime); transform: scale(1.08); }

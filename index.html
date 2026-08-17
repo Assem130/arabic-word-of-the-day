@@ -25,6 +25,7 @@
             <symbol id="i-xmark" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
             <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
             <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" fill="none" stroke="currentColor" stroke-width="2"/><line x1="21" y1="21" x2="16.65" y2="16.65" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+            <symbol id="i-bars" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
         </defs>
     </svg>
 
@@ -37,21 +38,29 @@
                 </a>
                 <p class="nav-note">لفظٌ واحد. أفقٌ أوسع.</p>
                 <div class="nav-actions">
-                    <a class="nav-word-link nav-explorer-link" href="#lexicon-explorer" title="معجم الجذور والأوزان"><svg class="icon"><use href="#i-search"/></svg> <span>معجم الجذور</span></a>
-                    <button id="due-review-badge" class="due-review-badge" type="button" title="المراجعات المستحقة اليوم (Q)" aria-label="المراجعات المستحقة اليوم: 0 كلمات" role="status">
-                        <span class="due-icon badge-icon">⚡</span>
-                        <span class="due-count" id="due-count">0</span>
-                        <span class="due-label">مراجعة</span>
+                    <a class="nav-word-link" href="word.html">كلمة اليوم <svg class="icon"><use href="#i-arrow"/></svg></a>
+                    <button id="btn-toggle-menu" class="icon-button" type="button" title="خيارات الصفحة" aria-label="فتح خيارات الصفحة" aria-expanded="false" aria-controls="app-menu-dropdown">
+                        <svg class="icon"><use href="#i-bars"/></svg>
                     </button>
-                    <div id="streak-badge" class="streak-badge" title="تتابع القراءة اليومي" aria-label="تتابع القراءة اليومي">🔥 لا يوجد تتابع بعد</div>
+                </div>
+            </nav>
+            <div class="app-menu-dropdown home-menu-dropdown" id="app-menu-dropdown" role="region" aria-label="خيارات الصفحة" hidden>
+                <a class="nav-explorer-link" href="#lexicon-explorer" title="معجم الجذور والأوزان"><svg class="icon"><use href="#i-search"/></svg> <span>معجم الجذور</span></a>
+                <button id="due-review-badge" class="due-review-badge" type="button" title="المراجعات المستحقة اليوم (Q)" aria-label="المراجعات المستحقة اليوم: 0 كلمات" role="status">
+                    <span class="due-icon badge-icon">⚡</span>
+                    <span class="due-count" id="due-count">0</span>
+                    <span class="due-label">مراجعة</span>
+                </button>
+                <div id="streak-badge" class="streak-badge" title="تتابع القراءة اليومي" aria-label="تتابع القراءة اليومي">🔥 لا يوجد تتابع بعد</div>
+                <label class="home-menu-theme" for="theme-select">
+                    <span>المظهر</span>
                     <select id="theme-select" class="theme-select" aria-label="اختر المظهر">
                         <option value="paper">كلاسيكي ورقي</option>
                         <option value="emerald">أندلسي زمردي</option>
                         <option value="midnight">واحة الليل</option>
                     </select>
-                    <a class="nav-word-link" href="word.html">كلمة اليوم <svg class="icon"><use href="#i-arrow"/></svg></a>
-                </div>
-            </nav>
+                </label>
+            </div>
         </header>
 
         <section class="hero" id="top">
@@ -77,9 +86,9 @@
                 <h2>ثلاث طرق لتسكن الكلمة في ذاكرتك.</h2>
             </div>
             <div class="horizontal-accordion">
-                <details><summary><span>النطق</span></summary><div><h3>قلها</h3><p>ردد الكلمة بصوت مسموع حتى يصبح وزنها مألوفاً.</p></div></details>
-                <details><summary><span>السياق</span></summary><div><h3>استخدمها</h3><p>اكتب جملة واحدة تخصك؛ الذاكرة تحب ما هو شخصي.</p></div></details>
-                <details><summary><span>العودة</span></summary><div><h3>راجعها</h3><p>عد إلى مخزونك اللغوي، ودع الكلمات القديمة تلتقي بالجديدة.</p></div></details>
+                <details><summary><span>النطق</span><small class="accordion-teaser">اسمعها ثم قلها.</small></summary><div><h3>قلها</h3><p>ردد الكلمة بصوت مسموع حتى يصبح وزنها مألوفاً.</p></div></details>
+                <details><summary><span>السياق</span><small class="accordion-teaser">ضعها في جملة تخصك.</small></summary><div><h3>استخدمها</h3><p>اكتب جملة واحدة تخصك؛ الذاكرة تحب ما هو شخصي.</p></div></details>
+                <details><summary><span>العودة</span><small class="accordion-teaser">راجعها حتى تثبت.</small></summary><div><h3>راجعها</h3><p>عد إلى مخزونك اللغوي، ودع الكلمات القديمة تلتقي بالجديدة.</p></div></details>
             </div>
         </section>
 
@@ -135,7 +144,7 @@
                 </div>
 
                 <div class="lexicon-results-bar">
-                    <span id="lexicon-results-count" class="lexicon-results-count" role="status" aria-live="polite">عرض ٣٦٥ من أصل ٣٦٥ لفظاً</span>
+                    <span id="lexicon-results-count" class="lexicon-results-count" role="status" aria-live="polite">ابدأ بالبحث أو اختر فلترًا لعرض النتائج</span>
                 </div>
             </div>
 

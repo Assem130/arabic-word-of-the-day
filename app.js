@@ -1379,6 +1379,7 @@ function showToast(message) {
 function setupEventListeners() {
     btnToggleHistory.addEventListener("click", () => {
         stopSpeech();
+        setMenuOpen(false);
         historyDialogInvoker = document.activeElement || btnToggleHistory;
         historyDialog.showModal();
         if (typeof btnCloseHistory.focus === "function") btnCloseHistory.focus();
@@ -1391,6 +1392,7 @@ function setupEventListeners() {
 
     if (dueReviewBadge) {
         dueReviewBadge.addEventListener("click", () => {
+            setMenuOpen(false);
             stopSpeech();
             startSpacedRepetitionReview();
         });

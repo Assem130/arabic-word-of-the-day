@@ -43,21 +43,6 @@
                 </a>
                 <p class="nav-note">كلمة اليوم</p>
                 <div class="nav-actions">
-                    <button id="due-review-badge" class="due-review-badge" type="button" title="المراجعات المستحقة اليوم (Q)" aria-label="المراجعات المستحقة اليوم: 0 كلمات" role="status">
-                        <span class="due-icon badge-icon">⚡</span>
-                        <span class="due-count" id="due-count">0</span>
-                        <span class="due-label">مراجعة</span>
-                    </button>
-                    <div id="streak-badge" class="streak-badge" title="تتابع القراءة اليومي" aria-label="تتابع القراءة اليومي">🔥 لا يوجد تتابع بعد</div>
-                    <select id="theme-select" class="theme-select" aria-label="اختر المظهر">
-                        <option value="paper">كلاسيكي ورقي</option>
-                        <option value="emerald">أندلسي زمردي</option>
-                        <option value="midnight">واحة الليل</option>
-                    </select>
-                    <button class="icon-button" id="btn-toggle-history" title="المخزون اللغوي (H)" aria-label="فتح المخزون اللغوي">
-                        <svg class="icon"><use href="#i-calendar"/></svg>
-                        <span class="badge" id="history-count">0</span>
-                    </button>
                     <button class="icon-button" id="btn-toggle-menu" title="القائمة" aria-label="فتح القائمة" aria-expanded="false" aria-controls="app-menu-dropdown">
                         <svg class="icon"><use href="#i-bars"/></svg>
                     </button>
@@ -130,7 +115,27 @@
                         <button class="return-today-button" id="btn-return-today" type="button" hidden>العودة إلى كلمة اليوم</button>
                     </aside>
                 </div>
-                <div class="app-menu-dropdown" id="app-menu-dropdown" hidden>
+                <div class="app-menu-dropdown word-menu-dropdown" id="app-menu-dropdown" hidden>
+                    <button class="menu-control-button" id="btn-toggle-history" type="button" title="المخزون اللغوي (H)" aria-label="فتح المخزون اللغوي">
+                        <svg class="icon"><use href="#i-calendar"/></svg>
+                        <span>المخزون اللغوي</span>
+                        <span class="badge" id="history-count">0</span>
+                    </button>
+                    <button id="due-review-badge" class="due-review-badge" type="button" title="المراجعات المستحقة اليوم (Q)" aria-label="المراجعات المستحقة اليوم: 0 كلمات" role="status">
+                        <span class="due-icon badge-icon">⚡</span>
+                        <span class="due-count" id="due-count">0</span>
+                        <span class="due-label">مراجعة</span>
+                    </button>
+                    <div id="streak-badge" class="streak-badge" title="تتابع القراءة اليومي" aria-label="تتابع القراءة اليومي">🔥 لا يوجد تتابع بعد</div>
+                    <label class="word-menu-theme" for="theme-select">
+                        <span>المظهر</span>
+                        <select id="theme-select" class="theme-select" aria-label="اختر المظهر">
+                            <option value="paper">كلاسيكي ورقي</option>
+                            <option value="emerald">أندلسي زمردي</option>
+                            <option value="midnight">واحة الليل</option>
+                        </select>
+                    </label>
+                    <hr class="menu-divider" aria-hidden="true">
                     <button id="btn-menu-practice" type="button"><svg class="icon"><use href="#i-sparkles"/></svg> اختبر حفظك (Q)</button>
                     <button id="btn-share"><svg class="icon"><use href="#i-share"/></svg> مشاركة الكلمة</button>
                     <button id="btn-copy-link"><svg class="icon"><use href="#i-copy"/></svg> نسخ تفاصيلها</button>
