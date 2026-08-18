@@ -1,5 +1,5 @@
 // Service Worker for Kalimat (Offline PWA)
-const STATIC_CACHE_NAME = "kalimat-static-v1.3";
+const STATIC_CACHE_NAME = "kalimat-static-v1.4";
 const AUDIO_CACHE_NAME = "kalimat-audio-v1";
 const STATIC_ASSETS = [
     "./",
@@ -95,7 +95,21 @@ self.addEventListener("fetch", event => {
         return;
     }
 
-    // Static Assets & Fonts: Stale-While-Revalidate
+    // App shell: prefer the deployed version so HTML, CSS, and JS cannot drift apart.
+    if (url.origin === self.location.origin) {
+        event.respondWith(
+            fetch(request).then(networkResponse => {
+                if (networkResponse && networkResponse.ok) {
+                    const clone = networkResponse.clone();
+                    caches.open(STATIC_CACHE_NAME).then(cache => cache.put(request, clone));
+                }
+                return networkResponse;
+            }).catch(() => caches.match(request))
+        );
+        return;
+    }
+
+    // External fonts: Stale-While-Revalidate
     event.respondWith(
         caches.match(request).then(cachedResponse => {
             if (cachedResponse) {
