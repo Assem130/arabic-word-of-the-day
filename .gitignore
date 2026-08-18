@@ -8,4 +8,5 @@ Thumbs.db
 .superpowers/
 docs/superpowers/
 .worktrees/
+.review-release/
 extension/dist/
