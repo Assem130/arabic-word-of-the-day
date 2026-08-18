@@ -7,12 +7,17 @@ const {
   createProfile,
   validateStoredProfile,
   applyFeedback,
+  recordReview,
+  getDueReviewWords,
+  getReviewStats,
+  getReviewOptions,
   parseImport,
   serializeExport,
   pruneAssignments,
 } = require("../shared/state.js");
 
 const vocabulary = ["w1", "w2", "w3"].map((id) => ({ id }));
+const numericVocabulary = [1, 2, 3].map((id) => ({ id }));
 const seed = "a".repeat(32);
 
 function profileWithAssignment(dateKey, wordId = "w1", overrides = {}) {
@@ -23,6 +28,20 @@ function profileWithAssignment(dateKey, wordId = "w1", overrides = {}) {
 
 function feedbackFor(profile, dateKey) {
   return profile.assignments[dateKey].status;
+}
+
+function numericSrsItem(wordId, repetition) {
+  return {
+    wordId,
+    repetition,
+    interval: 1,
+    ef: 2.5,
+    nextReviewDate: "2026-08-17",
+    lastReviewedDate: "2026-08-16",
+    reviewCount: repetition,
+    lapses: 0,
+    history: [],
+  };
 }
 
 function rejected(raw) {
@@ -38,6 +57,42 @@ test("future and corrupt state stays recoverable and read-only", () => {
   assert.deepEqual(result.recoveryRaw, raw);
 });
 
+test("future schemas and malformed preferences stay recoverable and read-only", () => {
+  const base = profileWithAssignment("2026-07-30");
+  for (const raw of [
+    { ...base, schemaVersion: 2 },
+    { ...base, schemaVersion: 3 },
+    { ...base, preferences: { ...base.preferences, speechRate: 9 } },
+    { ...base, preferences: { ...base.preferences, dailyReviewLimit: -1 } },
+    { ...base, preferences: "bad" },
+    { ...base, preferences: { ...base.preferences, unexpected: true } },
+  ]) {
+    rejected(raw);
+  }
+});
+
+test("supplied preference fields validate while missing fields use defaults", () => {
+  const base = profileWithAssignment("2026-07-30");
+  const partial = validateStoredProfile({ ...base, preferences: { speechRate: 1.25 } }, vocabulary);
+  assert.equal(partial.canPersist, true);
+  assert.deepEqual(partial.profile.preferences, {
+    showEnglish: true,
+    speechRate: 1.25,
+    speechRepeat: 1,
+    dailyReviewLimit: 20,
+  });
+  for (const preferences of [
+    { showEnglish: "yes" },
+    { speechRate: 0.49 },
+    { speechRate: 1.51 },
+    { speechRepeat: 2 },
+    { dailyReviewLimit: 2.5 },
+    { dailyReviewLimit: 101 },
+  ]) {
+    rejected({ ...base, preferences });
+  }
+});
+
 test("clear-data defaults create a bounded canonical profile", () => {
   const profile = createProfile({});
   assert.equal(profile.schemaVersion, 1);
@@ -50,6 +105,130 @@ test("clear-data defaults create a bounded canonical profile", () => {
   assert.equal(Object.getPrototypeOf(profile.assignments), null);
   assert.equal(profile.evidenceCutoff, null);
   assert.equal(profile.assignmentOrdinal, 0);
+});
+
+test("review queue is bounded and carries exact SM-2 options", () => {
+  const reviewVocabulary = Array.from({ length: 21 }, (_, index) => ({ id: `w${index + 1}` }));
+  const reviewProfile = createProfile({ seedHex: seed, level: 1, interests: ["language"] });
+  reviewProfile.srs = Object.fromEntries(reviewVocabulary.map((item) => [item.id, {
+    wordId: item.id,
+    repetition: 0,
+    interval: 0,
+    ef: 2.5,
+    nextReviewDate: "2026-08-17",
+    lastReviewedDate: null,
+    reviewCount: 0,
+    lapses: 0,
+    history: [],
+  }]));
+  reviewProfile.history = Object.fromEntries(reviewVocabulary.map((item) => [item.id, { firstSeen: "2026-08-17" }]));
+
+  const due = getDueReviewWords(reviewProfile, reviewVocabulary, "2026-08-17", 20);
+  assert.equal(due.length, 20);
+  assert.equal(due[0].reviewOptions.good.nextReviewDate, "2026-08-18");
+  assert.deepEqual(due[0].reviewOptions.easy, getReviewOptions(due[0].srs, "2026-08-17").easy);
+});
+
+test("import and stored-profile validation normalize non-finite and bounded SRS values", () => {
+  const source = profileWithAssignment("2026-08-17", "w1");
+  source.srs = {
+    w1: {
+      wordId: "w1",
+      repetition: 2,
+      interval: "__SRS_INTERVAL__",
+      ef: "__SRS_EF__",
+      nextReviewDate: "2026-08-17",
+      lastReviewedDate: "2026-08-16",
+      reviewCount: 2,
+      lapses: 0,
+      history: [{ date: "2026-08-16", grade: 4, rating: "good", interval: "__SRS_INTERVAL__", ef: "__SRS_EF__" }],
+    },
+  };
+  const nonFiniteJson = JSON.stringify(source)
+    .replace(/"__SRS_INTERVAL__"/g, "1e400")
+    .replace(/"__SRS_EF__"/g, "1e400");
+  const nonFiniteRaw = JSON.parse(nonFiniteJson);
+
+  const assertFiniteReview = (review) => {
+    assert.ok(Number.isFinite(review.interval));
+    assert.match(review.nextReviewDate, /^\d{4}-\d{2}-\d{2}$/);
+  };
+  const assertNormalized = (profile) => {
+    const item = profile.srs.w1;
+    assert.equal(item.interval, 0);
+    assert.equal(item.ef, 2.5);
+    assert.equal(item.history[0].interval, 0);
+    assert.equal(item.history[0].ef, 2.5);
+
+    const options = getReviewOptions(item, "2026-08-18");
+    for (const review of Object.values(options)) assertFiniteReview(review);
+    const due = getDueReviewWords(profile, vocabulary, "2026-08-18");
+    assert.equal(due.length, 1);
+    for (const review of Object.values(due[0].reviewOptions)) assertFiniteReview(review);
+
+    const reviewed = recordReview(profile, "w1", "good", "2026-08-18", vocabulary);
+    assert.ok(Number.isFinite(reviewed.srs.w1.interval));
+    assert.ok(Number.isFinite(reviewed.srs.w1.ef));
+    assert.match(reviewed.srs.w1.nextReviewDate, /^\d{4}-\d{2}-\d{2}$/);
+    const stats = getReviewStats(reviewed, vocabulary, "2026-08-18");
+    assert.ok(Number.isFinite(stats.averageEF));
+    assert.ok(Number.isFinite(stats.retentionRate));
+  };
+
+  assertNormalized(parseImport(nonFiniteJson, vocabulary));
+  const stored = validateStoredProfile(nonFiniteRaw, vocabulary);
+  assert.equal(stored.canPersist, true);
+  assertNormalized(stored.profile);
+
+  const bounded = profileWithAssignment("2026-08-17", "w1", {
+    srs: {
+      w1: { wordId: "w1", interval: 100000, ef: 10, history: [{ interval: 100000, ef: 10 }] },
+      w2: { wordId: "w2", interval: 100000.0001, ef: 10.0001, history: [{ interval: 100000.0001, ef: 10.0001 }] },
+    },
+  });
+  const validated = validateStoredProfile(bounded, vocabulary);
+  assert.equal(validated.profile.srs.w1.interval, 100000);
+  assert.equal(validated.profile.srs.w1.ef, 10);
+  assert.equal(validated.profile.srs.w1.history[0].interval, 100000);
+  assert.equal(validated.profile.srs.w1.history[0].ef, 10);
+  assert.equal(validated.profile.srs.w2.interval, 0);
+  assert.equal(validated.profile.srs.w2.ef, 2.5);
+  assert.equal(validated.profile.srs.w2.history[0].interval, 0);
+  assert.equal(validated.profile.srs.w2.history[0].ef, 2.5);
+});
+
+test("import rejects conflicting numeric SRS aliases and stored state enters recovery", () => {
+  const profile = createProfile({ seedHex: seed, level: 2, interests: ["travel"] });
+  const raw = {
+    ...profile,
+    srs: {
+      "1": numericSrsItem("1", 1),
+      w1: numericSrsItem("w1", 2),
+    },
+  };
+
+  assert.throws(() => parseImport(JSON.stringify(raw), numericVocabulary), /Invalid import\./);
+  const stored = validateStoredProfile(raw, numericVocabulary);
+  assert.equal(stored.canPersist, false);
+  assert.deepEqual(stored.recoveryRaw, raw);
+});
+
+test("import rejects SRS entries beyond the numeric vocabulary bound", () => {
+  const profile = createProfile({ seedHex: seed, level: 2, interests: ["travel"] });
+  const raw = {
+    ...profile,
+    srs: {
+      "1": numericSrsItem("1", 1),
+      "2": numericSrsItem("2", 1),
+      "3": numericSrsItem("3", 1),
+      w1: numericSrsItem("w1", 1),
+    },
+  };
+
+  assert.throws(() => parseImport(JSON.stringify(raw), numericVocabulary), /Invalid import\./);
+  const stored = validateStoredProfile(raw, numericVocabulary);
+  assert.equal(stored.canPersist, false);
+  assert.deepEqual(stored.recoveryRaw, raw);
 });
 
 test("legacy profiles migrate a bounded lifetime assignment ordinal without recovery mode", () => {
@@ -167,6 +346,8 @@ test("imports reject bounded hostile data before returning a separate profile", 
 
   assert.throws(() => parseImport("x".repeat(2 * 1024 * 1024 + 1), vocabulary), /import/i);
   assert.throws(() => parseImport("[]", vocabulary), /import/i);
+  assert.throws(() => parseImport(JSON.stringify({ ...valid, schemaVersion: 2 }), vocabulary), /import/i);
+  assert.throws(() => parseImport(JSON.stringify({ ...valid, schemaVersion: 3 }), vocabulary), /import/i);
   assert.throws(() => parseImport(JSON.stringify({ ...valid, unknown: true }), vocabulary), /import/i);
   assert.throws(() => parseImport('{"schemaVersion":1,"__proto__":{}}', vocabulary), /import/i);
   assert.throws(() => parseImport(JSON.stringify({ ...valid, assignments: { "2026-07-30": { wordId: "x".repeat(65) } } }), vocabulary), /import/i);

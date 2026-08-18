@@ -30,6 +30,7 @@
     <p id="status" class="status" aria-live="polite"></p><p id="warning" class="warning" role="status" hidden>تُعرض بياناتك، لكن تعذّر حفظ آخر تغيير.</p>
     <section id="today-view" class="view" aria-labelledby="today-title">
       <p class="eyebrow">ثابتة لليوم</p>
+      <p id="today-date" class="today-date" hidden></p>
       <h2 id="today-title" tabindex="-1">كلمتك</h2>
       <article id="today-card" class="word-card"></article>
       <p id="today-empty" hidden>لا توجد كلمة متاحة الآن.</p>
@@ -69,7 +70,6 @@
         <label><input type="radio" name="atlas-level" value="1"> مبتدئ</label>
         <label><input type="radio" name="atlas-level" value="2"> متوسط</label>
         <label><input type="radio" name="atlas-level" value="3"> متقدم</label>
-        <label><input type="radio" name="atlas-level" value="4"> خبير</label>
       </fieldset>
       <fieldset id="settings-interests">
         <legend>اهتماماتك: حتى ثلاثة</legend>
@@ -81,11 +81,18 @@
         <label><input type="checkbox" name="atlas-interest" value="travel"> السفر</label>
       </fieldset>
       <label class="check"><input id="settings-english" type="checkbox"> إظهار الشرح الإنجليزي</label>
+      <label for="settings-speech-rate">سرعة النطق</label>
+      <input id="settings-speech-rate" type="number" min="0.5" max="1.5" step="0.05" inputmode="decimal" value="0.85">
+      <label for="settings-speech-repeat">تكرار النطق</label>
+      <select id="settings-speech-repeat">
+        <option value="1">مرة واحدة</option>
+        <option value="3">ثلاث مرات</option>
+      </select>
       <button id="settings-save" type="button">حفظ الإعدادات</button>
       <hr>
       <label for="settings-time">وقت التذكير</label>
       <input id="settings-time" type="time" value="09:00">
-      <button id="settings-reminder" type="button" role="switch" aria-checked="false" aria-pressed="false">تفعيل التذكير اليومي</button>
+      <button id="settings-reminder" type="button" role="switch" aria-checked="false">تفعيل التذكير اليومي</button>
       <hr>
       <button id="export" type="button">تصدير البيانات</button>
       <button id="btn-export-anki" type="button">تصدير بطاقات Anki (CSV)</button>
@@ -123,9 +130,14 @@
         <button id="practice-close" class="practice-close" type="button" aria-label="إغلاق">✕</button>
       </header>
       <div id="practice-body" class="practice-body">
+        <div id="practice-error" class="practice-error" role="alert" hidden>
+          <p id="practice-error-message">تعذّر تحميل المراجعات. حاول مجددًا.</p>
+          <button id="practice-retry" class="continue" type="button">إعادة المحاولة</button>
+        </div>
         <div class="flashcard-scene">
-          <div id="flashcard-card" class="flashcard-card" role="button" tabindex="0" aria-label="اقلب البطاقة">
-            <div class="flashcard-front">
+          <button id="card-front-flip" class="card-front-flip" type="button" aria-pressed="false" aria-label="اقلب البطاقة">اقلب البطاقة</button>
+          <div id="flashcard-card" class="flashcard-card" role="group">
+            <div id="card-front-face" class="flashcard-front" aria-hidden="false">
               <div id="card-front-word" class="card-word" lang="ar"></div>
               <div id="card-front-vocalization" class="card-vocalization" lang="ar"></div>
               <div id="card-front-weight" class="card-weight" lang="ar"></div>
@@ -135,9 +147,9 @@
                   <path fill="currentColor" d="M14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77zm-2 0L7 7H3v10h4l5 3.77V3.23zM16.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
                 </svg>
               </button>
-              <p class="flip-hint">اضغط أو اضغط المسافة لقلب البطاقة</p>
+              <p class="flip-hint">استخدم زر «اقلب البطاقة» لكشف المعنى</p>
             </div>
-            <div class="flashcard-back">
+            <div id="card-back-face" class="flashcard-back" aria-hidden="true">
               <div id="card-back-meaning-ar" class="card-meaning-ar" lang="ar"></div>
               <div id="card-back-meaning-en" class="card-meaning-en" lang="en" dir="ltr"></div>
               <div id="card-back-example-ar" class="card-example-ar" lang="ar"></div>
@@ -145,27 +157,27 @@
             </div>
           </div>
         </div>
-        <div id="practice-ratings" class="practice-ratings" role="group" aria-label="تقييم التذكر">
-          <button id="rate-again" class="rate-btn rate-again" data-rating="again" type="button">
+        <div id="practice-ratings" class="practice-ratings" role="group" aria-label="تقييم التذكر" hidden>
+          <button id="rate-again" class="rate-btn rate-again" data-rating="again" type="button" disabled>
             <span class="rate-title">أعد (1)</span>
-            <small class="rate-interval">&lt; 1 يوم</small>
+            <small class="rate-interval">—</small>
           </button>
-          <button id="rate-hard" class="rate-btn rate-hard" data-rating="hard" type="button">
+          <button id="rate-hard" class="rate-btn rate-hard" data-rating="hard" type="button" disabled>
             <span class="rate-title">صعب (2)</span>
-            <small class="rate-interval">+1 يوم</small>
+            <small class="rate-interval">—</small>
           </button>
-          <button id="rate-good" class="rate-btn rate-good" data-rating="good" type="button">
+          <button id="rate-good" class="rate-btn rate-good" data-rating="good" type="button" disabled>
             <span class="rate-title">جيد (3)</span>
-            <small class="rate-interval">أيام</small>
+            <small class="rate-interval">—</small>
           </button>
-          <button id="rate-easy" class="rate-btn rate-easy" data-rating="easy" type="button">
+          <button id="rate-easy" class="rate-btn rate-easy" data-rating="easy" type="button" disabled>
             <span class="rate-title">سهل (4)</span>
-            <small class="rate-interval">أسبوع</small>
+            <small class="rate-interval">—</small>
           </button>
         </div>
       </div>
       <div id="practice-finished" class="practice-finished" hidden>
-        <p>🎉 أحسنت! أنهيت جميع مراجعات اليوم.</p>
+        <p id="practice-finished-message">🎉 أحسنت! أنهيت جميع مراجعات اليوم.</p>
         <button id="practice-finish-btn" class="continue" type="button">إتمام</button>
       </div>
     </div>

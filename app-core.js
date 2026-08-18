@@ -307,15 +307,73 @@
         return !!record && typeof record === "object" && !Array.isArray(record) && isDateKey(record.firstSeen);
     }
 
+    function isPlainMap(value) {
+        if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+        const prototype = Object.getPrototypeOf(value);
+        return prototype === Object.prototype || prototype === null;
+    }
+
+    function isValidStateId(rawId) {
+        const id = Number(rawId);
+        return Number.isSafeInteger(id) && id >= 1;
+    }
+
+    function isBoundedCounter(value) {
+        return Number.isSafeInteger(value) && value >= 0;
+    }
+
+    function isValidSrsHistoryEntry(entry) {
+        return isPlainMap(entry)
+            && isDateKey(entry.date)
+            && Number.isInteger(entry.grade) && entry.grade >= 0 && entry.grade <= 5
+            && typeof entry.rating === "string" && entry.rating.trim().length > 0
+            && Number.isInteger(entry.interval) && entry.interval >= 0 && entry.interval <= MAX_SRS_INTERVAL
+            && Number.isFinite(entry.ef) && entry.ef >= 1.3 && entry.ef <= MAX_SRS_EF;
+    }
+
+    function isValidSrsRecord(record, id) {
+        return isPlainMap(record)
+            && Number.isSafeInteger(record.wordId) && record.wordId === id
+            && isBoundedCounter(record.repetition)
+            && Number.isInteger(record.interval) && record.interval >= 0 && record.interval <= MAX_SRS_INTERVAL
+            && Number.isFinite(record.ef) && record.ef >= 1.3 && record.ef <= MAX_SRS_EF
+            && isDateKey(record.nextReviewDate)
+            && (record.lastReviewedDate === null || isDateKey(record.lastReviewedDate))
+            && isBoundedCounter(record.reviewCount)
+            && isBoundedCounter(record.lapses)
+            && Array.isArray(record.history)
+            && record.history.every(isValidSrsHistoryEntry);
+    }
+
     function isCurrentState(raw) {
-        return !!raw && typeof raw === "object" && !Array.isArray(raw)
-            && raw.schemaVersion === SCHEMA_VERSION
-            && raw.srs && typeof raw.srs === "object" && !Array.isArray(raw.srs)
-            && raw.history && typeof raw.history === "object" && !Array.isArray(raw.history)
-            && (!raw.favorites || (typeof raw.favorites === "object" && !Array.isArray(raw.favorites)))
-            && raw.preferences && typeof raw.preferences === "object" && !Array.isArray(raw.preferences)
-            && typeof raw.preferences.showEnglish === "boolean"
-            && Object.entries(raw.history).every(([id, record]) => Number.isInteger(Number(id)) && isHistoryRecord(record));
+        if (!isPlainMap(raw)
+            || raw.version !== SCHEMA_VERSION
+            || raw.schemaVersion !== SCHEMA_VERSION) return false;
+
+        if (!isPlainMap(raw.srs) || !isPlainMap(raw.history) || !isPlainMap(raw.favorites) || !isPlainMap(raw.preferences)) {
+            return false;
+        }
+        const preferences = raw.preferences;
+        if (typeof preferences.showEnglish !== "boolean"
+            || !Number.isFinite(preferences.speechRate)
+            || preferences.speechRate < 0.5 || preferences.speechRate > 1.5
+            || (preferences.speechRepeat !== 1 && preferences.speechRepeat !== 3)
+            || !Number.isInteger(preferences.dailyReviewLimit)
+            || preferences.dailyReviewLimit < 1 || preferences.dailyReviewLimit > 100) {
+            return false;
+        }
+
+        for (const [id, record] of Object.entries(raw.history)) {
+            if (!isValidStateId(id) || !isPlainMap(record) || !isHistoryRecord(record)) return false;
+        }
+        for (const [id, favorite] of Object.entries(raw.favorites)) {
+            if (!isValidStateId(id) || typeof favorite !== "boolean") return false;
+        }
+        for (const [rawId, record] of Object.entries(raw.srs)) {
+            const id = Number(rawId);
+            if (!isValidStateId(rawId) || !isValidSrsRecord(record, id)) return false;
+        }
+        return true;
     }
 
     function isV1State(raw) {
@@ -340,7 +398,7 @@
 
     function inspectStoredState(raw, validIds, fallbackDate) {
         if (raw === null || raw === undefined) return { state: createDefaultState(), canPersist: true };
-        if (isCurrentState(raw) || isV1State(raw) || isLegacyState(raw) || (raw && raw.schemaVersion === 2)) {
+        if (isCurrentState(raw) || isV1State(raw) || isLegacyState(raw)) {
             return { state: normalizeState(raw, validIds, fallbackDate), canPersist: true };
         }
         return { state: createDefaultState(), canPersist: false };
@@ -756,6 +814,21 @@
         });
     }
 
+    const MAX_SRS_INTERVAL = 100000;
+    const MAX_SRS_EF = 10;
+
+    function normalizeSrsInterval(value) {
+        return Number.isFinite(value) && value >= 0 && value <= MAX_SRS_INTERVAL
+            ? Math.round(value)
+            : 0;
+    }
+
+    function normalizeSrsEf(value) {
+        return Number.isFinite(value) && value >= 1.3 && value <= MAX_SRS_EF
+            ? Math.round(value * 100) / 100
+            : 2.5;
+    }
+
     function calculateNextReview(item, rating, reviewDateKey) {
         const q = mapRatingToGrade(rating);
         const dateKey = isDateKey(reviewDateKey) ? reviewDateKey : getLocalDateKey(new Date());
@@ -763,10 +836,8 @@
         const prevRepetition = (item && Number.isInteger(item.repetition) && item.repetition >= 0)
             ? item.repetition
             : ((item && Number.isInteger(item.repetitions) && item.repetitions >= 0) ? item.repetitions : 0);
-        const prevInterval = (item && typeof item.interval === "number" && item.interval >= 0) ? item.interval : 0;
-        const prevEf = (item && typeof item.ef === "number" && !isNaN(item.ef) && item.ef >= 1.3)
-            ? item.ef
-            : ((item && typeof item.easeFactor === "number" && !isNaN(item.easeFactor) && item.easeFactor >= 1.3) ? item.easeFactor : 2.5);
+        const prevInterval = normalizeSrsInterval(item && item.interval);
+        const prevEf = normalizeSrsEf(item && (typeof item.ef === "number" ? item.ef : item.easeFactor));
         const prevLapses = (item && Number.isInteger(item.lapses) && item.lapses >= 0) ? item.lapses : 0;
         const prevReviewCount = (item && Number.isInteger(item.reviewCount) && item.reviewCount >= 0) ? item.reviewCount : 0;
         const prevHistory = (item && Array.isArray(item.history)) ? [...item.history] : [];
@@ -837,6 +908,25 @@
         return calculateNextReview(item, rating, reviewDateKey);
     }
 
+    function formatReviewInterval(interval) {
+        if (interval === 1) return "غدًا";
+        if (interval === 2) return "بعد يومين";
+        if (interval >= 3 && interval <= 10) return `بعد ${interval} أيام`;
+        return `بعد ${interval} يومًا`;
+    }
+
+    function getReviewOptions(item, reviewDateKey) {
+        const entries = ["again", "hard", "good", "easy"].map((rating) => {
+            const next = calculateSM2(item, rating, reviewDateKey);
+            return [rating, {
+                interval: next.interval,
+                nextReviewDate: next.nextReviewDate,
+                label: formatReviewInterval(next.interval)
+            }];
+        });
+        return Object.fromEntries(entries);
+    }
+
     function migrateState(rawState, currentDateKey, validIds = null) {
         const fallbackDate = isDateKey(currentDateKey) ? currentDateKey : getLocalDateKey(new Date());
 
@@ -878,8 +968,8 @@
             if (typeof raw.preferences.speechRepeat === "number" && (raw.preferences.speechRepeat === 1 || raw.preferences.speechRepeat === 3)) {
                 state.preferences.speechRepeat = raw.preferences.speechRepeat;
             }
-            if (typeof raw.preferences.dailyReviewLimit === "number" && raw.preferences.dailyReviewLimit >= 1) {
-                state.preferences.dailyReviewLimit = Math.round(raw.preferences.dailyReviewLimit);
+            if (Number.isInteger(raw.preferences.dailyReviewLimit) && raw.preferences.dailyReviewLimit >= 1 && raw.preferences.dailyReviewLimit <= 100) {
+                state.preferences.dailyReviewLimit = raw.preferences.dailyReviewLimit;
             }
         }
 
@@ -952,9 +1042,9 @@
                 const repetition = Number.isInteger(item.repetition) && item.repetition >= 0
                     ? item.repetition
                     : (Number.isInteger(item.repetitions) && item.repetitions >= 0 ? item.repetitions : 0);
-                const interval = typeof item.interval === "number" && item.interval >= 0 ? Math.round(item.interval) : 0;
+                const interval = normalizeSrsInterval(item.interval);
                 const rawEf = typeof item.ef === "number" ? item.ef : item.easeFactor;
-                const ef = typeof rawEf === "number" && !isNaN(rawEf) ? Math.max(1.3, Math.round(rawEf * 100) / 100) : 2.5;
+                const ef = normalizeSrsEf(rawEf);
                 const nextReviewDate = isDateKey(item.nextReviewDate) ? item.nextReviewDate : fallbackDate;
                 const lastReviewedDate = isDateKey(item.lastReviewedDate)
                     ? item.lastReviewedDate
@@ -975,8 +1065,8 @@
                                 date: isDateKey(h.date) ? h.date : (isDateKey(item.lastReviewedDate) ? item.lastReviewedDate : fallbackDate),
                                 grade,
                                 rating,
-                                interval: typeof h.interval === "number" ? Math.max(0, Math.round(h.interval)) : 0,
-                                ef: typeof h.ef === "number" ? Math.max(1.3, Math.round(h.ef * 100) / 100) : 2.5
+                                interval: normalizeSrsInterval(h.interval),
+                                ef: normalizeSrsEf(h.ef)
                             };
                         })
                         .slice(-50)
@@ -1055,6 +1145,7 @@
                     id,
                     ...(word ? { word } : {}),
                     srs: srsItem,
+                    reviewOptions: getReviewOptions(srsItem, todayKey),
                     isOverdue: daysOverdue > 0,
                     daysOverdue
                 });
@@ -1119,7 +1210,12 @@
 
     function getReviewStats(state, dateKey, wordsDb = null) {
         const todayKey = isDateKey(dateKey) ? dateKey : getLocalDateKey(new Date());
-        const normalizedState = migrateState(state, todayKey);
+        const validIds = Array.isArray(wordsDb)
+            ? new Set(wordsDb
+                .map(word => Number(word && word.id))
+                .filter(id => Number.isSafeInteger(id) && id >= 1))
+            : null;
+        const normalizedState = migrateState(state, todayKey, validIds);
         const srsMap = normalizedState.srs;
 
         const items = Object.values(srsMap).filter(item => item && typeof item === "object");
@@ -1398,6 +1494,7 @@
             allChip.type = "button";
             allChip.className = "lexicon-chip active";
             allChip.dataset.category = "all";
+            allChip.setAttribute("aria-pressed", "true");
             allChip.textContent = `الكل (${wordsDb.length})`;
             frag.appendChild(allChip);
 
@@ -1406,6 +1503,7 @@
                 chip.type = "button";
                 chip.className = "lexicon-chip";
                 chip.dataset.category = category;
+                chip.setAttribute("aria-pressed", "false");
                 chip.textContent = `${category} (${count})`;
                 frag.appendChild(chip);
             });
@@ -1421,6 +1519,7 @@
             allBtn.type = "button";
             allBtn.className = "lexicon-letter-btn active";
             allBtn.dataset.letter = "all";
+            allBtn.setAttribute("aria-pressed", "true");
             allBtn.textContent = "الكل";
             allBtn.title = "جميع الحروف";
             frag.appendChild(allBtn);
@@ -1430,6 +1529,7 @@
                 btn.type = "button";
                 btn.className = "lexicon-letter-btn";
                 btn.dataset.letter = letter;
+                btn.setAttribute("aria-pressed", "false");
                 btn.textContent = letter;
                 btn.title = `الجذور التي تبدأ بحرف (${letter})`;
                 frag.appendChild(btn);
@@ -1460,12 +1560,12 @@
 
             if (!hasActiveFilters) {
                 if (resultsCount) {
-                    resultsCount.textContent = "ابدأ بالبحث أو اختر فلترًا لعرض النتائج";
+                    resultsCount.textContent = "اقتراحات من المعجم";
                 }
                 if (emptyState) {
                     emptyState.hidden = true;
                 }
-                grid.replaceChildren();
+                renderCards(wordsDb.slice(0, 8));
                 return;
             }
 
@@ -1484,71 +1584,145 @@
             if (!grid) return;
             const frag = document.createDocumentFragment();
 
+            const getSafeWordId = (value) => {
+                try {
+                    const numericId = Number(value);
+                    return Number.isSafeInteger(numericId) && numericId > 0 ? String(numericId) : "";
+                } catch {
+                    return "";
+                }
+            };
+
+            const setData = (element, name, value) => {
+                const stringValue = String(value ?? "");
+                element.dataset[name] = stringValue;
+                const attributeName = name.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`);
+                element.setAttribute(`data-${attributeName}`, stringValue);
+            };
+
+            const setText = (element, value) => {
+                element.textContent = value == null ? "" : String(value);
+            };
+
             words.forEach(word => {
                 const card = document.createElement("article");
                 card.className = "lexicon-card";
-                card.dataset.wordId = String(word.id);
+                const wordId = getSafeWordId(word && word.id);
+                setData(card, "wordId", wordId);
 
-                card.innerHTML = `
-                    <div class="lexicon-card-header">
-                        <div class="lexicon-card-heading-wrap">
-                            <h3 class="lexicon-card-word">${word.word}</h3>
-                            <span class="lexicon-card-pronunciation" dir="ltr">${word.pronunciation}</span>
-                        </div>
-                        <button type="button" class="lexicon-audio-btn" data-word-id="${word.id}" aria-label="استمع إلى نطق ${word.word}" title="استمع إلى النطق">
-                            <svg class="icon" aria-hidden="true"><use href="#i-volume-high"/></svg>
-                        </button>
-                    </div>
-                    <div class="lexicon-card-meta">
-                        <button type="button" class="lexicon-pill lexicon-pill-cat" data-category="${word.category}" title="تصفية حسب تصنيف «${word.category}»">${word.category}</button>
-                        <button type="button" class="lexicon-pill lexicon-pill-root" data-root="${word.root}" title="تصفية حسب جذر «${word.root}»"><span class="pill-kicker">الجذر:</span> <strong>${word.root}</strong></button>
-                        <button type="button" class="lexicon-pill lexicon-pill-weight" data-weight="${word.weight}" title="تصفية حسب وزن «${word.weight}»"><span class="pill-kicker">الوزن:</span> <strong>${word.weight}</strong></button>
-                    </div>
-                    <div class="lexicon-card-body">
-                        <p class="lexicon-card-meaning">${word.meaning}</p>
-                    </div>
-                    <div class="lexicon-card-footer">
-                        <a href="word.html?id=${word.id}" class="lexicon-read-btn" data-word-id="${word.id}">
-                            <span>اقرأ الكلمة كاملة</span>
-                            <svg class="icon"><use href="#i-arrow"/></svg>
-                        </a>
-                    </div>
-                `;
+                const header = document.createElement("div");
+                header.className = "lexicon-card-header";
+                const headingWrap = document.createElement("div");
+                headingWrap.className = "lexicon-card-heading-wrap";
+                const heading = document.createElement("h3");
+                heading.className = "lexicon-card-word";
+                setText(heading, word && word.word);
+                headingWrap.appendChild(heading);
+                const pronunciation = document.createElement("span");
+                pronunciation.className = "lexicon-card-pronunciation";
+                pronunciation.setAttribute("dir", "ltr");
+                pronunciation.dir = "ltr";
+                setText(pronunciation, word && word.pronunciation);
+                headingWrap.appendChild(pronunciation);
 
-                const audioBtn = card.querySelector(".lexicon-audio-btn");
-                if (audioBtn) {
-                    audioBtn.addEventListener("click", (e) => {
-                        e.stopPropagation();
-                        playWordAudio(word, audioBtn);
-                    });
-                }
+                const audioBtn = document.createElement("button");
+                audioBtn.type = "button";
+                audioBtn.setAttribute("type", "button");
+                audioBtn.className = "lexicon-audio-btn";
+                setData(audioBtn, "wordId", wordId);
+                audioBtn.setAttribute("aria-label", `استمع إلى نطق ${word && word.word != null ? String(word.word) : ""}`);
+                audioBtn.setAttribute("title", "استمع إلى النطق");
+                audioBtn.title = "استمع إلى النطق";
+                const audioIcon = document.createElement("svg");
+                audioIcon.className = "icon";
+                audioIcon.setAttribute("aria-hidden", "true");
+                const audioUse = document.createElement("use");
+                audioUse.setAttribute("href", "#i-volume-high");
+                audioIcon.appendChild(audioUse);
+                audioBtn.appendChild(audioIcon);
+                header.append(headingWrap, audioBtn);
 
-                const catPill = card.querySelector(".lexicon-pill-cat");
-                if (catPill) {
-                    catPill.addEventListener("click", (e) => {
-                        e.stopPropagation();
-                        setCategoryFilter(word.category);
-                    });
-                }
+                const meta = document.createElement("div");
+                meta.className = "lexicon-card-meta";
+                const catPill = document.createElement("button");
+                catPill.type = "button";
+                catPill.setAttribute("type", "button");
+                catPill.className = "lexicon-pill lexicon-pill-cat";
+                setData(catPill, "category", word && word.category);
+                catPill.setAttribute("title", `تصفية حسب تصنيف «${word && word.category != null ? String(word.category) : ""}»`);
+                setText(catPill, word && word.category);
 
-                const rootPill = card.querySelector(".lexicon-pill-root");
-                if (rootPill) {
-                    rootPill.addEventListener("click", (e) => {
-                        e.stopPropagation();
-                        setRootFilter(word.root);
-                    });
-                }
+                const rootPill = document.createElement("button");
+                rootPill.type = "button";
+                rootPill.setAttribute("type", "button");
+                rootPill.className = "lexicon-pill lexicon-pill-root";
+                setData(rootPill, "root", word && word.root);
+                rootPill.setAttribute("title", `تصفية حسب جذر «${word && word.root != null ? String(word.root) : ""}»`);
+                const rootKicker = document.createElement("span");
+                rootKicker.className = "pill-kicker";
+                setText(rootKicker, "الجذر:");
+                const rootValue = document.createElement("strong");
+                setText(rootValue, word && word.root);
+                rootPill.append(rootKicker, rootValue);
 
-                const weightPill = card.querySelector(".lexicon-pill-weight");
-                if (weightPill) {
-                    weightPill.addEventListener("click", (e) => {
-                        e.stopPropagation();
-                        setWeightFilter(word.weight);
-                    });
-                }
+                const weightPill = document.createElement("button");
+                weightPill.type = "button";
+                weightPill.setAttribute("type", "button");
+                weightPill.className = "lexicon-pill lexicon-pill-weight";
+                setData(weightPill, "weight", word && word.weight);
+                weightPill.setAttribute("title", `تصفية حسب وزن «${word && word.weight != null ? String(word.weight) : ""}»`);
+                const weightKicker = document.createElement("span");
+                weightKicker.className = "pill-kicker";
+                setText(weightKicker, "الوزن:");
+                const weightValue = document.createElement("strong");
+                setText(weightValue, word && word.weight);
+                weightPill.append(weightKicker, weightValue);
+                meta.append(catPill, rootPill, weightPill);
 
-                const readBtn = card.querySelector(".lexicon-read-btn");
-                if (readBtn && typeof onWordSelect === "function") {
+                const body = document.createElement("div");
+                body.className = "lexicon-card-body";
+                const meaning = document.createElement("p");
+                meaning.className = "lexicon-card-meaning";
+                setText(meaning, word && word.meaning);
+                body.appendChild(meaning);
+
+                const footer = document.createElement("div");
+                footer.className = "lexicon-card-footer";
+                const readBtn = document.createElement("a");
+                readBtn.className = "lexicon-read-btn";
+                const href = wordId ? `word.html?id=${wordId}` : "word.html";
+                readBtn.setAttribute("href", href);
+                readBtn.href = href;
+                setData(readBtn, "wordId", wordId);
+                const readLabel = document.createElement("span");
+                setText(readLabel, "اقرأ الكلمة كاملة");
+                const readIcon = document.createElement("svg");
+                readIcon.className = "icon";
+                const readUse = document.createElement("use");
+                readUse.setAttribute("href", "#i-arrow");
+                readIcon.appendChild(readUse);
+                readBtn.append(readLabel, readIcon);
+                footer.appendChild(readBtn);
+
+                card.append(header, meta, body, footer);
+
+                audioBtn.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    playWordAudio(word, audioBtn);
+                });
+                catPill.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    setCategoryFilter(word.category);
+                });
+                rootPill.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    setRootFilter(word.root);
+                });
+                weightPill.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    setWeightFilter(word.weight);
+                });
+                if (typeof onWordSelect === "function") {
                     readBtn.addEventListener("click", (e) => {
                         e.preventDefault();
                         onWordSelect(word);
@@ -1565,7 +1739,9 @@
             currentFilters.category = category;
             if (categoryChips) {
                 categoryChips.querySelectorAll(".lexicon-chip").forEach(c => {
-                    c.classList.toggle("active", (c.dataset.category || "") === category);
+                    const isActive = (c.dataset.category || "") === category;
+                    c.classList.toggle("active", isActive);
+                    c.setAttribute("aria-pressed", String(isActive));
                 });
             }
             applyFilters();
@@ -1591,7 +1767,9 @@
             currentFilters.rootLetter = letter;
             if (letterBar) {
                 letterBar.querySelectorAll(".lexicon-letter-btn").forEach(b => {
-                    b.classList.toggle("active", (b.dataset.letter || "") === letter);
+                    const isActive = (b.dataset.letter || "") === letter;
+                    b.classList.toggle("active", isActive);
+                    b.setAttribute("aria-pressed", String(isActive));
                 });
             }
             applyFilters();
@@ -1609,12 +1787,16 @@
             if (weightSelect) weightSelect.value = "all";
             if (categoryChips) {
                 categoryChips.querySelectorAll(".lexicon-chip").forEach(c => {
-                    c.classList.toggle("active", c.dataset.category === "all");
+                    const isActive = c.dataset.category === "all";
+                    c.classList.toggle("active", isActive);
+                    c.setAttribute("aria-pressed", String(isActive));
                 });
             }
             if (letterBar) {
                 letterBar.querySelectorAll(".lexicon-letter-btn").forEach(b => {
-                    b.classList.toggle("active", b.dataset.letter === "all");
+                    const isActive = b.dataset.letter === "all";
+                    b.classList.toggle("active", isActive);
+                    b.setAttribute("aria-pressed", String(isActive));
                 });
             }
             applyFilters();
@@ -1831,6 +2013,7 @@
         createDefaultSrsItem,
         calculateNextReview,
         calculateSM2,
+        getReviewOptions,
         migrateState,
         getDueReviewWords,
         recordReview,

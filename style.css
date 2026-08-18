@@ -513,24 +513,24 @@ html[data-theme="midnight"] .practice-progress-bar-fill {
     perspective: 1200px;
     width: 100%;
     margin: 10px 0 16px;
+    display: flex;
+    flex-direction: column;
 }
 
 .flashcard-card {
     position: relative;
     width: 100%;
     min-height: 320px;
-    cursor: pointer;
     transform-style: preserve-3d;
     transition: transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1);
     border-radius: 14px;
-    outline: none;
 }
 
-.flashcard-card:focus-visible {
+.card-front-flip:focus-visible {
     outline: 3px solid var(--ink);
     outline-offset: 4px;
 }
-html[data-theme="midnight"] .flashcard-card:focus-visible {
+html[data-theme="midnight"] .card-front-flip:focus-visible {
     outline-color: var(--lime);
 }
 
@@ -696,6 +696,26 @@ html[data-theme="midnight"] .flashcard-badge-category {
     font-style: normal;
 }
 
+.flashcard-back-bottom {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+}
+.flashcard-back-bottom .flashcard-audio-btn {
+    align-self: flex-start;
+}
+
+.flashcard-rating-section {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-top: 20px;
+}
+.flashcard-rating-section[hidden] {
+    display: none;
+}
+
 .flashcard-rate-prompt {
     margin: 0;
     font: 600 .8rem var(--sans);
@@ -707,8 +727,8 @@ html[data-theme="midnight"] .flashcard-badge-category {
 .flashcard-rating-bar {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 10px;
-    margin-top: 14px;
+    gap: 12px;
+    margin-top: 0;
 }
 .flashcard-rating-bar[hidden] {
     display: none;

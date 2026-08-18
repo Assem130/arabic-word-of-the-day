@@ -2,14 +2,14 @@
 
 ## Purpose
 
-Test whether the reworked 60-word corpus is useful enough for broad Standard Arabic learners to return to it during normal study. This is a manual, privacy-preserving beta; Kalimat does not collect telemetry or require accounts.
+Test whether the reworked 365-word corpus is useful enough for broad Standard Arabic learners to return to it during normal study. This is a manual, privacy-preserving beta; Kalimat does not collect telemetry or require accounts.
 
 ## Cohort
 
 - Recruit 12–18 learners.
 - Balance participants across beginner, intermediate, and advanced content bands.
 - Record self-reported Arabic exposure and primary interest at enrollment; do not infer proficiency from usage alone.
-- Tell participants that the corpus is a focused 60-word mastery set, not an unlimited vocabulary course.
+- Tell participants that the corpus is a focused 365-word mastery set, not an unlimited vocabulary course.
 
 ## Check-ins
 

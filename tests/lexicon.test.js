@@ -54,48 +54,6 @@ class MockElement {
     set innerHTML(html) {
         this._innerHTML = html;
         this.children = [];
-        if (!html) return;
-
-        // Parse buttons
-        const buttonRegex = /<button\s+([^>]*?)>([\s\S]*?)<\/button>/gi;
-        let match;
-        while ((match = buttonRegex.exec(html)) !== null) {
-            const attrStr = match[1];
-            const content = match[2];
-            const btn = new MockElement("button");
-            btn._innerHTML = content;
-
-            const classMatch = attrStr.match(/class=["']([^"']+)["']/i);
-            if (classMatch) {
-                classMatch[1].split(/\s+/).forEach(c => btn.classList.add(c));
-            }
-            const dataCatMatch = attrStr.match(/data-category=["']([^"']+)["']/i);
-            if (dataCatMatch) btn.dataset.category = dataCatMatch[1];
-            const dataRootMatch = attrStr.match(/data-root=["']([^"']+)["']/i);
-            if (dataRootMatch) btn.dataset.root = dataRootMatch[1];
-            const dataWeightMatch = attrStr.match(/data-weight=["']([^"']+)["']/i);
-            if (dataWeightMatch) btn.dataset.weight = dataWeightMatch[1];
-            const dataWordIdMatch = attrStr.match(/data-word-id=["']([^"']+)["']/i);
-            if (dataWordIdMatch) btn.dataset.wordId = dataWordIdMatch[1];
-
-            this.appendChild(btn);
-        }
-
-        // Parse links
-        const aRegex = /<a\s+([^>]*?)>([\s\S]*?)<\/a>/gi;
-        while ((match = aRegex.exec(html)) !== null) {
-            const attrStr = match[1];
-            const content = match[2];
-            const a = new MockElement("a");
-            a._innerHTML = content;
-            const classMatch = attrStr.match(/class=["']([^"']+)["']/i);
-            if (classMatch) {
-                classMatch[1].split(/\s+/).forEach(c => a.classList.add(c));
-            }
-            const dataWordIdMatch = attrStr.match(/data-word-id=["']([^"']+)["']/i);
-            if (dataWordIdMatch) a.dataset.wordId = dataWordIdMatch[1];
-            this.appendChild(a);
-        }
     }
 
     get innerHTML() {
@@ -363,6 +321,7 @@ test("4. Interactive Explorer Controller & Reactive DOM Sync (initLexiconExplore
     const sandbox = setupLexiconSandbox(words);
     const originalDocument = global.document;
     const originalWindow = global.window;
+    const selectedWords = [];
     global.document = sandbox.documentMock;
     global.window = sandbox.windowMock;
 
@@ -378,17 +337,24 @@ test("4. Interactive Explorer Controller & Reactive DOM Sync (initLexiconExplore
             gridId: "lexicon-grid",
             emptyStateId: "lexicon-empty-state",
             clearBtnId: "btn-clear-lexicon-filters",
-            resetEmptyBtnId: "btn-reset-lexicon-empty"
+            resetEmptyBtnId: "btn-reset-lexicon-empty",
+            onWordSelect: (word) => selectedWords.push(word)
         });
 
         assert.ok(explorer, "initLexiconExplorer must return controller instance");
 
-        // Verify search-first initial state
+        // Verify deterministic first-load preview state
         const grid = sandbox.elements["lexicon-grid"];
-        assert.equal(grid.children.length, 0, "Grid must stay empty until a query or filter is active");
+        assert.equal(grid.children.length, 8, "No active filter must render exactly eight preview cards");
+        assert.deepEqual(
+            grid.children.map(card => card.dataset.wordId),
+            words.slice(0, 8).map(word => String(word.id)),
+            "Preview cards must use the deterministic first eight corpus entries"
+        );
 
         const countEl = sandbox.elements["lexicon-results-count"];
-        assert.equal(countEl.textContent, "ابدأ بالبحث أو اختر فلترًا لعرض النتائج");
+        assert.equal(countEl.textContent, "اقتراحات من المعجم");
+        assert.equal(sandbox.elements["btn-clear-lexicon-filters"].hidden, true, "Clear filters must stay hidden for the preview");
 
         const rootSelect = sandbox.elements["select-lexicon-root"];
         assert.equal(rootSelect.children.length, 333, "Root dropdown must contain 332 roots + 1 default option");
@@ -398,9 +364,13 @@ test("4. Interactive Explorer Controller & Reactive DOM Sync (initLexiconExplore
 
         const catChips = sandbox.elements["lexicon-category-chips"];
         assert.equal(catChips.children.length, 13, "Category chips must contain 12 categories + 1 all chip");
+        assert.equal(catChips.children.filter(chip => chip.getAttribute("aria-pressed") === "true").length, 1, "Exactly one category chip must be pressed initially");
+        assert.ok(catChips.children.slice(1).every(chip => chip.getAttribute("aria-pressed") === "false"), "Inactive category chips must expose aria-pressed=false");
 
         const letterBar = sandbox.elements["lexicon-letter-bar"];
         assert.equal(letterBar.children.length, 28, "Letter bar must contain 27 letters + 1 all button");
+        assert.equal(letterBar.children.filter(button => button.getAttribute("aria-pressed") === "true").length, 1, "Exactly one letter button must be pressed initially");
+        assert.ok(letterBar.children.slice(1).every(button => button.getAttribute("aria-pressed") === "false"), "Inactive letter buttons must expose aria-pressed=false");
 
         // Test Live Search Event
         const searchInput = sandbox.elements["input-lexicon-search"];
@@ -409,15 +379,55 @@ test("4. Interactive Explorer Controller & Reactive DOM Sync (initLexiconExplore
         assert.equal(grid.children.length, 1, "Searching 'السميدع' must filter to 1 card");
         assert.equal(countEl.textContent, "عرض لفظ واحد من أصل 365 لفظاً");
         assert.equal(sandbox.elements["btn-clear-lexicon-filters"].hidden, false, "Clear filters button must be shown when filtered");
-        assert.match(grid.children[0].innerHTML, /lexicon-card-meaning/, "Compact cards must retain the Arabic meaning");
-        assert.doesNotMatch(grid.children[0].innerHTML, /lexicon-card-(vocalization|english|example)/, "Compact cards must omit long secondary copy");
+        assert.equal(
+            grid.children[0].querySelector(".lexicon-card-meaning").textContent,
+            words[0].meaning,
+            "Compact cards must retain the Arabic meaning"
+        );
+        assert.equal(grid.children[0].querySelector(".lexicon-card-vocalization"), null, "Compact cards must omit vocalization copy");
+        assert.equal(grid.children[0].querySelector(".lexicon-card-english"), null, "Compact cards must omit English copy");
+        assert.equal(grid.children[0].querySelector(".lexicon-card-example"), null, "Compact cards must omit example copy");
+
+        const readBtn = grid.children[0].querySelector(".lexicon-read-btn");
+        assert.equal(readBtn.getAttribute("href"), "word.html?id=1", "Read links must retain the numeric word id");
+        assert.equal(readBtn.dataset.wordId, "1", "Read links must expose the word id dataset");
+        const clickEvent = { target: readBtn, prevented: false, stopPropagation() {}, preventDefault() { this.prevented = true; } };
+        await readBtn.emit("click", clickEvent);
+        assert.equal(clickEvent.prevented, true, "Read link selection must prevent the default navigation");
+        assert.deepEqual(selectedWords, [words[0]], "Read link must invoke onWordSelect with the selected word");
 
         // Test Clear Filters
         const clearBtn = sandbox.elements["btn-clear-lexicon-filters"];
         await clearBtn.emit("click", { target: clearBtn });
-        assert.equal(grid.children.length, 0, "Clearing filters must return to the search-first empty state");
-        assert.equal(countEl.textContent, "ابدأ بالبحث أو اختر فلترًا لعرض النتائج");
+        assert.equal(grid.children.length, 8, "Clearing filters must return to the deterministic preview");
+        assert.equal(countEl.textContent, "اقتراحات من المعجم");
         assert.equal(clearBtn.hidden, true, "Clear filters button must be hidden after reset");
+        assert.equal(catChips.children.filter(chip => chip.getAttribute("aria-pressed") === "true").length, 1, "Reset leaves one pressed category chip");
+        assert.equal(catChips.children[0].getAttribute("aria-pressed"), "true");
+        assert.ok(catChips.children.slice(1).every(chip => chip.getAttribute("aria-pressed") === "false"));
+        assert.equal(letterBar.children.filter(button => button.getAttribute("aria-pressed") === "true").length, 1, "Reset leaves one pressed letter button");
+        assert.equal(letterBar.children[0].getAttribute("aria-pressed"), "true");
+        assert.ok(letterBar.children.slice(1).every(button => button.getAttribute("aria-pressed") === "false"));
+
+        // Test card filter-pill listeners
+        const previewCard = grid.children[0];
+        const categoryPill = previewCard.querySelector(".lexicon-pill-cat");
+        await categoryPill.emit("click", { target: categoryPill });
+        assert.ok(grid.children.length > 0, "Category pill must filter to matching cards");
+        assert.ok(grid.children.every(card => card.querySelector(".lexicon-pill-cat").dataset.category === words[0].category), "Category pill must apply the card category");
+        await clearBtn.emit("click", { target: clearBtn });
+
+        const rootPill = grid.children[0].querySelector(".lexicon-pill-root");
+        await rootPill.emit("click", { target: rootPill });
+        assert.equal(grid.children.length, 1, "Root pill must filter to the selected root");
+        assert.equal(grid.children[0].querySelector(".lexicon-pill-root").dataset.root, words[0].root, "Root pill must apply the card root");
+        await clearBtn.emit("click", { target: clearBtn });
+
+        const weightPill = grid.children[0].querySelector(".lexicon-pill-weight");
+        await weightPill.emit("click", { target: weightPill });
+        assert.ok(grid.children.length > 0, "Weight pill must filter to matching cards");
+        assert.ok(grid.children.every(card => card.querySelector(".lexicon-pill-weight").dataset.weight === words[0].weight), "Weight pill must apply the card weight");
+        await clearBtn.emit("click", { target: clearBtn });
 
         // Test Root Letter Bar Click
         const jimLetterBtn = letterBar.children.find(b => b.dataset.letter === "ج");
@@ -425,6 +435,9 @@ test("4. Interactive Explorer Controller & Reactive DOM Sync (initLexiconExplore
         await jimLetterBtn.emit("click", { target: jimLetterBtn });
         assert.ok(grid.children.length > 0 && grid.children.length < 365, "Clicking 'ج' letter button must filter cards");
         assert.ok(jimLetterBtn.classList.values.has("active"), "Clicked letter button must have 'active' class");
+        assert.equal(letterBar.children.filter(button => button.getAttribute("aria-pressed") === "true").length, 1);
+        assert.equal(jimLetterBtn.getAttribute("aria-pressed"), "true");
+        assert.ok(letterBar.children.filter(button => button !== jimLetterBtn).every(button => button.getAttribute("aria-pressed") === "false"));
 
         // Test Category Chip Click
         const langChip = catChips.children.find(c => c.dataset.category === "لغة وفصاحة");
@@ -432,13 +445,109 @@ test("4. Interactive Explorer Controller & Reactive DOM Sync (initLexiconExplore
         await langChip.emit("click", { target: langChip });
         assert.ok(grid.children.length <= 31, "Category filter must narrow down results");
         assert.ok(langChip.classList.values.has("active"), "Active category chip must have 'active' class");
+        assert.equal(catChips.children.filter(chip => chip.getAttribute("aria-pressed") === "true").length, 1);
+        assert.equal(langChip.getAttribute("aria-pressed"), "true");
+        assert.ok(catChips.children.filter(chip => chip !== langChip).every(chip => chip.getAttribute("aria-pressed") === "false"));
     } finally {
         global.document = originalDocument;
         global.window = originalWindow;
     }
 });
 
-test("5. Resilient Web Audio V8 GC Anchoring (R4)", async () => {
+test("5. Lexicon cards render hostile corpus fields as literal text", () => {
+    const payload = '<img src=x onerror="alert(1)">';
+    const hostileWord = {
+        id: payload,
+        word: payload,
+        pronunciation: payload,
+        category: payload,
+        root: payload,
+        weight: payload,
+        meaning: payload
+    };
+    const sandbox = setupLexiconSandbox([hostileWord]);
+    const originalDocument = global.document;
+    const originalWindow = global.window;
+    global.document = sandbox.documentMock;
+    global.window = sandbox.windowMock;
+
+    try {
+        Core.initLexiconExplorer({
+            wordsDb: [hostileWord],
+            gridId: "lexicon-grid"
+        });
+
+        const card = sandbox.elements["lexicon-grid"].children[0];
+        assert.ok(card, "Hostile fixture must still render a card");
+        assert.equal(card.className, "lexicon-card", "Cards must retain the lexicon-card class");
+
+        const heading = card.querySelector(".lexicon-card-word");
+        const pronunciation = card.querySelector(".lexicon-card-pronunciation");
+        const categoryPill = card.querySelector(".lexicon-pill-cat");
+        const rootPill = card.querySelector(".lexicon-pill-root");
+        const weightPill = card.querySelector(".lexicon-pill-weight");
+        const meaning = card.querySelector(".lexicon-card-meaning");
+        const audioBtn = card.querySelector(".lexicon-audio-btn");
+        const readBtn = card.querySelector(".lexicon-read-btn");
+
+        assert.ok(card.querySelector(".lexicon-card-header"), "Card header must remain present");
+        assert.ok(card.querySelector(".lexicon-card-heading-wrap"), "Card heading wrapper must remain present");
+        assert.ok(card.querySelector(".lexicon-card-meta"), "Card metadata wrapper must remain present");
+        assert.ok(card.querySelector(".lexicon-card-body"), "Card body must remain present");
+        assert.ok(card.querySelector(".lexicon-card-footer"), "Card footer must remain present");
+        assert.equal(heading.textContent, payload, "Word text must remain literal");
+        assert.equal(pronunciation.textContent, payload, "Pronunciation text must remain literal");
+        assert.equal(pronunciation.getAttribute("dir"), "ltr", "Pronunciation direction must remain ltr");
+        assert.equal(pronunciation.dir, "ltr", "Pronunciation dir property must remain ltr");
+        assert.equal(audioBtn.getAttribute("type"), "button", "Audio control type must remain button");
+        assert.equal(audioBtn.getAttribute("title"), "استمع إلى النطق", "Audio title must remain present");
+        assert.equal(audioBtn.querySelector("svg").getAttribute("aria-hidden"), "true", "Audio icon must remain hidden from assistive technology");
+        assert.equal(audioBtn.querySelector("use").getAttribute("href"), "#i-volume-high", "Audio icon reference must remain present");
+        assert.equal(categoryPill.textContent, payload, "Category text must remain literal");
+        assert.equal(categoryPill.dataset.category, payload, "Category dataset must remain literal");
+        assert.equal(categoryPill.getAttribute("data-category"), payload, "Category data attribute must remain literal");
+        assert.ok(categoryPill.getAttribute("title").includes(payload), "Category title must preserve literal corpus text");
+        assert.equal(rootPill.querySelector("strong").textContent, payload, "Root text must remain literal");
+        assert.equal(rootPill.dataset.root, payload, "Root dataset must remain literal");
+        assert.equal(rootPill.getAttribute("data-root"), payload, "Root data attribute must remain literal");
+        assert.ok(rootPill.getAttribute("title").includes(payload), "Root title must preserve literal corpus text");
+        assert.equal(rootPill.querySelector(".pill-kicker").textContent, "الجذر:", "Root pill label must remain present");
+        assert.equal(weightPill.querySelector("strong").textContent, payload, "Weight text must remain literal");
+        assert.equal(weightPill.dataset.weight, payload, "Weight dataset must remain literal");
+        assert.equal(weightPill.getAttribute("data-weight"), payload, "Weight data attribute must remain literal");
+        assert.ok(weightPill.getAttribute("title").includes(payload), "Weight title must preserve literal corpus text");
+        assert.equal(weightPill.querySelector(".pill-kicker").textContent, "الوزن:", "Weight pill label must remain present");
+        assert.equal(meaning.textContent, payload, "Meaning text must remain literal");
+        assert.ok(audioBtn.getAttribute("aria-label").includes(payload), "Audio label must preserve literal corpus text");
+        assert.equal(card.dataset.wordId, "", "Hostile ids must not enter card datasets");
+        assert.equal(card.getAttribute("data-word-id"), "", "Hostile ids must not enter card attributes");
+        assert.equal(audioBtn.dataset.wordId, "", "Hostile ids must not enter audio datasets");
+        assert.equal(audioBtn.getAttribute("data-word-id"), "", "Hostile ids must not enter audio attributes");
+        assert.equal(readBtn.dataset.wordId, "", "Hostile ids must not enter link datasets");
+        assert.equal(readBtn.getAttribute("data-word-id"), "", "Hostile ids must not enter link attributes");
+        assert.equal(readBtn.getAttribute("href"), "word.html", "Hostile ids must not enter link targets");
+        assert.equal(readBtn.href, "word.html", "Hostile ids must not enter link href properties");
+        assert.equal(readBtn.querySelector("span").textContent, "اقرأ الكلمة كاملة", "Read-link label must remain present");
+        assert.equal(readBtn.querySelector("use").getAttribute("href"), "#i-arrow", "Read-link icon reference must remain present");
+        assert.equal(card.querySelector("img"), null, "Corpus markup must not create an IMG payload element");
+
+        const nodes = [];
+        const collect = (node) => {
+            nodes.push(node);
+            node.children.forEach(collect);
+        };
+        collect(card);
+        assert.ok(
+            nodes.every(node => [...node.attributes.keys()].every(name => !/^on/i.test(name))),
+            "Corpus fields must not create event-handler attributes"
+        );
+    } finally {
+        global.document = originalDocument;
+        global.window = originalWindow;
+    }
+});
+
+test("6. Resilient Web Audio V8 GC Anchoring (R4)", async () => {
     const sandbox = setupLexiconSandbox(words);
     const originalDocument = global.document;
     const originalWindow = global.window;
@@ -484,7 +593,7 @@ test("5. Resilient Web Audio V8 GC Anchoring (R4)", async () => {
     }
 });
 
-test("6. Tashkeel Typography & CSS Design Tokens Compliance", () => {
+test("7. Tashkeel Typography & CSS Design Tokens Compliance", () => {
     const revampCss = fs.readFileSync("revamp.css", "utf8");
     const styleCss = fs.readFileSync("style.css", "utf8");
     const indexHtml = fs.readFileSync("index.html", "utf8");

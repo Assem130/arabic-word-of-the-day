@@ -45,6 +45,119 @@ test("Schema Migration — Null, Undefined & Empty States", async (t) => {
     });
 });
 
+test("Schema Migration — review limit accepts only bounded integers", () => {
+    const overLimit = Core.migrateState({ preferences: { dailyReviewLimit: 101 } }, "2026-08-17");
+    const fractional = Core.migrateState({ preferences: { dailyReviewLimit: 2.5 } }, "2026-08-17");
+    const valid = Core.migrateState({ preferences: { dailyReviewLimit: 15 } }, "2026-08-17");
+
+    assert.equal(overLimit.preferences.dailyReviewLimit, 20);
+    assert.equal(fractional.preferences.dailyReviewLimit, 20);
+    assert.equal(valid.preferences.dailyReviewLimit, 15);
+});
+
+test("Schema inspection — current v2 payloads require the complete contract", () => {
+    const valid = {
+        version: 2,
+        schemaVersion: 2,
+        history: { 1: { firstSeen: "2026-08-17" } },
+        favorites: { 1: false },
+        srs: {
+            1: {
+                wordId: 1,
+                repetition: 0,
+                interval: 0,
+                ef: 2.5,
+                nextReviewDate: "2026-08-17",
+                lastReviewedDate: null,
+                reviewCount: 0,
+                lapses: 0,
+                history: []
+            }
+        },
+        preferences: {
+            showEnglish: true,
+            speechRate: 0.85,
+            speechRepeat: 1,
+            dailyReviewLimit: 20
+        }
+    };
+
+    const accepted = Core.inspectStoredState(valid, new Set([1]), "2026-08-18");
+    assert.equal(accepted.canPersist, true);
+
+    for (const [label, mutate] of [
+        ["history map", state => { state.history = "bad"; }],
+        ["SRS record", state => { state.srs = { 1: "bad" }; }],
+        ["speech rate", state => { state.preferences.speechRate = 99; }]
+    ]) {
+        const malformed = JSON.parse(JSON.stringify(valid));
+        mutate(malformed);
+        const inspected = Core.inspectStoredState(malformed, new Set([1]), "2026-08-18");
+        assert.equal(inspected.canPersist, false, `${label} must block persistence`);
+        assert.deepEqual(inspected.state, Core.createDefaultState(), `${label} must leave defaults untouched`);
+    }
+});
+
+test("Schema Migration — imported SRS values stay finite and bounded", () => {
+    const rawJson = JSON.stringify({
+        schemaVersion: 2,
+        history: { 1: { firstSeen: "2026-08-10" } },
+        srs: {
+            1: {
+                wordId: 1,
+                repetition: 2,
+                interval: "__SRS_INTERVAL__",
+                ef: "__SRS_EF__",
+                nextReviewDate: "2026-08-17",
+                lastReviewedDate: "2026-08-16",
+                reviewCount: 2,
+                lapses: 0,
+                history: [{ date: "2026-08-16", grade: 4, rating: "good", interval: "__SRS_INTERVAL__", ef: "__SRS_EF__" }]
+            }
+        }
+    }).replace(/"__SRS_INTERVAL__"/g, "1e400").replace(/"__SRS_EF__"/g, "1e400");
+
+    const migrated = Core.migrateState(rawJson, "2026-08-18");
+    const current = migrated.srs[1];
+    assert.equal(current.interval, 0);
+    assert.equal(current.ef, 2.5);
+    assert.equal(current.history[0].interval, 0);
+    assert.equal(current.history[0].ef, 2.5);
+
+    const assertFiniteReview = (review) => {
+        assert.ok(Number.isFinite(review.interval));
+        assert.match(review.nextReviewDate, /^\d{4}-\d{2}-\d{2}$/);
+    };
+    for (const review of Object.values(Core.getReviewOptions(current, "2026-08-18"))) {
+        assertFiniteReview(review);
+    }
+
+    const recorded = Core.recordReview(migrated, 1, "good", "2026-08-18");
+    assertFiniteReview(recorded.reviewResult);
+    assert.ok(Number.isFinite(recorded.srsItem.ef));
+    const stats = Core.getReviewStats(recorded.updatedState, "2026-08-18");
+    assert.ok(Number.isFinite(stats.averageEF));
+    assert.ok(Number.isFinite(stats.retentionRate));
+});
+
+test("Schema Migration — SRS bounds preserve valid values and reset overages", () => {
+    const migrated = Core.migrateState({
+        srs: {
+            1: { wordId: 1, interval: 100000, ef: 10, history: [{ grade: 4, interval: 100000, ef: 10 }] },
+            2: { wordId: 2, interval: 100000.0001, ef: 10.0001, history: [{ grade: 4, interval: 100000.0001, ef: 10.0001 }] }
+        }
+    }, "2026-08-18");
+
+    assert.equal(migrated.srs[1].interval, 100000);
+    assert.equal(migrated.srs[1].ef, 10);
+    assert.equal(migrated.srs[1].history[0].interval, 100000);
+    assert.equal(migrated.srs[1].history[0].ef, 10);
+    assert.equal(migrated.srs[2].interval, 0);
+    assert.equal(migrated.srs[2].ef, 2.5);
+    assert.equal(migrated.srs[2].history[0].interval, 0);
+    assert.equal(migrated.srs[2].history[0].ef, 2.5);
+});
+
 test("Schema Migration — Legacy v0 (learnedWords Array)", async (t) => {
     await t.test("migrates learnedWords array with objects [{ id: 1 }, { id: 2 }]", () => {
         const v0State = {
@@ -262,7 +375,7 @@ test("Schema Migration — Schema v2 & Self-Healing", async (t) => {
         const healed = Core.migrateState(corrupted, "2026-08-16");
         assert.equal(healed.srs[4].repetition, 0);
         assert.equal(healed.srs[4].interval, 0);
-        assert.equal(healed.srs[4].ef, 1.3, "EF below 1.3 must be clamped to 1.3");
+        assert.equal(healed.srs[4].ef, 2.5, "EF below 1.3 must reset to the default");
         assert.equal(healed.srs[4].nextReviewDate, "2026-08-16");
         assert.equal(healed.srs[4].lastReviewedDate, null);
         assert.equal(healed.srs[4].reviewCount, 0);

@@ -482,17 +482,22 @@ assert.deepEqual(Array.from(browser.globalThis.WORDS_DB, word => word.id), Array
 const wordPage = fs.readFileSync("word.html", "utf8");
 const homePage = fs.readFileSync("index.html", "utf8");
 const css = fs.readFileSync("revamp.css", "utf8");
+const popupCss = fs.readFileSync("extension/popup/popup.css", "utf8");
 const revamp = fs.readFileSync("revamp.js", "utf8");
 const appSource = fs.readFileSync("app.js", "utf8");
 const wordsScript = wordPage.indexOf('<script src="words.js"');
 const coreScript = wordPage.indexOf('<script src="app-core.js"');
 const appScript = wordPage.indexOf('<script src="app.js"');
 assert.equal(wordsScript >= 0 && wordsScript < coreScript && coreScript < appScript, true, "word.html must load words.js, app-core.js, then app.js");
-for (const id of ["word-pronunciation", "word-meaning-en", "btn-toggle-english", "history-dialog", "btn-export-history", "btn-import-history", "input-import-history", "storage-warning", "btn-reset-storage", "streak-badge", "btn-export-card", "btn-export-anki"]) {
+for (const id of ["word-pronunciation", "word-meaning-en", "word-context-text", "word-context-en", "btn-inline-review", "inline-review-count", "btn-toggle-english", "history-dialog", "btn-export-history", "btn-import-history", "input-import-history", "storage-warning", "btn-reset-storage", "streak-badge", "btn-export-card", "btn-export-anki"]) {
     assert.equal(wordPage.includes(`id="${id}"`), true, `word.html must include ${id}`);
 }
+assert.match(wordPage, /<section class="usage-context" aria-labelledby="usage-context-title">/, "word.html must include the usage context block");
+assert.match(wordPage, /<button class="inline-review-button" id="btn-inline-review"[^>]*hidden>/, "word.html must include a hidden inline review button");
+assert.match(wordPage, /id="word-context-en"[^>]*lang="en"[^>]*dir="ltr"/, "English usage context must declare language and direction");
 assert.match(wordPage, /id="btn-toggle-menu"[^>]*aria-expanded="false"/, "menu trigger must expose its collapsed state");
 assert.match(wordPage, /<div class="app-menu-dropdown(?:\s+word-menu-dropdown)?" id="app-menu-dropdown" hidden>/, "menu must be hidden before it is opened");
+assert.match(wordPage, /<div class="app-menu-dropdown(?:\s+word-menu-dropdown)?" id="app-menu-dropdown" hidden>[\s\S]*?<a class="nav-explorer-link" href="index\.html#lexicon-explorer"[^>]*>[\s\S]*?<use href="#i-search"\/>[\s\S]*?معجم الجذور[\s\S]*?<\/a>/, "word-page menu must link directly to the lexicon explorer");
 for (const page of [wordPage, homePage]) {
     assert.match(page, /class="skip-link" href="#main-content"/, "each page needs a skip link");
     assert.match(page, /<main class="page-shell" id="main-content" tabindex="-1">/, "each page needs a main target");
@@ -584,6 +589,10 @@ assert.match(css, /\.nav\s*\{[^}]*background:\s*var\(--nav-bg\)/, ".nav backgrou
 assert.match(css, /\.theme-select\s*\{/, "revamp.css must style .theme-select");
 assert.match(css, /\.theme-select\s+option\s*\{/, "revamp.css must style .theme-select option");
 
+assert.match(popupCss, /html,\s*body\s*\{[^}]*width:\s*100%;[^}]*min-width:\s*0;[^}]*max-width:\s*380px;/s, "popup html/body layout must stay fluid and bounded");
+assert.match(popupCss, /main\s*\{[^}]*width:\s*100%;[^}]*min-width:\s*0;[^}]*max-width:\s*380px;/s, "popup main layout must stay fluid and bounded");
+assert.match(popupCss, /@media\s*\(max-width:\s*380px\)\s*\{[\s\S]*main\s*\{[^}]*width:\s*100vw;/, "popup narrow media layout must remain responsive");
+
 assert.match(css, /@media\s+print\s*\{/, "revamp.css must contain @media print block");
 assert.match(css, /background:\s*white\s*!important;\s*color:\s*black\s*!important;/, "@media print body reset");
 assert.match(css, /\.skip-link,\s*\.nav-wrap,\s*\.nav,\s*\.footer,\s*\.back-link,\s*#btn-speak,\s*\.reading-sidebar,\s*\.app-menu-dropdown,\s*#history-dialog,\s*#storage-warning,\s*\.toast,\s*button,\s*svg\.svg-sprite/, "@media print chrome hiding selectors");
@@ -599,6 +608,7 @@ assert.doesNotMatch(revamp, /function\s+setupThemeController\s*\(/, "revamp.js m
 
 assert.match(css, /@media \(hover: none\)/, "touch users must be able to read accordion details");
 assert.match(css, /button:focus-visible, a:focus-visible, summary:focus-visible, \[tabindex\]:focus-visible \{ outline: 3px solid var\(--ink\)/, "focus must remain visible on light surfaces");
+assert.match(css, /\.card-front-flip:focus-visible/, "review flip control must expose a visible focus ring");
 assert.match(css, /\.nav :is\(button, a\):focus-visible, \.word-identity :is\(button, a\):focus-visible \{ outline: 3px solid var\(--lime\)/, "focus must remain visible on dark surfaces");
 assert.equal((homePage.match(/<details>/g) || []).length, 3, "landing page must expose three native disclosure cards");
 assert.equal((homePage.match(/<summary><span>/g) || []).length, 3, "each disclosure card must have a native summary");
@@ -632,6 +642,27 @@ assert.equal(revampDocumentElement.getAttribute("data-theme"), "paper", "revamp.
 assert.equal(themeSelectEl.value, "paper", "revamp.js must set theme-select value to paper");
 themeSelectEl.emit("change", { target: { value: "midnight" } });
 assert.equal(revampDocumentElement.getAttribute("data-theme"), "midnight", "revamp.js theme change must update data-theme attribute");
+
+const reducedMotionListeners = new Map();
+const reducedHeroCopy = new FakeElement("div");
+const reducedThemeSelect = new FakeElement("select");
+const reducedMotionContext = {
+    document: {
+        documentElement: new FakeElement("html"),
+        addEventListener(type, listener) { reducedMotionListeners.set(type, listener); },
+        querySelector(selector) { return selector === ".hero-copy" ? reducedHeroCopy : null; },
+        querySelectorAll() { return []; },
+        getElementById(id) { return id === "theme-select" ? reducedThemeSelect : null; }
+    },
+    matchMedia(query) { return { matches: query === "(prefers-reduced-motion: reduce)" }; },
+    window: {}
+};
+reducedMotionContext.globalThis = reducedMotionContext;
+reducedMotionContext.window = reducedMotionContext;
+vm.runInNewContext(fs.readFileSync("app-core.js", "utf8"), reducedMotionContext);
+vm.runInNewContext(revamp, reducedMotionContext);
+reducedMotionListeners.get("DOMContentLoaded")();
+assert.equal(reducedHeroCopy.classList.values.has("is-visible"), true, "reduced-motion hero copy must remain visible");
 const exportSource = appSource.slice(appSource.indexOf("function exportHistory()"), appSource.indexOf("async function importHistory"));
 assert.match(exportSource, /link\.hidden = true;[\s\S]*document\.body\.appendChild\(link\);[\s\S]*link\.click\(\);[\s\S]*link\.remove\(\);[\s\S]*setTimeout\(\(\) => URL\.revokeObjectURL\(url\), 0\);[\s\S]*setMenuOpen\(false\);\s*showToast/, "history export must clean up its temporary link, defer URL cleanup, close the menu, then toast");
 for (const word of words) {
@@ -818,13 +849,13 @@ class FakeAudioElement {
 function loadBrowserApp({ state, rawStorage, storageFails = false, exportProbe, theme, search = "", audioMock = null, onLine = true } = {}) {
     const elementIds = [
         "main-word", "date-display", "word-vocalization", "word-weight", "word-root", "word-category",
-        "word-meaning", "word-pronunciation", "word-meaning-en", "word-example-text", "countdown-timer",
+        "word-meaning", "word-pronunciation", "word-meaning-en", "word-context-text", "word-context-en", "word-example-text", "countdown-timer",
         "btn-speak", "btn-speak-example", "btn-copy-quote", "btn-favorite", "btn-share", "btn-copy-link",
         "btn-toggle-history", "btn-close-history", "btn-toggle-menu", "btn-toggle-english", "btn-export-history",
         "btn-import-history", "input-import-history", "history-dialog", "history-list", "history-count",
         "count-history-all", "count-history-favs", "tab-history-all", "tab-history-favs", "drawer-empty-msg",
         "app-menu-dropdown", "storage-warning", "toast", "audio-announcer", "archive-preview-note", "btn-return-today",
-        "btn-reset-storage", "theme-select", "streak-badge", "btn-export-card", "btn-export-anki",
+        "btn-reset-storage", "theme-select", "streak-badge", "btn-export-card", "btn-export-anki", "btn-inline-review", "inline-review-count",
         "practice-dialog", "practice-body", "btn-start-practice", "btn-menu-practice", "btn-close-practice",
         "shortcuts-dialog", "btn-menu-shortcuts", "btn-close-shortcuts", "btn-audio-speed", "btn-audio-repeat",
         "input-search-history", "related-words-container"
@@ -924,12 +955,49 @@ assert.equal(archive.elements["btn-return-today"].hidden, false, "archive previe
 await archive.elements["btn-return-today"].emit("click");
 assert.equal(archive.elements["archive-preview-note"].hidden, true, "returning to today must clear the archive state");
 
+const historyToday = Core.getLocalDateKey(new Date());
+const historyDailyId = Core.getDailyWordIndex(historyToday, words.length) + 1;
+const historyOrderIds = [historyDailyId, ...Array.from({ length: words.length }, (_, index) => index + 1)
+    .filter(id => id !== historyDailyId)
+    .slice(0, 2)].sort((a, b) => a - b);
+const historyOrderState = {
+    schemaVersion: 1,
+    history: {
+        [historyOrderIds[0]]: { firstSeen: "2026-08-12" },
+        [historyOrderIds[1]]: { firstSeen: "2026-08-12" },
+        [historyOrderIds[2]]: { firstSeen: "2026-08-10" }
+    },
+    preferences: { showEnglish: true }
+};
+const historyOrderApp = loadBrowserApp({ state: historyOrderState });
+const visibleHistoryIds = historyOrderApp.elements["history-list"].children.map(item =>
+    words.find(word => word.word === item.children[0].children[0].children[0].textContent).id
+);
+assert.deepEqual(visibleHistoryIds, historyOrderIds.slice(0, 2).concat(historyOrderIds[2]), "history drawer must sort newest-first with numeric same-date ties");
+await historyOrderApp.elements["history-list"].children[0].children[0].emit("click");
+await historyOrderApp.document.emit("keydown", { key: "ArrowLeft", preventDefault() {} });
+assert.equal(historyOrderApp.elements["main-word"].textContent, words.find(word => word.id === historyOrderIds[1]).word, "ArrowLeft must advance through sorted history");
+await historyOrderApp.document.emit("keydown", { key: "ArrowRight", preventDefault() {} });
+assert.equal(historyOrderApp.elements["main-word"].textContent, words.find(word => word.id === historyOrderIds[0]).word, "ArrowRight must reverse through sorted history");
+
 const corruptStorage = loadBrowserApp({ state: { schemaVersion: 99, history: {}, preferences: { showEnglish: true } } });
 assert.equal(corruptStorage.localStorage.value("arabic_words_state").includes('"schemaVersion":99'), true, "unsupported stored data must not be overwritten");
 assert.equal(corruptStorage.elements["storage-warning"].hidden, false, "blocked persistence must be explained");
 await corruptStorage.elements["btn-reset-storage"].emit("click");
 assert.equal(corruptStorage.elements["storage-warning"].hidden, true, "clicking reset storage button must hide warning");
 assert.equal(JSON.parse(corruptStorage.localStorage.value("arabic_words_state")).schemaVersion, 2, "resetting storage restores clean schema version 2 state");
+
+const malformedCurrentJson = JSON.stringify({
+    version: 2,
+    schemaVersion: 2,
+    history: "bad",
+    favorites: {},
+    srs: {},
+    preferences: { showEnglish: true, speechRate: 0.85, speechRepeat: 1, dailyReviewLimit: 20 }
+});
+const malformedCurrentStorage = loadBrowserApp({ rawStorage: malformedCurrentJson });
+assert.equal(malformedCurrentStorage.elements["storage-warning"].hidden, false, "malformed schema-v2 data must reveal the storage warning");
+assert.equal(malformedCurrentStorage.localStorage.value("arabic_words_state"), malformedCurrentJson, "malformed schema-v2 JSON must remain byte-for-byte unchanged");
 
 const invalidStorage = loadBrowserApp({ rawStorage: "{not-json" });
 assert.equal(invalidStorage.localStorage.value("arabic_words_state"), "{not-json", "invalid stored JSON must not be overwritten");

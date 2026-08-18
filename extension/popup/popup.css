@@ -79,8 +79,8 @@ html[data-theme="midnight"] {
 
 html, body {
   margin: 0;
-  width: 380px;
-  min-width: 380px;
+  width: 100%;
+  min-width: 0;
   max-width: 380px;
   background: var(--bg-page);
   color: var(--text-page);
@@ -89,7 +89,9 @@ html, body {
 }
 
 main {
-  width: 380px;
+  width: 100%;
+  min-width: 0;
+  max-width: 380px;
   padding: 16px 18px 20px;
 }
 
@@ -161,6 +163,13 @@ main {
   align-items: center;
   gap: 5px;
   white-space: nowrap;
+}
+
+#interest-count {
+  color: var(--text-page-muted);
+  font-size: 11px;
+  margin: 0 0 4px;
+  text-align: center;
 }
 
 h1, h2, p {
@@ -395,6 +404,12 @@ button:disabled {
   padding: 3px 12px;
   margin-bottom: 8px;
   letter-spacing: 0.02em;
+}
+
+.assignment-date {
+  color: var(--card-text-muted);
+  font-size: 11px;
+  margin: 0 0 6px;
 }
 
 html[data-theme="midnight"] .fixed {
@@ -748,22 +763,22 @@ html[data-theme="midnight"] .explore {
   transition: transform 160ms ease-out;
 }
 
-.reminder-row button[aria-pressed="true"]::before {
+.reminder-row button[aria-checked="true"]::before {
   background: var(--lime);
   border-color: var(--lime);
 }
 
-html[data-theme="emerald"] .reminder-row button[aria-pressed="true"]::before {
+html[data-theme="emerald"] .reminder-row button[aria-checked="true"]::before {
   background: #d4af37;
   border-color: #d4af37;
 }
 
-html[data-theme="midnight"] .reminder-row button[aria-pressed="true"]::before {
+html[data-theme="midnight"] .reminder-row button[aria-checked="true"]::before {
   background: #38bdf8;
   border-color: #38bdf8;
 }
 
-.reminder-row button[aria-pressed="true"]::after {
+.reminder-row button[aria-checked="true"]::after {
   transform: translateX(20px);
 }
 
@@ -870,6 +885,8 @@ html[data-theme="midnight"] .reminder-row button[aria-pressed="true"]::before {
   perspective: 1000px;
   min-height: 180px;
   margin: 4px 0;
+  display: flex;
+  flex-direction: column;
 }
 .flashcard-card {
   position: relative;
@@ -877,13 +894,23 @@ html[data-theme="midnight"] .reminder-row button[aria-pressed="true"]::before {
   min-height: 180px;
   transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
   transform-style: preserve-3d;
-  cursor: pointer;
   border-radius: 10px;
 }
 .flashcard-card.flipped {
   transform: rotateY(180deg);
 }
-.flashcard-card:focus-visible {
+.card-front-flip {
+  align-self: flex-start;
+  margin-bottom: 8px;
+  padding: 6px 14px;
+  border: 1px solid var(--border-page);
+  border-radius: 999px;
+  background: var(--btn-light-bg);
+  color: var(--btn-light-text);
+  font-size: 11px;
+  cursor: pointer;
+}
+.card-front-flip:focus-visible {
   outline: 2px solid var(--lime);
   outline-offset: 2px;
 }
@@ -934,6 +961,9 @@ html[data-theme="midnight"] .reminder-row button[aria-pressed="true"]::before {
 }
 .card-speak:focus-visible {
   outline: 2px solid var(--lime);
+}
+.card-speak:disabled {
+  cursor: not-allowed;
 }
 .flip-hint {
   font-size: 10px;

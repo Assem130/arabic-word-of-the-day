@@ -39,6 +39,8 @@
   const MAX_RECORD_BYTES = 16 * 1024;
   const MAX_CANONICAL_ID = 365;
   const MAX_REVIEW_LIMIT = 100;
+  const MAX_SRS_INTERVAL = 100000;
+  const MAX_SRS_EF = 10;
   const encoder = new TextEncoder();
   const INTERESTS = new Set(["classical-arabic", "daily-life", "family", "food", "language", "travel"]);
   const STATUSES = new Set(["known", "difficult"]);
@@ -62,6 +64,7 @@
     "streak",
     "streakData",
   ]);
+  const PREFERENCE_KEYS = new Set(["showEnglish", "speechRate", "speechRepeat", "dailyReviewLimit"]);
   const WORD_STATE_KEYS = new Set(["status", "dateKey", "saved"]);
   const ASSIGNMENT_KEYS = new Set(["wordId", "status"]);
   const DANGEROUS_KEYS = new Set(["__proto__", "constructor", "prototype"]);
@@ -255,6 +258,18 @@
     });
   }
 
+  function normalizeSrsInterval(value) {
+    return Number.isFinite(value) && value >= 0 && value <= MAX_SRS_INTERVAL
+      ? Math.round(value)
+      : 0;
+  }
+
+  function normalizeSrsEf(value) {
+    return Number.isFinite(value) && value >= 1.3 && value <= MAX_SRS_EF
+      ? Math.round(value * 100) / 100
+      : 2.5;
+  }
+
   function calculateSM2(item, rating, reviewDateKey) {
     const q = mapRatingToGrade(rating);
     const dateKey = isDateKey(reviewDateKey) ? reviewDateKey : getLocalDateKey(new Date());
@@ -262,10 +277,8 @@
     const prevRepetition = (item && Number.isInteger(item.repetition) && item.repetition >= 0)
       ? item.repetition
       : ((item && Number.isInteger(item.repetitions) && item.repetitions >= 0) ? item.repetitions : 0);
-    const prevInterval = (item && typeof item.interval === "number" && item.interval >= 0) ? item.interval : 0;
-    const prevEf = (item && typeof item.ef === "number" && !isNaN(item.ef) && item.ef >= 1.3)
-      ? item.ef
-      : ((item && typeof item.easeFactor === "number" && !isNaN(item.easeFactor) && item.easeFactor >= 1.3) ? item.easeFactor : 2.5);
+    const prevInterval = normalizeSrsInterval(item && item.interval);
+    const prevEf = normalizeSrsEf(item && (typeof item.ef === "number" ? item.ef : item.easeFactor));
     const prevLapses = (item && Number.isInteger(item.lapses) && item.lapses >= 0) ? item.lapses : 0;
     const prevReviewCount = (item && Number.isInteger(item.reviewCount) && item.reviewCount >= 0) ? item.reviewCount : 0;
     const prevHistory = (item && Array.isArray(item.history)) ? [...item.history] : [];
@@ -328,12 +341,25 @@
     return withSrsAliases(result);
   }
 
+  function getReviewOptions(item, reviewDateKey) {
+    const entries = ["again", "hard", "good", "easy"].map((rating) => {
+      const next = calculateSM2(item, rating, reviewDateKey);
+      const label = next.interval === 1 ? "غدًا" : `بعد ${next.interval} يوم`;
+      return [rating, {
+        interval: next.interval,
+        nextReviewDate: next.nextReviewDate,
+        label,
+      }];
+    });
+    return Object.fromEntries(entries);
+  }
+
   function copyProfile(raw, vocabulary, assignmentMaximum = MAX_ASSIGNMENTS) {
     safeKeys(raw, PROFILE_KEYS, "profile");
     for (const key of ["schemaVersion", "algorithmVersion", "seedHex", "level", "interests", "wordStates", "assignments", "recentIds", "evidenceCutoff"]) {
       if (!Object.hasOwn(raw, key)) fail(`profile ${key}`);
     }
-    if ((raw.schemaVersion !== SCHEMA_VERSION && raw.schemaVersion !== 2 && raw.schemaVersion !== 3) || raw.algorithmVersion !== ALGORITHM_VERSION) fail("schema version");
+    if (raw.schemaVersion !== SCHEMA_VERSION || raw.algorithmVersion !== ALGORITHM_VERSION) fail("schema version");
     if (typeof raw.seedHex !== "string" || !/^[0-9a-f]{32}$/.test(raw.seedHex)) fail("seedHex");
     if (!Number.isInteger(raw.level) || raw.level < 1 || raw.level > 4) fail("level");
     if (!Array.isArray(raw.interests) || raw.interests.length > 3 || raw.interests.some((interest) => !INTERESTS.has(interest)) || new Set(raw.interests).size !== raw.interests.length) fail("interests");
@@ -371,28 +397,48 @@
 
     // Copy or initialize SRS, History, Favorites, Preferences, Streak
     const srs = nullMap();
+    const fallbackDate = getLocalDateKey(new Date());
+    const srsMaximum = Math.min(MAX_RECORDS, index?.records?.size ?? MAX_RECORDS);
     if (raw.srs && typeof raw.srs === "object" && !Array.isArray(raw.srs)) {
-      for (const [rawWordId, item] of Object.entries(raw.srs)) {
+      const srsEntries = Object.entries(raw.srs);
+      if (srsEntries.length > srsMaximum) fail("records");
+      for (const [rawWordId, item] of srsEntries) {
         if (item && typeof item === "object") {
           const rawKeyId = canonicalWordId(rawWordId, index, "srs word ID");
           const wId = canonicalWordId(item.wordId ?? rawWordId, index, "srs word ID");
           if (String(rawKeyId) !== String(wId)) fail("srs word ID collision");
           const rawEf = typeof item.ef === "number" ? item.ef : item.easeFactor;
-          srs[wId] = withSrsAliases({
+          const nextReviewDate = isDateKey(item.nextReviewDate) ? item.nextReviewDate : fallbackDate;
+          const lastReviewedDate = isDateKey(item.lastReviewedDate)
+            ? item.lastReviewedDate
+            : (isDateKey(item.lastReviewed) ? item.lastReviewed : null);
+          const historyFallbackDate = lastReviewedDate || fallbackDate;
+          const history = Array.isArray(item.history)
+            ? item.history.slice(-50).map((entry) => {
+              if (!entry || typeof entry !== "object") return entry;
+              const rawHistoryEf = typeof entry.ef === "number" ? entry.ef : entry.easeFactor;
+              return {
+                ...entry,
+                date: isDateKey(entry.date) ? entry.date : historyFallbackDate,
+                interval: normalizeSrsInterval(entry.interval),
+                ef: normalizeSrsEf(rawHistoryEf),
+              };
+            })
+            : [];
+          const normalizedItem = withSrsAliases({
             wordId: wId,
             repetition: Number.isInteger(item.repetition) && item.repetition >= 0
               ? item.repetition
               : (Number.isInteger(item.repetitions) && item.repetitions >= 0 ? item.repetitions : 0),
-            interval: typeof item.interval === "number" && item.interval >= 0 ? Math.round(item.interval) : 0,
-            ef: typeof rawEf === "number" && !isNaN(rawEf) ? Math.max(1.3, Math.round(rawEf * 100) / 100) : 2.5,
-            nextReviewDate: isDateKey(item.nextReviewDate) ? item.nextReviewDate : getLocalDateKey(new Date()),
-            lastReviewedDate: isDateKey(item.lastReviewedDate)
-              ? item.lastReviewedDate
-              : (isDateKey(item.lastReviewed) ? item.lastReviewed : null),
+            interval: normalizeSrsInterval(item.interval),
+            ef: normalizeSrsEf(rawEf),
+            nextReviewDate,
+            lastReviewedDate,
             reviewCount: Number.isInteger(item.reviewCount) && item.reviewCount >= 0 ? item.reviewCount : 0,
             lapses: Number.isInteger(item.lapses) && item.lapses >= 0 ? item.lapses : 0,
-            history: Array.isArray(item.history) ? item.history.slice(-50) : [],
+            history,
           });
+          putUnique(srs, wId, normalizedItem, "srs word ID");
         }
       }
     }
@@ -444,12 +490,19 @@
       }
     }
 
+    const suppliedPreferences = Object.hasOwn(raw, "preferences");
+    const rawPreferences = suppliedPreferences ? raw.preferences : null;
+    if (suppliedPreferences) safeKeys(rawPreferences, PREFERENCE_KEYS, "preferences");
     const preferences = {
-      showEnglish: raw.preferences?.showEnglish ?? raw.showEnglish ?? true,
-      speechRate: typeof raw.preferences?.speechRate === "number" ? raw.preferences.speechRate : 0.85,
-      speechRepeat: typeof raw.preferences?.speechRepeat === "number" ? raw.preferences.speechRepeat : 1,
-      dailyReviewLimit: typeof raw.preferences?.dailyReviewLimit === "number" ? raw.preferences.dailyReviewLimit : 20,
+      showEnglish: Object.hasOwn(rawPreferences ?? {}, "showEnglish") ? rawPreferences.showEnglish : (raw.showEnglish ?? true),
+      speechRate: Object.hasOwn(rawPreferences ?? {}, "speechRate") ? rawPreferences.speechRate : 0.85,
+      speechRepeat: Object.hasOwn(rawPreferences ?? {}, "speechRepeat") ? rawPreferences.speechRepeat : 1,
+      dailyReviewLimit: Object.hasOwn(rawPreferences ?? {}, "dailyReviewLimit") ? rawPreferences.dailyReviewLimit : 20,
     };
+    if (typeof preferences.showEnglish !== "boolean") fail("preferences showEnglish");
+    if (!Number.isFinite(preferences.speechRate) || preferences.speechRate < 0.5 || preferences.speechRate > 1.5) fail("preferences speechRate");
+    if (preferences.speechRepeat !== 1 && preferences.speechRepeat !== 3) fail("preferences speechRepeat");
+    if (!Number.isInteger(preferences.dailyReviewLimit) || preferences.dailyReviewLimit < 1 || preferences.dailyReviewLimit > MAX_REVIEW_LIMIT) fail("preferences dailyReviewLimit");
 
     const streak = raw.streak || raw.streakData || null;
 
@@ -641,6 +694,7 @@
         dueItems.push({
           word,
           srs: srsItem,
+          reviewOptions: getReviewOptions(srsItem, todayKey),
           isOverdue: daysOverdue > 0,
           daysOverdue,
         });
@@ -720,6 +774,7 @@
     return {
       totalCards,
       dueToday,
+      dueCount: dueToday,
       reviewedToday,
       retentionRate,
       learningCount,
@@ -780,6 +835,7 @@
     getDueReviewWords,
     getReviewStats,
     calculateSM2,
+    getReviewOptions,
     createDefaultSrsItem,
     mapRatingToGrade,
     canonicalReviewRating,

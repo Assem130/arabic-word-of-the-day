@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
@@ -43,7 +43,7 @@
                 </a>
                 <p class="nav-note">كلمة اليوم</p>
                 <div class="nav-actions">
-                    <button class="icon-button" id="btn-toggle-menu" title="القائمة" aria-label="فتح القائمة" aria-expanded="false" aria-controls="app-menu-dropdown">
+                    <button class="icon-button" id="btn-toggle-menu" type="button" title="القائمة" aria-label="فتح القائمة" aria-expanded="false" aria-controls="app-menu-dropdown">
                         <svg class="icon"><use href="#i-bars"/></svg>
                     </button>
                 </div>
@@ -70,8 +70,8 @@
                             <svg class="icon" aria-hidden="true"><use href="#i-volume-high"/></svg>
                             <span>استمع إلى النطق</span>
                         </button>
-                        <button class="audio-option-btn" id="btn-audio-speed" type="button" title="تغيير سرعة النطق">0.85x</button>
-                        <button class="audio-option-btn" id="btn-audio-repeat" type="button" title="تكرار النطق للحفظ">تكرار x1</button>
+                        <button class="audio-option-btn" id="btn-audio-speed" type="button" title="تغيير سرعة النطق" aria-label="تغيير سرعة النطق">0.85x</button>
+                        <button class="audio-option-btn" id="btn-audio-repeat" type="button" title="تكرار النطق للحفظ" aria-label="تكرار النطق للحفظ">تكرار x1</button>
                     </div>
                 </div>
                 <div class="linguistic-data" aria-label="بيانات لغوية">
@@ -100,28 +100,37 @@
                                     <svg class="icon" aria-hidden="true"><use href="#i-volume-high"/></svg>
                                     <span>استمع للشاهد</span>
                                 </button>
-                                <button class="example-action-btn" id="btn-copy-quote" type="button" title="نسخ الشاهد مع التوثيق">
+                                <button class="example-action-btn" id="btn-copy-quote" type="button" title="نسخ الشاهد مع التوثيق" aria-label="نسخ الشاهد مع التوثيق">
                                     <svg class="icon"><use href="#i-copy"/></svg>
                                     <span>نسخ الشاهد</span>
                                 </button>
                             </div>
                         </div>
+                        <section class="usage-context" aria-labelledby="usage-context-title">
+                            <p class="reading-label" id="usage-context-title">في الاستعمال</p>
+                            <p id="word-context-text" lang="ar">...</p>
+                            <p id="word-context-en" lang="en" dir="ltr" hidden>...</p>
+                        </section>
                     </div>
                     <aside class="reading-sidebar">
                         <p>أضفها إلى ذاكرتك بالعودة إلى معناها وصوتها في أي وقت.</p>
                         <p class="next-word">الكلمة التالية خلال <b id="countdown-timer">--:--:--</b></p>
                         <p class="archive-notice">يُحفَظ ما تقرؤه تلقائياً في مخزونك اللغوي.</p>
                         <p class="archive-preview-note" id="archive-preview-note" role="status" aria-live="polite" hidden>أنت تستعرض كلمة من مخزونك، وليست كلمة اليوم.</p>
-                        <button class="return-today-button" id="btn-return-today" type="button" hidden>العودة إلى كلمة اليوم</button>
+                        <button class="return-today-button" id="btn-return-today" type="button" aria-label="العودة إلى كلمة اليوم" hidden>العودة إلى كلمة اليوم</button>
+                        <button class="inline-review-button" id="btn-inline-review" type="button" aria-label="راجع الكلمات المستحقة" hidden>
+                            راجع الكلمات المستحقة <span id="inline-review-count"></span>
+                        </button>
                     </aside>
                 </div>
                 <div class="app-menu-dropdown word-menu-dropdown" id="app-menu-dropdown" hidden>
+                    <a class="nav-explorer-link" href="index.html#lexicon-explorer" title="معجم الجذور والأوزان"><svg class="icon"><use href="#i-search"/></svg> <span>معجم الجذور</span></a>
                     <button class="menu-control-button" id="btn-toggle-history" type="button" title="المخزون اللغوي (H)" aria-label="فتح المخزون اللغوي">
                         <svg class="icon"><use href="#i-calendar"/></svg>
                         <span>المخزون اللغوي</span>
                         <span class="badge" id="history-count">0</span>
                     </button>
-                    <button id="due-review-badge" class="due-review-badge" type="button" title="المراجعات المستحقة اليوم (Q)" aria-label="المراجعات المستحقة اليوم: 0 كلمات" role="status">
+                    <button id="due-review-badge" class="due-review-badge" type="button" title="المراجعات المستحقة اليوم (Q)" aria-label="المراجعات المستحقة اليوم: 0 كلمات">
                         <span class="due-icon badge-icon">⚡</span>
                         <span class="due-count" id="due-count">0</span>
                         <span class="due-label">مراجعة</span>
@@ -136,14 +145,14 @@
                         </select>
                     </label>
                     <hr class="menu-divider" aria-hidden="true">
-                    <button id="btn-menu-practice" type="button"><svg class="icon"><use href="#i-sparkles"/></svg> اختبر حفظك (Q)</button>
-                    <button id="btn-share"><svg class="icon"><use href="#i-share"/></svg> مشاركة الكلمة</button>
-                    <button id="btn-copy-link"><svg class="icon"><use href="#i-copy"/></svg> نسخ تفاصيلها</button>
-                    <button id="btn-export-card" type="button"><svg class="icon"><use href="#i-share"/></svg> تصدير بطاقة الكلمة (PNG)</button>
-                    <button id="btn-toggle-english" type="button" aria-pressed="true">إخفاء الإنجليزية</button>
-                    <button id="btn-menu-shortcuts" type="button"><svg class="icon"><use href="#i-keyboard"/></svg> اختصارات المفاتيح (?)</button>
-                    <button id="btn-export-history" type="button">تصدير المخزون</button>
-                    <button id="btn-import-history" type="button">استيراد المخزون</button>
+                    <button id="btn-menu-practice" type="button" aria-label="اختبر حفظك (Q)"><svg class="icon"><use href="#i-sparkles"/></svg> اختبر حفظك (Q)</button>
+                    <button id="btn-share" type="button" aria-label="مشاركة الكلمة"><svg class="icon"><use href="#i-share"/></svg> مشاركة الكلمة</button>
+                    <button id="btn-copy-link" type="button" aria-label="نسخ تفاصيل الكلمة"><svg class="icon"><use href="#i-copy"/></svg> نسخ تفاصيلها</button>
+                    <button id="btn-export-card" type="button" aria-label="تصدير بطاقة الكلمة كصورة"><svg class="icon"><use href="#i-share"/></svg> تصدير بطاقة الكلمة (PNG)</button>
+                    <button id="btn-toggle-english" type="button" aria-label="إظهار أو إخفاء الترجمة الإنجليزية" aria-pressed="true">إخفاء الإنجليزية</button>
+                    <button id="btn-menu-shortcuts" type="button" aria-label="اختصارات لوحة المفاتيح"><svg class="icon"><use href="#i-keyboard"/></svg> اختصارات المفاتيح (?)</button>
+                    <button id="btn-export-history" type="button" aria-label="تصدير المخزون اللغوي">تصدير المخزون</button>
+                    <button id="btn-import-history" type="button" aria-label="استيراد المخزون اللغوي">استيراد المخزون</button>
                     <input id="input-import-history" type="file" accept="application/json,.json" hidden>
                 </div>
             </article>
@@ -163,12 +172,12 @@
                 <input type="search" id="input-search-history" class="history-search-input" placeholder="ابحث في الكلمات أو الجذور أو المعاني..." aria-label="البحث في المخزون اللغوي">
             </div>
             <div class="history-filter-tabs" role="tablist" aria-label="تصفية المخزون">
-                <button type="button" id="tab-history-all" class="history-tab active" role="tab" aria-selected="true">الكل (<span id="count-history-all">0</span>)</button>
-                <button type="button" id="tab-history-favs" class="history-tab" role="tab" aria-selected="false">المفضلة ⭐ (<span id="count-history-favs">0</span>)</button>
+                <button type="button" id="tab-history-all" class="history-tab active" role="tab" aria-selected="true" aria-label="عرض كل كلمات المخزون">الكل (<span id="count-history-all">0</span>)</button>
+                <button type="button" id="tab-history-favs" class="history-tab" role="tab" aria-selected="false" aria-label="عرض الكلمات المفضلة">المفضلة ⭐ (<span id="count-history-favs">0</span>)</button>
             </div>
             <div class="history-dialog-actions">
-                <button id="btn-start-practice" type="button" class="history-action-btn highlight"><svg class="icon"><use href="#i-sparkles"/></svg> اختبر حفظك</button>
-                <button id="btn-export-anki" type="button" class="history-action-btn">تصدير Anki (CSV)</button>
+                <button id="btn-start-practice" type="button" class="history-action-btn highlight" aria-label="بدء اختبار التثبيت والمراجعة"><svg class="icon"><use href="#i-sparkles"/></svg> اختبر حفظك</button>
+                <button id="btn-export-anki" type="button" class="history-action-btn" aria-label="تصدير الكلمات إلى ملف Anki CSV">تصدير Anki (CSV)</button>
             </div>
         </div>
         <div class="drawer-content">
@@ -211,7 +220,7 @@
 
     <div id="storage-warning" class="storage-warning" role="alert" hidden>
         <span>تعذّر حفظ المخزون على هذا الجهاز؛ ستبقى الجلسة الحالية متاحة.</span>
-        <button id="btn-reset-storage" type="button" class="reset-storage-button">إعادة ضبط التخزين</button>
+        <button id="btn-reset-storage" type="button" class="reset-storage-button" aria-label="إعادة ضبط التخزين">إعادة ضبط التخزين</button>
     </div>
     <div id="audio-announcer" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>

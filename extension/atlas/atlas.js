@@ -11,7 +11,12 @@
     exploreWord: null,
     reminder: { enabled: false, time: "09:00" },
     reminderWarning: false,
+    storageWarning: false,
     recoveryRaw: null,
+    reviewRevealed: false,
+    reviewSubmitting: false,
+    reviewQueueError: "",
+    reviewQueueRecovery: false,
   };
   let elements;
   let reminderQueue = Promise.resolve();
@@ -31,19 +36,19 @@
       "onboarding", "recovery", "empty", "error",
       "today-title", "explore-title", "history-title", "settings-title",
       "onboarding-title", "recovery-title", "empty-title", "error-title",
-      "today-card", "today-empty", "explore-card",
+      "today-card", "today-date", "today-empty", "explore-card",
       "atlas-search", "search-count", "search-results", "return-today",
       "history-filter", "history-list",
-      "settings-english", "settings-save", "settings-time", "settings-reminder",
+      "settings-english", "settings-speech-rate", "settings-speech-repeat", "settings-save", "settings-time", "settings-reminder",
       "export", "import-file", "clear",
       "recovery-export", "recovery-import", "recovery-clear", "onboarding-settings",
       "today-save", "today-known", "today-difficult", "today-action-status", "explore-lookup",
       "theme-select", "streak-badge", "today-export-card", "history-export-anki", "btn-export-anki",
       "due-review-badge", "practice-dialog", "practice-body", "practice-progress", "practice-close",
-      "practice-finished", "practice-finish-btn", "flashcard-card", "card-front-word",
+      "practice-finished", "practice-finished-message", "practice-error", "practice-error-message", "practice-retry", "practice-finish-btn", "flashcard-card", "card-front-face", "card-back-face", "card-front-flip", "card-front-word",
       "card-front-vocalization", "card-front-weight", "card-front-root", "card-front-speak",
       "card-back-meaning-ar", "card-back-meaning-en", "card-back-example-ar", "card-back-context",
-      "rate-again", "rate-hard", "rate-good", "rate-easy",
+      "practice-ratings", "rate-again", "rate-hard", "rate-good", "rate-easy",
     ].map((id) => [id, byId(id)]));
   }
 
@@ -113,6 +118,17 @@
 
   const REGISTER_LABELS = { standard: "فصيح معاصر", classical: "كلاسيكي", colloquial: "عامي" };
   const PART_LABELS = { noun: "اسم", verb: "فعل", adjective: "صفة", adverb: "ظرف", phrase: "عبارة", other: "أخرى" };
+  const ARABIC_DATE_OPTIONS = { weekday: "long", year: "numeric", month: "long", day: "numeric" };
+
+  function formatDateKey(dateKey) {
+    if (typeof globalThis.KalimatDate?.isDateKey !== "function" || !globalThis.KalimatDate.isDateKey(dateKey)) return "";
+    const [year, month, day] = dateKey.split("-").map(Number);
+    return new Date(year, month - 1, day).toLocaleDateString("ar-EG", ARABIC_DATE_OPTIONS);
+  }
+
+  function speechAvailable() {
+    return Boolean(globalThis.speechSynthesis) && typeof globalThis.SpeechSynthesisUtterance === "function";
+  }
 
   function renderWord(container, word) {
     container.replaceChildren();
@@ -121,6 +137,14 @@
     title.lang = "ar";
     title.textContent = word.word;
     container.append(title);
+    const speakButton = document.createElement("button");
+    speakButton.className = "word-speak";
+    speakButton.type = "button";
+    speakButton.setAttribute("aria-label", `استمع لنطق ${word.word}`);
+    speakButton.textContent = "🔊 استمع للنطق";
+    speakButton.disabled = !speechAvailable();
+    speakButton.addEventListener("click", () => speak(word.word));
+    container.append(speakButton);
     addText(container, "p", word.meaningAr, "meaning", "rtl");
     if (state.profile?.showEnglish !== false) addText(container, "p", word.meaningEn, "english", "ltr");
     addText(container, "p", word.pronunciation, "pronunciation", "ltr");
@@ -167,6 +191,11 @@
   function renderToday() {
     const word = state.today?.word;
     actionStatus("");
+    const dateText = formatDateKey(state.today?.dateKey);
+    if (elements["today-date"]) {
+      elements["today-date"].textContent = dateText;
+      elements["today-date"].hidden = !dateText;
+    }
     renderWord(elements["today-card"], word);
     elements["today-card"].hidden = !word;
     elements["today-empty"].hidden = !!word;
@@ -382,14 +411,16 @@
 
   function hydrateSettings() {
     const profile = state.profile ?? {};
-    const level = document.querySelector(`input[name="atlas-level"][value="${profile.level ?? 1}"]`);
+    const levelValue = profile.level === 4 ? 3 : (profile.level ?? 1);
+    const level = document.querySelector(`input[name="atlas-level"][value="${levelValue}"]`);
     if (level) level.checked = true;
     for (const input of document.querySelectorAll('input[name="atlas-interest"]')) {
       input.checked = profile.interests?.includes(input.value) === true;
     }
     elements["settings-english"].checked = profile.showEnglish !== false;
+    elements["settings-speech-rate"].value = String(profile.preferences?.speechRate ?? 0.85);
+    elements["settings-speech-repeat"].value = String(profile.preferences?.speechRepeat ?? 1);
     elements["settings-time"].value = state.reminder.time;
-    elements["settings-reminder"].setAttribute("aria-pressed", String(state.reminder.enabled));
     elements["settings-reminder"].setAttribute("aria-checked", String(state.reminder.enabled));
     elements["settings-reminder"].textContent = state.reminder.enabled ? "إيقاف التذكير اليومي" : "تفعيل التذكير اليومي";
   }
@@ -398,17 +429,33 @@
     const interests = selectedInterests();
     const level = Number(document.querySelector('input[name="atlas-level"]:checked')?.value);
     if (!Number.isInteger(level) || interests.length > 3) return status("اختر مستوى وحتى ثلاثة اهتمامات.");
+    const speechRate = Number(elements["settings-speech-rate"].value);
+    const speechRepeat = Number(elements["settings-speech-repeat"].value);
     const wasOnboarding = state.profile === null;
     const result = await ExtApi.runtime.sendMessage({
       type: "settings.update",
       level,
       interests,
       showEnglish: elements["settings-english"].checked,
+      speechRate,
+      speechRepeat,
     });
     if (result?.kind === "recovery") return renderRecovery(result.recoveryRaw);
     if (result?.kind !== "ok") throw new Error("Settings unchanged.");
-    warning(result.storageWarning === true || state.reminderWarning);
-    state.profile = { ...state.profile, level, interests, showEnglish: elements["settings-english"].checked };
+    state.storageWarning = result.storageWarning === true;
+    warning(state.storageWarning || state.reminderWarning);
+    state.profile = {
+      ...(state.profile ?? {}),
+      level,
+      interests,
+      showEnglish: elements["settings-english"].checked,
+      preferences: {
+        ...(state.profile?.preferences ?? {}),
+        showEnglish: elements["settings-english"].checked,
+        speechRate,
+        speechRepeat,
+      },
+    };
     if (wasOnboarding) await loadAssignment();
     else {
       renderToday();
@@ -433,7 +480,7 @@
       if (!reminder || typeof reminder.enabled !== "boolean" || !validTime(reminder.time)) throw new Error("Invalid reminder.");
       state.reminder = { enabled: reminder.enabled, time: reminder.time };
       state.reminderWarning = reminder.storageWarning === true;
-      warning(state.reminderWarning);
+      warning(state.reminderWarning || state.storageWarning);
       hydrateSettings();
       return state.reminder;
     });
@@ -447,7 +494,7 @@
       if (!reminder || typeof reminder.enabled !== "boolean" || !validTime(reminder.time)) throw new Error("Invalid reminder.");
       state.reminder = { enabled: reminder.enabled, time: reminder.time };
       state.reminderWarning = reminder.storageWarning === true;
-      warning(state.reminderWarning);
+      warning(state.reminderWarning || state.storageWarning);
       hydrateSettings();
       return state.reminder;
     });
@@ -554,6 +601,7 @@
     const result = await ExtApi.runtime.sendMessage({ type: "state.clear" });
     if (result?.kind !== "ok") throw new Error("Clear failed.");
     state.reminderWarning = result.reminderWarning === true;
+    state.storageWarning = result.storageWarning === true;
     state.reminder = { ...state.reminder, enabled: false };
     warning(result.storageWarning === true || state.reminderWarning);
     state.profile = null;
@@ -654,7 +702,8 @@
       show("error");
       return status("الكلمة غير متاحة.");
     }
-    warning(result.storageWarning === true || state.reminderWarning);
+    state.storageWarning = result.storageWarning === true;
+    warning(state.storageWarning || state.reminderWarning);
     if (!dateKey) {
       mergeAssignment(result);
       state.today = { ...result, word };
@@ -713,27 +762,35 @@
       return renderRecovery(assignment?.recoveryRaw ?? exported?.recoveryRaw);
     }
     if (exported?.kind !== "export") throw new Error("Profile unavailable.");
+    if (!assignment || !["assigned", "no-new-word"].includes(assignment.kind)) throw new Error("Assignment unavailable.");
+    if (settings?.kind !== "settings" || !settings.reminder || typeof settings.reminder.enabled !== "boolean" || !validTime(settings.reminder.time)) throw new Error("Settings unavailable.");
     state.profile = JSON.parse(exported.text);
-    state.reminder = settings?.reminder ?? state.reminder;
+    if (!state.profile || typeof state.profile !== "object") throw new Error("Profile unavailable.");
+    state.reminder = settings.reminder;
     state.reminderWarning = settings?.storageWarning === true;
+    state.storageWarning = exported.storageWarning === true || assignment.storageWarning === true;
     state.recoveryRaw = null;
-    warning(exported.storageWarning === true || assignment.storageWarning === true || state.reminderWarning);
+    warning(state.storageWarning || state.reminderWarning);
     hydrateSettings();
     if (directWord) {
+      const reviewResult = await loadDueReviews({ force: true });
+      if (reviewResult?.kind === "recovery" || state.reviewQueueRecovery) return;
       viewWord(directWord);
       show("explore");
       return;
     }
     updateStreakBadge(assignment?.dateKey);
+    const assignedWord = assignment?.kind === "assigned" ? wordById(assignment.wordId) : null;
+    if (assignment?.kind === "assigned" && !assignedWord) return renderError("الكلمة غير متاحة.");
+    const reviewResult = await loadDueReviews({ force: true });
+    if (reviewResult?.kind === "recovery" || state.reviewQueueRecovery) return;
     if (assignment?.kind === "assigned") {
-      const word = wordById(assignment.wordId);
-      if (!word) return renderError("الكلمة غير متاحة.");
       if (dateKey) {
-        viewWord(word);
+        viewWord(assignedWord);
         show("explore");
       } else {
         mergeAssignment(assignment);
-        state.today = { ...assignment, word };
+        state.today = { ...assignment, word: assignedWord };
         renderToday();
         if (exploreRequested) {
           elements["atlas-search"].value = requestedQuery;
@@ -756,28 +813,33 @@
   }
 
   let reviewQueue = [];
+  let reviewMeta = { dueCount: 0, visibleCount: 0, remainingCount: 0 };
+  let reviewQueueLoad = null;
+  let reviewQueueLoaded = false;
   let currentReviewIndex = 0;
+  let reviewInvoker = null;
+
+  function toArabicDigits(value) {
+    if (globalThis.KalimatStreak?.toArabicDigits) return globalThis.KalimatStreak.toArabicDigits(value);
+    return String(value ?? "").replace(/[0-9]/g, (digit) => "٠١٢٣٤٥٦٧٨٩"[digit]);
+  }
+
+  function formatReviewCount(count) {
+    const value = Math.max(0, Number(count) || 0);
+    if (value === 1) return "مراجعة واحدة";
+    if (value === 2) return "مراجعتين";
+    if (value >= 3 && value <= 10) return `${toArabicDigits(value)} مراجعات`;
+    return `${toArabicDigits(value)} مراجعة`;
+  }
 
   function speak(text) {
-    if (!text || !globalThis.speechSynthesis || typeof globalThis.SpeechSynthesisUtterance !== "function") return;
+    const speech = globalThis.speechSynthesis;
+    if (!text || !speech || typeof globalThis.SpeechSynthesisUtterance !== "function") return;
     const cleanWord = String(text).replace(/[\u200B-\u200F\uFEFF\u0640]/g, "").trim();
     if (!cleanWord) return;
 
-    const utterance = new SpeechSynthesisUtterance(cleanWord);
-    utterance.lang = "ar-SA";
-    utterance.rate = 0.95;
-    utterance.pitch = 1.0;
-
-    globalThis._activeUtterance = utterance;
-    utterance.onend = () => {
-      if (globalThis._activeUtterance === utterance) globalThis._activeUtterance = null;
-    };
-    utterance.onerror = () => {
-      if (globalThis._activeUtterance === utterance) globalThis._activeUtterance = null;
-    };
-
-    const availableVoices = typeof globalThis.speechSynthesis.getVoices === "function"
-      ? (globalThis.speechSynthesis.getVoices() || [])
+    const availableVoices = typeof speech.getVoices === "function"
+      ? (speech.getVoices() || [])
       : [];
     const arabicVoice = availableVoices.find((v) => {
       const l = (v.lang || "").toLowerCase();
@@ -785,70 +847,248 @@
       return (l === "ar-sa" || l.startsWith("ar")) && (n.includes("natural") || n.includes("neural") || n.includes("online") || n.includes("siri") || n.includes("enhanced"));
     }) || availableVoices.find((v) => (v.lang || "").toLowerCase().startsWith("ar"));
 
-    if (arabicVoice) {
-      utterance.voice = arabicVoice;
-      utterance.lang = arabicVoice.lang || "ar-SA";
-    }
-
+    const speechRate = state.profile?.preferences?.speechRate ?? 0.85;
+    const speechRepeat = state.profile?.preferences?.speechRepeat ?? 1;
+    let remaining = speechRepeat;
+    globalThis._activeUtterance = null;
     try {
-      globalThis.speechSynthesis.cancel();
-      globalThis.speechSynthesis.speak(utterance);
-    } catch (_) {}
+      speech.cancel();
+    } catch (_) { /* best effort */ }
+
+    const speakNext = () => {
+      const utterance = new SpeechSynthesisUtterance(cleanWord);
+      utterance.lang = "ar-SA";
+      utterance.rate = speechRate;
+      utterance.pitch = 1.0;
+      if (arabicVoice) {
+        utterance.voice = arabicVoice;
+        utterance.lang = arabicVoice.lang || "ar-SA";
+      }
+      globalThis._activeUtterance = utterance;
+      utterance.onend = () => {
+        if (globalThis._activeUtterance !== utterance) return;
+        if (remaining > 1) {
+          remaining -= 1;
+          speakNext();
+        } else {
+          globalThis._activeUtterance = null;
+        }
+      };
+      utterance.onerror = () => {
+        if (globalThis._activeUtterance === utterance) globalThis._activeUtterance = null;
+      };
+      try {
+        speech.speak(utterance);
+      } catch (_) {
+        if (globalThis._activeUtterance === utterance) globalThis._activeUtterance = null;
+      }
+    };
+    speakNext();
   }
 
-  async function loadDueReviews() {
-    try {
-      const res = await ExtApi.runtime.sendMessage({ type: "review.queue" });
-      if (res && res.kind === "queue") {
-        reviewQueue = Array.isArray(res.words) ? res.words : [];
-        const count = typeof res.dueCount === "number" ? res.dueCount : reviewQueue.length;
+  function hideReviewBadge() {
+    if (elements["due-review-badge"]) elements["due-review-badge"].hidden = true;
+  }
+
+  function reviewButtons() {
+    return [elements["rate-again"], elements["rate-hard"], elements["rate-good"], elements["rate-easy"]].filter(Boolean);
+  }
+
+  function syncReviewControls() {
+    const revealed = state.reviewRevealed === true;
+    if (elements["practice-ratings"]) elements["practice-ratings"].hidden = !revealed;
+    for (const button of reviewButtons()) button.disabled = !revealed || state.reviewSubmitting === true;
+    if (elements["card-front-speak"]) elements["card-front-speak"].disabled = revealed;
+    if (elements["card-front-face"]) elements["card-front-face"].setAttribute("aria-hidden", String(revealed));
+    if (elements["card-back-face"]) elements["card-back-face"].setAttribute("aria-hidden", String(!revealed));
+    if (elements["flashcard-card"]) elements["flashcard-card"].classList.toggle("flipped", revealed);
+    if (elements["card-front-flip"]) {
+      elements["card-front-flip"].setAttribute("aria-pressed", String(revealed));
+      const label = revealed ? "أخفِ المعنى" : "اقلب البطاقة";
+      elements["card-front-flip"].setAttribute("aria-label", label);
+      elements["card-front-flip"].textContent = label;
+    }
+  }
+
+  function clearPracticeCard() {
+    state.reviewRevealed = false;
+    state.reviewSubmitting = false;
+    for (const element of [elements["card-front-word"], elements["card-front-vocalization"], elements["card-front-weight"], elements["card-front-root"], elements["card-back-meaning-ar"], elements["card-back-meaning-en"], elements["card-back-example-ar"], elements["card-back-context"]]) {
+      if (element) element.textContent = "";
+    }
+    if (elements["practice-progress"]) elements["practice-progress"].textContent = "";
+    for (const button of reviewButtons()) {
+      const interval = button.querySelector?.(".rate-interval");
+      if (interval) interval.textContent = "—";
+      button.setAttribute("aria-busy", "false");
+    }
+    syncReviewControls();
+  }
+
+  function setReviewQueueError(message = "تعذّر تحميل المراجعات. حاول مجددًا.") {
+    state.reviewQueueError = message;
+    reviewQueue = [];
+    reviewMeta = { dueCount: 0, visibleCount: 0, remainingCount: 0 };
+    reviewQueueLoaded = false;
+    currentReviewIndex = 0;
+    hideReviewBadge();
+    clearPracticeCard();
+  }
+
+  function parseReviewQueue(response) {
+    if (!response || response.kind !== "queue" || !Array.isArray(response.words)) return null;
+    for (const key of ["dueCount", "visibleCount", "remainingCount"]) {
+      if (response[key] !== undefined && (!Number.isInteger(response[key]) || response[key] < 0)) return null;
+    }
+    if (response.words.some((item) => {
+      if (!item || typeof item !== "object") return true;
+      const word = item.word && typeof item.word === "object" ? item.word : item;
+      const hasId = Boolean(item.wordId || item.id || word.id);
+      const hasWord = typeof word.word === "string" && word.word.trim() !== "";
+      const hasMeaning = (typeof word.meaningAr === "string" && word.meaningAr.trim() !== "") || (typeof word.meaning === "string" && word.meaning.trim() !== "");
+      return !hasId || !hasWord || !hasMeaning;
+    })) return null;
+    const dueCount = response.dueCount === undefined ? response.words.length : response.dueCount;
+    const visibleCount = response.visibleCount === undefined ? response.words.length : response.visibleCount;
+    const remainingCount = response.remainingCount === undefined ? Math.max(0, dueCount - visibleCount) : response.remainingCount;
+    if (visibleCount !== response.words.length || visibleCount > dueCount || remainingCount !== dueCount - visibleCount) return null;
+    if (response.words.length === 0 && dueCount !== 0) return null;
+    return { words: response.words, dueCount, visibleCount, remainingCount, storageWarning: response.storageWarning === true };
+  }
+
+  function loadDueReviews({ force = false } = {}) {
+    if (!force && reviewQueueLoaded) return Promise.resolve();
+    if (reviewQueueLoad) return reviewQueueLoad;
+
+    reviewQueue = [];
+    reviewMeta = { dueCount: 0, visibleCount: 0, remainingCount: 0 };
+    reviewQueueLoaded = false;
+    state.reviewQueueError = "";
+    state.reviewQueueRecovery = false;
+    hideReviewBadge();
+    reviewQueueLoad = (async () => {
+      try {
+        const response = await ExtApi.runtime.sendMessage({ type: "review.queue" });
+        if (response?.kind === "recovery") {
+          state.reviewQueueError = "";
+          state.reviewQueueRecovery = true;
+          reviewQueueLoaded = false;
+          reviewQueue = [];
+          reviewMeta = { dueCount: 0, visibleCount: 0, remainingCount: 0 };
+          hideReviewBadge();
+          renderRecovery(response.recoveryRaw);
+          return { kind: "recovery" };
+        }
+        const result = parseReviewQueue(response);
+        if (!result) throw new Error("Invalid review queue.");
+        state.reviewQueueError = "";
+        state.reviewQueueRecovery = false;
+        reviewQueue = result.words;
+        reviewMeta = { dueCount: result.dueCount, visibleCount: result.visibleCount, remainingCount: result.remainingCount };
+        reviewQueueLoaded = true;
+        warning(result.storageWarning || state.storageWarning || state.reminderWarning);
         if (elements["due-review-badge"]) {
-          if (count > 0) {
+          if (result.dueCount > 0) {
             elements["due-review-badge"].hidden = false;
-            elements["due-review-badge"].textContent = `${count} مستحقة`;
+            elements["due-review-badge"].textContent = `${result.dueCount} مستحقة`;
+            elements["due-review-badge"].setAttribute("aria-label", `المراجعات المستحقة اليوم: ${formatReviewCount(result.dueCount)}`);
           } else {
             elements["due-review-badge"].hidden = true;
           }
         }
+      } catch (_) {
+        setReviewQueueError();
       }
-    } catch (_) {}
+    })();
+    const pending = reviewQueueLoad;
+    pending.then(() => {
+      if (reviewQueueLoad === pending) reviewQueueLoad = null;
+    }, () => {
+      if (reviewQueueLoad === pending) reviewQueueLoad = null;
+    });
+    return pending;
+  }
+
+  function presentPracticeDialog() {
+    if (!elements["practice-dialog"]) return;
+    if (typeof elements["practice-dialog"].showModal === "function") elements["practice-dialog"].showModal();
+    else elements["practice-dialog"].setAttribute("open", "");
+  }
+
+  function showPracticeError() {
+    if (elements["practice-body"]) elements["practice-body"].hidden = false;
+    if (elements["practice-finished"]) elements["practice-finished"].hidden = true;
+    if (elements["practice-error"]) elements["practice-error"].hidden = false;
+    if (elements["practice-error-message"]) elements["practice-error-message"].textContent = state.reviewQueueError || "تعذّر تحميل المراجعات. حاول مجددًا.";
+    clearPracticeCard();
+    status(state.reviewQueueError || "تعذّر تحميل المراجعات. حاول مجددًا.");
+  }
+
+  function showPracticeContent() {
+    if (state.reviewQueueRecovery) return;
+    if (state.reviewQueueError) return showPracticeError();
+    if (reviewQueue.length === 0) return showPracticeFinished();
+    currentReviewIndex = 0;
+    showPracticeCard(currentReviewIndex);
   }
 
   function openPracticeModal() {
     if (!elements["practice-dialog"]) return;
-    if (reviewQueue.length === 0) {
-      loadDueReviews().then(() => {
-        if (reviewQueue.length === 0) {
-          showPracticeFinished();
-        } else {
-          currentReviewIndex = 0;
-          showPracticeCard(currentReviewIndex);
-        }
-        if (typeof elements["practice-dialog"].showModal === "function") {
-          elements["practice-dialog"].showModal();
-        } else {
-          elements["practice-dialog"].setAttribute("open", "");
-        }
+    reviewInvoker = document.activeElement && typeof document.activeElement.focus === "function" ? document.activeElement : null;
+    if (state.reviewQueueError) {
+      loadDueReviews({ force: true }).then((result) => {
+        if (result?.kind === "recovery" || state.reviewQueueRecovery) return;
+        showPracticeContent();
+        presentPracticeDialog();
       });
       return;
     }
-    currentReviewIndex = 0;
-    showPracticeCard(currentReviewIndex);
-    if (typeof elements["practice-dialog"].showModal === "function") {
-      elements["practice-dialog"].showModal();
-    } else {
-      elements["practice-dialog"].setAttribute("open", "");
+    const needsLoad = !reviewQueueLoaded || reviewQueue.length === 0;
+    if (needsLoad) {
+      loadDueReviews().then((result) => {
+        if (result?.kind === "recovery" || state.reviewQueueRecovery) return;
+        showPracticeContent();
+        presentPracticeDialog();
+      });
+      return;
     }
+    showPracticeContent();
+    presentPracticeDialog();
+  }
+
+  function restoreReviewFocus() {
+    const invoker = reviewInvoker;
+    reviewInvoker = null;
+    if (invoker && typeof invoker.focus === "function") invoker.focus();
   }
 
   function closePracticeModal() {
     if (!elements["practice-dialog"]) return;
-    if (typeof elements["practice-dialog"].close === "function") {
-      elements["practice-dialog"].close();
-    } else {
+    if (typeof elements["practice-dialog"].close === "function") elements["practice-dialog"].close();
+    else {
       elements["practice-dialog"].removeAttribute("open");
+      restoreReviewFocus();
     }
-    loadDueReviews();
+    loadDueReviews({ force: true });
+  }
+
+  function handlePracticeDialogClose() {
+    if (state.reviewQueueRecovery) {
+      reviewInvoker = null;
+      return;
+    }
+    restoreReviewFocus();
+  }
+
+  function dismissPracticeForRecovery() {
+    if (elements["practice-dialog"]) {
+      if (typeof elements["practice-dialog"].close === "function") elements["practice-dialog"].close();
+      else elements["practice-dialog"].removeAttribute("open");
+    }
+    if (elements["practice-body"]) elements["practice-body"].hidden = true;
+    if (elements["practice-finished"]) elements["practice-finished"].hidden = true;
+    if (elements["practice-error"]) elements["practice-error"].hidden = true;
+    clearPracticeCard();
   }
 
   function showPracticeCard(index) {
@@ -862,7 +1102,18 @@
     const item = reviewQueue[index];
     const word = item.word || item;
 
-    if (elements["flashcard-card"]) elements["flashcard-card"].classList.remove("flipped");
+    state.reviewRevealed = false;
+    state.reviewSubmitting = false;
+    state.reviewQueueError = "";
+    state.reviewQueueRecovery = false;
+    if (elements["practice-error"]) elements["practice-error"].hidden = true;
+    const reviewOptions = item.reviewOptions || {};
+    for (const [key, button] of [["again", elements["rate-again"]], ["hard", elements["rate-hard"]], ["good", elements["rate-good"]], ["easy", elements["rate-easy"]]]) {
+      const label = reviewOptions[key]?.label;
+      if (!button || !label) continue;
+      const interval = button.querySelector?.(".rate-interval");
+      if (interval) interval.textContent = label;
+    }
     if (elements["practice-progress"]) {
       elements["practice-progress"].textContent = `${index + 1} / ${reviewQueue.length}`;
     }
@@ -877,26 +1128,45 @@
     }
     if (elements["card-back-example-ar"]) elements["card-back-example-ar"].textContent = word.exampleAr || word.example || "";
     if (elements["card-back-context"]) elements["card-back-context"].textContent = word.contextAr || word.context || "";
+    syncReviewControls();
   }
 
   function showPracticeFinished() {
     if (elements["practice-body"]) elements["practice-body"].hidden = true;
     if (elements["practice-finished"]) elements["practice-finished"].hidden = false;
-    if (elements["due-review-badge"]) elements["due-review-badge"].hidden = true;
-  }
-
-  function flipCard() {
-    if (elements["flashcard-card"]) {
-      elements["flashcard-card"].classList.toggle("flipped");
+    if (elements["practice-error"]) elements["practice-error"].hidden = true;
+    clearPracticeCard();
+    const remainingCount = Math.max(0, reviewMeta.remainingCount);
+    const finishedMessage = elements["practice-finished-message"];
+    if (remainingCount > 0) {
+      const message = `أتممت ${toArabicDigits(reviewMeta.visibleCount)} من ${toArabicDigits(reviewMeta.dueCount)} مراجعة؛ تبقت ${formatReviewCount(remainingCount)}.`;
+      if (finishedMessage) finishedMessage.textContent = message;
+      if (elements["due-review-badge"]) {
+        elements["due-review-badge"].hidden = false;
+        elements["due-review-badge"].textContent = `${remainingCount} مستحقة`;
+        elements["due-review-badge"].setAttribute("aria-label", `المراجعات المتبقية بعد الجلسة: ${formatReviewCount(remainingCount)}`);
+      }
+      status(message);
+    } else {
+      if (finishedMessage) finishedMessage.textContent = "🎉 أحسنت! أنهيت جميع مراجعات اليوم.";
+      if (elements["due-review-badge"]) elements["due-review-badge"].hidden = true;
     }
   }
 
+  function flipCard() {
+    state.reviewRevealed = !state.reviewRevealed;
+    syncReviewControls();
+    status(state.reviewRevealed ? "كُشف المعنى." : "أُخفي المعنى.");
+  }
+
   async function submitRating(rating) {
-    if (currentReviewIndex >= reviewQueue.length) return;
+    if (!state.reviewRevealed || state.reviewSubmitting || currentReviewIndex >= reviewQueue.length) return;
     const currentItem = reviewQueue[currentReviewIndex];
     const wordId = currentItem.word?.id ?? currentItem.wordId ?? currentItem.id;
-    const buttons = [elements["rate-again"], elements["rate-hard"], elements["rate-good"], elements["rate-easy"]].filter(Boolean);
-    buttons.forEach((button) => { button.disabled = true; button.setAttribute("aria-busy", "true"); });
+    const buttons = reviewButtons();
+    state.reviewSubmitting = true;
+    syncReviewControls();
+    buttons.forEach((button) => button.setAttribute("aria-busy", "true"));
     try {
       const result = await ExtApi.runtime.sendMessage({
         type: "word.review",
@@ -907,13 +1177,20 @@
       if (result?.kind === "recovery") return renderRecovery(result.recoveryRaw);
       if (result?.kind !== "ok") throw new Error("Review unchanged.");
       currentReviewIndex++;
-      if (currentReviewIndex < reviewQueue.length) showPracticeCard(currentReviewIndex);
-      else showPracticeFinished();
-      status("تم حفظ المراجعة.");
+      if (currentReviewIndex < reviewQueue.length) {
+        showPracticeCard(currentReviewIndex);
+        status("تم حفظ المراجعة.");
+      } else {
+        showPracticeFinished();
+        if (reviewMeta.remainingCount === 0) status("تم حفظ المراجعة.");
+      }
     } catch (_) {
+      state.reviewSubmitting = false;
+      syncReviewControls();
       status("تعذّر حفظ المراجعة. حاول مجددًا.");
     } finally {
-      buttons.forEach((button) => { button.disabled = false; button.setAttribute("aria-busy", "false"); });
+      state.reviewSubmitting = false;
+      buttons.forEach((button) => button.setAttribute("aria-busy", "false"));
     }
   }
 
@@ -934,21 +1211,25 @@
         }
       }
       if (event.key === "1" || event.key === "١") {
+        if (!state.reviewRevealed) return;
         event.preventDefault();
         submitRating("again");
         return;
       }
       if (event.key === "2" || event.key === "٢") {
+        if (!state.reviewRevealed) return;
         event.preventDefault();
         submitRating("hard");
         return;
       }
       if (event.key === "3" || event.key === "٣") {
+        if (!state.reviewRevealed) return;
         event.preventDefault();
         submitRating("good");
         return;
       }
       if (event.key === "4" || event.key === "٤") {
+        if (!state.reviewRevealed) return;
         event.preventDefault();
         submitRating("easy");
         return;
@@ -1000,7 +1281,17 @@
     if (elements["due-review-badge"]) elements["due-review-badge"].addEventListener("click", openPracticeModal);
     if (elements["practice-close"]) elements["practice-close"].addEventListener("click", closePracticeModal);
     if (elements["practice-finish-btn"]) elements["practice-finish-btn"].addEventListener("click", closePracticeModal);
-    if (elements["flashcard-card"]) elements["flashcard-card"].addEventListener("click", flipCard);
+    if (elements["practice-retry"]) elements["practice-retry"].addEventListener("click", () => {
+      loadDueReviews({ force: true }).then((result) => {
+        if (result?.kind === "recovery" || state.reviewQueueRecovery) {
+          dismissPracticeForRecovery();
+          return;
+        }
+        showPracticeContent();
+      });
+    });
+    if (elements["practice-dialog"]) elements["practice-dialog"].addEventListener("close", handlePracticeDialogClose);
+    if (elements["card-front-flip"]) elements["card-front-flip"].addEventListener("click", flipCard);
     if (elements["card-front-speak"]) {
       elements["card-front-speak"].addEventListener("click", (e) => {
         e.stopPropagation();

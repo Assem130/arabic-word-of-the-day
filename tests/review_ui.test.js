@@ -342,6 +342,10 @@ function createDOMEnvironment(initialState = null) {
     sandbox.KalimatCore = loadedCore;
     sandbox.window.KalimatCore = loadedCore;
 
+    for (const id of ["word-context-text", "word-context-en", "btn-inline-review", "inline-review-count"]) {
+        doc.getElementById(id);
+    }
+
     vm.runInContext(appCode, sandbox);
 
     // Dispatch DOMContentLoaded to trigger app initialization
@@ -428,7 +432,8 @@ test("2. CSS Stylesheet Review Component Rules & Animations", () => {
 
         // Focus Rings
         assert.match(css, /\.rating-btn:focus-visible/, `${filename} must provide focus-visible on rating buttons`);
-        assert.match(css, /\.flashcard-card:focus-visible/, `${filename} must provide focus-visible on flashcard`);
+        assert.match(css, /\.card-front-flip:focus-visible/, `${filename} must provide focus-visible on the dedicated flip button`);
+        assert.doesNotMatch(css, /\.flashcard-card:focus-visible/, `${filename} must not focus the non-interactive card group`);
 
         // Reduced Motion Media Query
         assert.match(css, /@media\s*\(prefers-reduced-motion:\s*reduce\)/, `${filename} must support prefers-reduced-motion`);
@@ -473,6 +478,74 @@ test("3. Due Review Badge Counter & Dynamic Sync with SM-2 Queue", () => {
     assert.equal(dueBadge.classList.contains("pulse"), true, "due badge must have .pulse class when pending reviews exist");
 });
 
+test("Usage context, inline review CTA, and shortcut focus stay synchronized", () => {
+    const { sandbox: renderSandbox, doc: renderDoc } = createDOMEnvironment();
+    const KalimatApp = renderSandbox.window.KalimatApp;
+    const customWord = {
+        ...renderSandbox.WORDS_DB[0],
+        context: "يَرِدُ اللفظ في المدح القديم.",
+        contextEnglish: "The word appears in classical praise."
+    };
+
+    KalimatApp.renderWord(customWord, null);
+    assert.equal(renderDoc.getElementById("word-context-text").textContent, customWord.context);
+    assert.equal(renderDoc.getElementById("word-context-en").textContent, customWord.contextEnglish);
+    assert.equal(renderDoc.getElementById("word-context-en").hidden, false);
+
+    renderDoc.getElementById("btn-toggle-english").dispatchEvent({ type: "click" });
+    assert.equal(renderDoc.getElementById("word-meaning-en").hidden, true);
+    assert.equal(renderDoc.getElementById("word-context-en").hidden, true);
+
+    const today = renderSandbox.window.KalimatCore.getLocalDateKey(new Date());
+    const dailyWordId = renderSandbox.window.KalimatCore.getDailyWordIndex(today, renderSandbox.WORDS_DB.length) + 1;
+    const dueIds = [1, 2, 3].filter(id => id !== dailyWordId).slice(0, 2);
+    const future = renderSandbox.window.KalimatCore.addDaysToDateKey(today, 1);
+    const dueState = {
+        schemaVersion: 1,
+        history: { ...Object.fromEntries(dueIds.map(id => [id, { firstSeen: today }])), [dailyWordId]: { firstSeen: today } },
+        srs: {
+            ...Object.fromEntries(dueIds.map(id => [id, { wordId: id, repetition: 0, interval: 0, ef: 2.5, nextReviewDate: today, lastReviewedDate: null, lapses: 0, history: [] }])),
+            [dailyWordId]: { wordId: dailyWordId, repetition: 1, interval: 1, ef: 2.5, nextReviewDate: future, lastReviewedDate: today, lapses: 0, history: [] }
+        },
+        favorites: {},
+        preferences: { showEnglish: true, speechRate: 0.85, speechRepeat: 1 }
+    };
+    const { sandbox: dueSandbox, doc: dueDoc } = createDOMEnvironment(dueState);
+    dueSandbox.window.KalimatApp.updateDueReviewBadge();
+    const inlineButton = dueDoc.getElementById("btn-inline-review");
+    assert.equal(inlineButton.hidden, false);
+    assert.equal(dueDoc.getElementById("inline-review-count").textContent, "٢");
+    assert.match(inlineButton.getAttribute("aria-label"), /٢/);
+    inlineButton.dispatchEvent({ type: "click" });
+    assert.equal(dueDoc.getElementById("practice-dialog").open, true);
+
+    const emptyState = {
+        schemaVersion: 1,
+        history: { [dailyWordId]: { firstSeen: today } },
+        srs: { [dailyWordId]: { wordId: dailyWordId, repetition: 1, interval: 1, ef: 2.5, nextReviewDate: future, lastReviewedDate: today, lapses: 0, history: [] } },
+        favorites: {},
+        preferences: { showEnglish: true, speechRate: 0.85, speechRepeat: 1 }
+    };
+    const { doc: emptyDoc } = createDOMEnvironment(emptyState);
+    assert.equal(emptyDoc.getElementById("btn-inline-review").hidden, true);
+
+    const shortcutEnv = createDOMEnvironment();
+    const shortcutDoc = shortcutEnv.doc;
+    const historyInvoker = shortcutDoc.createElement("button");
+    shortcutDoc.activeElement = historyInvoker;
+    shortcutDoc.dispatchEvent({ type: "keydown", key: "H", preventDefault() {} });
+    assert.equal(shortcutDoc.activeElement, shortcutDoc.getElementById("btn-close-history"));
+    shortcutDoc.getElementById("btn-close-history").dispatchEvent({ type: "click" });
+    assert.equal(shortcutDoc.activeElement, historyInvoker);
+
+    const shortcutsInvoker = shortcutDoc.createElement("button");
+    shortcutDoc.activeElement = shortcutsInvoker;
+    shortcutDoc.dispatchEvent({ type: "keydown", key: "?", preventDefault() {} });
+    assert.equal(shortcutDoc.activeElement, shortcutDoc.getElementById("btn-close-shortcuts"));
+    shortcutDoc.getElementById("btn-close-shortcuts").dispatchEvent({ type: "click" });
+    assert.equal(shortcutDoc.activeElement, shortcutsInvoker);
+});
+
 // -----------------------------------------------------------------------------
 // Test 4: Full Interactive Review Lifecycle: Queue, Flip, Rate & Complete
 // -----------------------------------------------------------------------------
@@ -508,23 +581,72 @@ test("4. Interactive Spaced Repetition Review Lifecycle (Queue, 3D Flip, SM-2 Ra
 
     // Step 2: Verify Flashcard Front Face
     const card = env.doc.getElementById("flashcard-card");
+    const flipButton = env.doc.getElementById("card-front-flip");
+    const frontFace = env.doc.getElementById("card-front-face");
+    const backFace = env.doc.getElementById("card-back-face");
+    const frontSpeaker = env.doc.getElementById("fc-btn-audio");
+    const backSpeaker = env.doc.getElementById("fc-btn-back-audio");
     const frontWord = env.doc.getElementById("fc-front-word");
     const frontEase = env.doc.getElementById("fc-front-ease");
     const ratingBar = env.doc.getElementById("flashcard-rating-bar");
+    const ratingSection = env.doc.getElementById("flashcard-rating-section");
+    const ratingPrompt = env.doc.getElementById("fc-back-prompt");
 
     assert.notEqual(card, null, "flashcard-card element must exist in DOM");
+    assert.equal(card.getAttribute("role"), "group", "flashcard-card must be a non-interactive group");
+    assert.equal(card.getAttribute("tabindex"), null, "flashcard-card must not expose a tabindex");
+    assert.equal(flipButton.getAttribute("aria-pressed"), "false", "dedicated flip button starts unpressed");
+    assert.equal(frontFace.getAttribute("aria-hidden"), "false", "front face is exposed initially");
+    assert.equal(backFace.getAttribute("aria-hidden"), "true", "back face is hidden initially");
+    assert.equal(frontSpeaker.disabled, false, "front speaker is enabled initially");
+    assert.equal(backSpeaker.disabled, true, "back speaker is disabled initially");
     assert.equal(frontWord.textContent.length > 0, true, "front of card displays Arabic word with tashkeel");
     assert.match(frontEase.textContent, /عامل السهولة:\s*2\.5/, "front displays initial Easiness Factor");
+    assert.equal(ratingSection.hidden, true, "rating section must be hidden before card is flipped");
+    assert.equal(ratingPrompt.parentNode, ratingSection, "rating prompt must sit with the rating controls, outside the card overflow");
     assert.equal(ratingBar.hidden, true, "rating bar must be hidden before card is flipped");
     assert.equal(KalimatApp.isFlashcardFlipped(), false, "isFlashcardFlipped is initially false");
+    const firstReviewOptions = KalimatApp.getActiveReviewQueue()[0].reviewOptions;
+    const intervalLabels = Array.from(practiceBody.querySelectorAll(".rating-interval"), (node) => node.textContent);
+    assert.deepEqual(intervalLabels, ["again", "hard", "good", "easy"].map((rating) => firstReviewOptions[rating].label), "rating buttons show the card's exact SM-2 labels");
 
     // Step 3: Flip Flashcard (Show Back Face & Reveal Rating Bar)
     KalimatApp.flipFlashcard();
 
     assert.equal(KalimatApp.isFlashcardFlipped(), true, "isFlashcardFlipped becomes true");
     assert.equal(card.classList.contains("is-flipped"), true, "card element receives .is-flipped class");
+    assert.equal(flipButton.getAttribute("aria-pressed"), "true", "flip button exposes the revealed state");
+    assert.equal(flipButton.getAttribute("aria-label"), "أخفِ المعنى", "flip button label changes after reveal");
+    assert.equal(ratingSection.hidden, false, "rating section is revealed with the rating controls");
     assert.equal(ratingBar.hidden, false, "rating bar is revealed when card flips");
-    assert.match(announcer.textContent, /تم كشف المعنى/, "announcer informs user that meaning is revealed");
+    assert.equal(ratingBar.getAttribute("aria-hidden"), "false", "rating controls are exposed after reveal");
+    assert.equal(frontFace.getAttribute("aria-hidden"), "true", "front face is hidden after reveal");
+    assert.equal(backFace.getAttribute("aria-hidden"), "false", "back face is exposed after reveal");
+    assert.equal(frontSpeaker.disabled, true, "front speaker is disabled while hidden");
+    assert.equal(backSpeaker.disabled, false, "back speaker is enabled while visible");
+    assert.equal(Array.from(ratingBar.querySelectorAll("button")).every((button) => button.disabled === false), true, "rating controls are enabled after reveal");
+    assert.equal(announcer.textContent, "كُشف المعنى.", "announcer informs user that meaning is revealed");
+
+    KalimatApp.flipFlashcard();
+    assert.equal(KalimatApp.isFlashcardFlipped(), false, "second activation hides the card again");
+    assert.equal(flipButton.getAttribute("aria-pressed"), "false", "flip button returns to the unpressed state");
+    assert.equal(flipButton.getAttribute("aria-label"), "اقلب البطاقة", "flip button label resets after hiding");
+    assert.equal(ratingSection.hidden, true, "rating section hides when the meaning is hidden");
+    assert.equal(ratingBar.hidden, true, "rating bar hides when the meaning is hidden");
+    assert.equal(ratingBar.getAttribute("aria-hidden"), "true", "rating controls are hidden after flip-back");
+    assert.equal(frontFace.getAttribute("aria-hidden"), "false", "front face is exposed after flip-back");
+    assert.equal(backFace.getAttribute("aria-hidden"), "true", "back face is hidden after flip-back");
+    assert.equal(frontSpeaker.disabled, false, "front speaker is re-enabled after flip-back");
+    assert.equal(backSpeaker.disabled, true, "back speaker is disabled after flip-back");
+    assert.equal(Array.from(ratingBar.querySelectorAll("button")).every((button) => button.disabled === true), true, "rating controls are disabled after flip-back");
+    assert.equal(announcer.textContent, "أُخفي المعنى.", "announcer reports the hidden state");
+
+    const speaker = env.doc.getElementById("fc-btn-audio");
+    speaker.dispatchEvent({ type: "click", stopPropagation() {} });
+    assert.equal(KalimatApp.isFlashcardFlipped(), false, "speaker activation does not flip the card");
+
+    KalimatApp.flipFlashcard();
+    assert.equal(KalimatApp.isFlashcardFlipped(), true, "card can be revealed again after hiding");
 
     const backMeaning = env.doc.getElementById("fc-back-meaning");
     assert.equal(backMeaning.textContent.length > 0, true, "back of card displays comprehensive Arabic meaning");
@@ -575,6 +697,110 @@ test("4. Interactive Spaced Repetition Review Lifecycle (Queue, 3D Flip, SM-2 Ra
     assert.equal(practiceDialog.open, false, "close button closes practice dialog");
 });
 
+test("Failed review writes keep the visible card and announce a retry", () => {
+    const { sandbox: initialSandbox } = createDOMEnvironment();
+    const Core = initialSandbox.window.KalimatCore;
+    const today = Core.getLocalDateKey(new Date());
+    const dailyId = Core.getDailyWordIndex(today, initialSandbox.WORDS_DB.length) + 1;
+    const reviewId = dailyId === 1 ? 2 : 1;
+    const future = Core.addDaysToDateKey(today, 1);
+    const initialState = {
+        schemaVersion: 1,
+        history: { [reviewId]: { firstSeen: today }, [dailyId]: { firstSeen: today } },
+        srs: {
+            [reviewId]: { wordId: reviewId, repetition: 0, interval: 0, ef: 2.5, nextReviewDate: today, lastReviewedDate: null, reviewCount: 0, lapses: 0, history: [] },
+            [dailyId]: { wordId: dailyId, repetition: 1, interval: 1, ef: 2.5, nextReviewDate: future, lastReviewedDate: today, reviewCount: 1, lapses: 0, history: [] }
+        },
+        favorites: {},
+        preferences: { showEnglish: true, speechRate: 0.85, speechRepeat: 1 }
+    };
+
+    const env = createDOMEnvironment(initialState);
+    const app = env.sandbox.window.KalimatApp;
+    const reviewStorage = env.localStorage;
+    const warning = env.doc.getElementById("storage-warning");
+    const announcer = env.doc.getElementById("audio-announcer");
+
+    app.startSpacedRepetitionReview();
+    const queueBefore = app.getActiveReviewQueue().map((item) => item.word.id);
+    assert.equal(queueBefore.length, 1, "fixture opens a one-card practice queue");
+    assert.equal(queueBefore[0], reviewId, "fixture reviews the non-daily card");
+    const stateBefore = JSON.parse(JSON.stringify(vm.runInContext("appState", env.sandbox)));
+    const storedBefore = reviewStorage.getItem("arabic_words_state");
+    const dueBefore = env.doc.getElementById("due-count").textContent;
+    const cardBefore = env.doc.getElementById("fc-front-word").textContent;
+    const originalSetItem = reviewStorage.setItem;
+    let writeAttempts = 0;
+    reviewStorage.setItem = (key, value) => {
+        writeAttempts += 1;
+        if (writeAttempts === 1) throw new Error("quota");
+        return originalSetItem(key, value);
+    };
+
+    app.flipFlashcard();
+    app.handleRatingSubmission("good");
+
+    assert.equal(reviewStorage.getItem("arabic_words_state"), storedBefore, "failed write leaves stored JSON unchanged");
+    assert.deepEqual(JSON.parse(JSON.stringify(vm.runInContext("appState.srs", env.sandbox))), stateBefore.srs, "failed write leaves in-memory SRS unchanged");
+    assert.deepEqual(JSON.parse(JSON.stringify(vm.runInContext("appState.history", env.sandbox))), stateBefore.history, "failed write leaves in-memory history unchanged");
+    assert.equal(app.getActiveReviewIndex(), 0, "failed write does not advance the active index");
+    assert.deepEqual(app.getActiveReviewQueue().map((item) => item.word.id), queueBefore, "failed write preserves queue order");
+    assert.deepEqual(JSON.parse(JSON.stringify(app.getSessionReviewStats())), { totalReviewed: 0, ratings: { again: 0, hard: 0, good: 0, easy: 0 } }, "failed write leaves session totals unchanged");
+    assert.equal(env.doc.getElementById("due-count").textContent, dueBefore, "failed write leaves due badge unchanged");
+    assert.equal(env.doc.getElementById("fc-front-word").textContent, cardBefore, "failed write keeps the same card visible");
+    assert.equal(warning.hidden, false, "failed write shows the storage warning");
+    assert.match(announcer.textContent, /تعذّر حفظ المراجعة.*حاول/, "failed write announces a retry message");
+    assert.doesNotMatch(announcer.textContent, /تم تقييم|بنجاح/, "failed write does not announce success");
+
+    app.handleRatingSubmission("good");
+
+    const storedAfterRetry = JSON.parse(reviewStorage.getItem("arabic_words_state"));
+    const reviewed = storedAfterRetry.srs[reviewId];
+    assert.equal(writeAttempts, 2, "the failed submission and one retry perform exactly two writes");
+    assert.equal(app.getActiveReviewIndex(), 1, "successful retry advances exactly once");
+    assert.equal(app.getSessionReviewStats().totalReviewed, 1, "successful retry records one review");
+    assert.equal(app.getSessionReviewStats().ratings.good, 1, "successful retry records the good rating once");
+    assert.equal(reviewed.reviewCount, 1, "successful retry persists one review count");
+    assert.equal(reviewed.history.length, 1, "successful retry persists one history entry");
+});
+
+test("Capped review sessions report visible and remaining counts", () => {
+    const { sandbox: initialSandbox } = createDOMEnvironment();
+    const Core = initialSandbox.window.KalimatCore;
+    const today = Core.getLocalDateKey(new Date());
+    const ids = Array.from({ length: 20 }, (_, index) => index + 1);
+    const state = {
+        schemaVersion: 1,
+        history: Object.fromEntries(ids.map((id) => [id, { firstSeen: today }])),
+        srs: Object.fromEntries(ids.map((id) => [id, {
+            wordId: id,
+            repetition: 0,
+            interval: 0,
+            ef: 2.5,
+            nextReviewDate: today,
+            lastReviewedDate: null,
+            reviewCount: 0,
+            lapses: 0,
+            history: []
+        }])),
+        favorites: {},
+        preferences: { showEnglish: true, speechRate: 0.85, speechRepeat: 1, dailyReviewLimit: 20 }
+    };
+
+    const { sandbox, doc } = createDOMEnvironment(state);
+    const KalimatApp = sandbox.window.KalimatApp;
+    KalimatApp.startSpacedRepetitionReview();
+    assert.equal(KalimatApp.getActiveReviewQueue().length, 20);
+    while (KalimatApp.getActiveReviewIndex() < KalimatApp.getActiveReviewQueue().length) {
+        KalimatApp.flipFlashcard();
+        KalimatApp.handleRatingSubmission("good");
+    }
+
+    const summaryDesc = doc.getElementById("practice-body").querySelector(".practice-summary-desc");
+    assert.equal(summaryDesc.textContent, "أتممت ٢٠ من ٢١ مراجعة؛ تبقت مراجعة واحدة.");
+    assert.match(doc.getElementById("due-review-badge").getAttribute("aria-label"), /المراجعات المتبقية.*١/);
+});
+
 // -----------------------------------------------------------------------------
 // Test 5: Keyboard Shortcuts inside Review Modal (Space, 1-4, P, Esc, Tab)
 // -----------------------------------------------------------------------------
@@ -602,6 +828,7 @@ test("5. Modal Keyboard Accessibility & Shortcuts (Space/Enter flip, 1-4/١-٤ r
     assert.equal(KalimatApp.isFlashcardFlipped(), false, "card is unflipped initially");
 
     // Test Spacebar keydown on dialog -> Flips card
+    env.doc.activeElement = practiceDialog;
     let spacePrevented = false;
     practiceDialog.dispatchEvent({
         type: "keydown",

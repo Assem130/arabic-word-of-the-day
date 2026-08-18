@@ -76,25 +76,12 @@ const METADATA = [
   { sourceId: 60, id: 60, contentVersion: 2, difficultyBand: "intermediate", usefulnessBand: "medium", topics: ["family"], partOfSpeech: "noun", register: "standard", reviewed: true },
 ];
 
-const SOURCE_OVERRIDES = {
-  14: { root: "ت ل د" },
-  15: { word: "السُّلَاف" },
-  24: { example: "فاحَ أَرِيجُ الياسمين في الفناء بعد أن سُقيت الأزهار." },
-  25: { example: "أثارَت الرسالةُ القديمةُ في نفسه شَجَنًا ممزوجًا بالشوق." },
-  32: { example: "سادَ الوِئامُ بين أفراد الفريق بعد حوار صريح." },
-  41: { example: "أضاءَ القمرُ الطريقَ وسطَ الدُّجى." },
-  46: { example: "بدا وجهُ الطفل نَضيرًا بعد نوم هادئ." },
-  47: { root: "ع س ع س" },
-  48: { pronunciation: "/al-qareehah/" },
-  51: { root: "ح ج و" },
-  57: {
-    word: "الأُفُول",
-    pronunciation: "/al-ufuul/",
-    weight: "فُعُول",
-    meaning: "غروب الجِرم السماوي وغيابه خلف الأفق، ويقال أفول الشهرة لانحسارها.",
-    englishMeaning: "The setting and disappearance of a celestial body; also the fading of fame.",
-    example: "راقبنا أُفولَ الشمس خلف الجبال.",
-  },
+const EXTENSION_EXAMPLE_OVERRIDES = {
+  24: "فاحَ أَرِيجُ الياسمين في الفناء بعد أن سُقيت الأزهار.",
+  25: "أثارَت الرسالةُ القديمةُ في نفسه شَجَنًا ممزوجًا بالشوق.",
+  32: "سادَ الوِئامُ بين أفراد الفريق بعد حوار صريح.",
+  41: "أضاءَ القمرُ الطريقَ وسطَ الدُّجى.",
+  46: "بدا وجهُ الطفل نَضيرًا بعد نوم هادئ.",
 };
 
 const CATEGORY_TOPICS = {
@@ -124,7 +111,8 @@ function normalizeArabic(value) {
 const vocabulary = words.map((seed, index) => {
   const metadata = METADATA[index] || existingMetadata.get(seed.id);
   if (!metadata || metadata.reviewed !== true) throw new TypeError(`Missing reviewed metadata for source ${seed.id}.`);
-  const source = { ...seed, ...SOURCE_OVERRIDES[seed.id] };
+  const source = seed;
+  const exampleAr = EXTENSION_EXAMPLE_OVERRIDES[seed.id] || source.example;
   return {
     id: seed.id,
     contentVersion: 2,
@@ -147,7 +135,7 @@ const vocabulary = words.map((seed, index) => {
     englishMeaning: source.englishMeaning,
     meaningEn: source.englishMeaning,
     example: source.example,
-    exampleAr: source.example,
+    exampleAr,
     context: source.context,
     contextAr: source.context,
     contextEnglish: source.contextEnglish,

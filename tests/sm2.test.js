@@ -213,6 +213,36 @@ test("SM-2 Engine — Standard interval progression for Easy and Hard", async (t
     assert.equal(hardRes.nextReviewDate, "2026-08-30");
 });
 
+test("SM-2 review options expose exact next dates and Arabic interval labels", () => {
+    const today = "2026-08-17";
+    const firstReview = Core.createDefaultSrsItem(1, today);
+    const options = Core.getReviewOptions(firstReview, today);
+
+    assert.equal(options.again.interval, Core.calculateSM2(firstReview, "again", today).interval);
+    assert.equal(options.again.nextReviewDate, "2026-08-18");
+    assert.equal(options.easy.label, "غدًا");
+
+    const later = Core.getReviewOptions({ repetition: 1, interval: 1, ef: 2.5 }, today);
+    assert.equal(later.good.interval, 6);
+    assert.equal(later.good.nextReviewDate, "2026-08-23");
+    assert.equal(later.good.label, "بعد 6 أيام");
+
+    const twoDays = Core.getReviewOptions({ repetition: 2, interval: 1, ef: 1.7 }, today).good;
+    assert.equal(twoDays.interval, 2);
+    assert.equal(twoDays.nextReviewDate, "2026-08-19");
+    assert.equal(twoDays.label, "بعد يومين");
+
+    const threeDays = Core.getReviewOptions({ repetition: 2, interval: 1, ef: 3 }, today).good;
+    assert.equal(threeDays.interval, 3);
+    assert.equal(threeDays.nextReviewDate, "2026-08-20");
+    assert.equal(threeDays.label, "بعد 3 أيام");
+
+    const twelveDays = Core.getReviewOptions({ repetition: 2, interval: 2, ef: 6 }, today).good;
+    assert.equal(twelveDays.interval, 12);
+    assert.equal(twelveDays.nextReviewDate, "2026-08-29");
+    assert.equal(twelveDays.label, "بعد 12 يومًا");
+});
+
 test("SM-2 Engine — Lapse Handling and Recovery Cycle", async (t) => {
     let item = {
         wordId: 42,
@@ -390,6 +420,55 @@ test("SM-2 Engine — Review Statistics (getReviewStats)", async (t) => {
     // Total history logs = 4 + 2 + 3 = 9. Successful (grade >= 3) = 8.
     // Retention rate = 8 / 9 = 88.9%
     assert.equal(stats.retentionRate, 88.9);
+});
+
+test("SM-2 Engine — Review Statistics ignore SRS IDs outside the supplied vocabulary", () => {
+    const state = {
+        version: 2,
+        schemaVersion: 2,
+        history: {
+            1: { firstSeen: "2026-08-16" },
+            999: { firstSeen: "2026-08-16" }
+        },
+        favorites: {},
+        preferences: { showEnglish: true, speechRate: 0.85, speechRepeat: 1, dailyReviewLimit: 20 },
+        srs: {
+            1: {
+                wordId: 1,
+                repetition: 1,
+                interval: 1,
+                ef: 2.5,
+                nextReviewDate: "2026-08-16",
+                lastReviewedDate: "2026-08-16",
+                reviewCount: 2,
+                lapses: 0,
+                history: [
+                    { date: "2026-08-16", grade: 4, rating: "good", interval: 1, ef: 2.5 },
+                    { date: "2026-08-15", grade: 4, rating: "good", interval: 1, ef: 2.5 }
+                ]
+            },
+            999: {
+                wordId: 999,
+                repetition: 5,
+                interval: 30,
+                ef: 2.5,
+                nextReviewDate: "2026-08-16",
+                lastReviewedDate: "2026-08-16",
+                reviewCount: 99,
+                lapses: 0,
+                history: [
+                    { date: "2026-08-16", grade: 1, rating: "again", interval: 1, ef: 2.5 }
+                ]
+            }
+        }
+    };
+
+    const stats = Core.getReviewStats(state, "2026-08-16", [{ id: 1 }]);
+    assert.equal(stats.totalCards, 1);
+    assert.equal(stats.dueToday, 1);
+    assert.equal(stats.reviewedToday, 1);
+    assert.equal(stats.reviewCount, 2);
+    assert.equal(stats.retentionRate, 100);
 });
 
 test("SM-2 Engine — scheduleDailyWordSrs Auto-Enrollment", async (t) => {

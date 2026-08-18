@@ -64,12 +64,16 @@ function validReminder(value) {
 
 async function getVocabulary() {
   if (!vocabularyPromise) {
-    vocabularyPromise = fetch(ExtApi.runtime.getURL("data/vocabulary.json"))
+    const pending = fetch(ExtApi.runtime.getURL("data/vocabulary.json"))
       .then((response) => {
         if (!response.ok) throw new Error("Vocabulary unavailable.");
         return response.json();
       })
       .then(dependencies.vocabulary.validateVocabulary);
+    vocabularyPromise = pending.catch((error) => {
+      vocabularyPromise = null;
+      throw error;
+    });
   }
   return vocabularyPromise;
 }
@@ -367,12 +371,17 @@ async function alarmFired(alarm) {
   const settings = await ensureReminderNow();
   if (settings.enabled) {
     if (typeof ExtApi?.notifications?.create !== "function") return warningReminder(settings);
-    await ExtApi.notifications.create(REMINDER_ALARM, {
-      type: "basic",
-      iconUrl: ExtApi.runtime.getURL("icons/icon-128.png"),
-      title: "كلمات",
-      message: "كلمتك العربية جاهزة.",
-    });
+    try {
+      await ExtApi.notifications.create(REMINDER_ALARM, {
+        type: "basic",
+        iconUrl: ExtApi.runtime.getURL("icons/icon-128.png"),
+        title: "كلمات",
+        message: "كلمتك العربية جاهزة.",
+      });
+    } catch (_) {
+      await setReminderWarning(true);
+      return;
+    }
   }
 }
 
@@ -446,8 +455,15 @@ function handleMessage(message) {
       const loaded = await loadProfile(vocabulary);
       if (loaded.recoveryRaw !== undefined) return recovery(loaded);
       const dateKey = message.dateKey || (dependencies.date.todayDateKey ? dependencies.date.todayDateKey() : dependencies.date.getLocalDateKey(new Date()));
-      const dueWords = dependencies.state.getDueReviewWords(loaded.profile, vocabulary, dateKey, message.limit === undefined ? null : message.limit);
-      return { kind: "queue", words: dueWords, dueCount: dueWords.length };
+      const configuredLimit = loaded.profile.preferences?.dailyReviewLimit;
+      const limit = message.limit === undefined
+        ? (Number.isSafeInteger(configuredLimit) && configuredLimit >= 1 && configuredLimit <= 100 ? configuredLimit : 20)
+        : message.limit;
+      const dueWords = dependencies.state.getDueReviewWords(loaded.profile, vocabulary, dateKey, limit);
+      const stats = dependencies.state.getReviewStats(loaded.profile, vocabulary, dateKey);
+      const dueCount = Number.isInteger(stats?.dueCount) ? stats.dueCount : dueWords.length;
+      const visibleCount = dueWords.length;
+      return { kind: "queue", words: dueWords, dueCount, visibleCount, remainingCount: Math.max(0, dueCount - visibleCount) };
     }
     if (message.type === "word.review") {
       if (!exactMessage(message, new Set(["type", "wordId", "rating", "dateKey"])) || !Object.hasOwn(message, "dateKey") || !dependencies.date.isDateKey(message.dateKey)) throw new TypeError("Invalid review.");
@@ -512,8 +528,19 @@ function handleMessage(message) {
       return { wordId, saved: profile.wordStates[String(wordId)]?.saved === true };
     });
     if (message.type === "settings.update") return updateProfile((profile, vocabulary) => {
-      if (!exactMessage(message, new Set(["type", "level", "interests", "showEnglish"])) || (message.showEnglish !== undefined && typeof message.showEnglish !== "boolean")) throw new TypeError("Invalid settings.");
-      const checked = dependencies.state.validateStoredProfile({ ...profile, level: message.level ?? profile.level, interests: message.interests ?? profile.interests, showEnglish: message.showEnglish ?? profile.showEnglish }, vocabulary);
+      if (!exactMessage(message, new Set(["type", "level", "interests", "showEnglish", "speechRate", "speechRepeat"])) || (message.showEnglish !== undefined && typeof message.showEnglish !== "boolean")) throw new TypeError("Invalid settings.");
+      const showEnglish = message.showEnglish ?? profile.preferences.showEnglish ?? profile.showEnglish;
+      const preferences = { ...profile.preferences, showEnglish };
+      if (message.speechRate !== undefined) preferences.speechRate = message.speechRate;
+      if (message.speechRepeat !== undefined) preferences.speechRepeat = message.speechRepeat;
+      const candidate = {
+        ...profile,
+        level: message.level ?? profile.level,
+        interests: message.interests ?? profile.interests,
+        showEnglish,
+        preferences,
+      };
+      const checked = dependencies.state.validateStoredProfile(candidate, vocabulary);
       if (!checked.canPersist) throw new TypeError("Invalid settings.");
       return checked.profile;
     });

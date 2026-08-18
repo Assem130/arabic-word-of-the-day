@@ -18,7 +18,7 @@
           <option value="emerald">زمردي</option>
           <option value="midnight">ليلي</option>
         </select>
-        <span id="streak-badge" class="streak-badge" aria-label="تتابع التعلم" role="status">🔥 لا يوجد تتابع بعد</span>
+        <span id="streak-badge" class="streak-badge" title="تتابع القراءة والزيارة" aria-label="تتابع القراءة والزيارة" role="status">🔥 لا يوجد تتابع بعد</span>
         <button id="due-review-badge" class="due-review-badge" aria-label="المراجعات المستحقة" type="button" hidden>0 مستحقة</button>
       </div>
       <h1>كلمة اليوم</h1>
@@ -49,16 +49,11 @@
             <strong>متقدم</strong>
             <small>C1</small>
           </label>
-          <label>
-            <span class="level-mark">٤</span>
-            <input type="radio" name="level" value="4">
-            <strong>خبير</strong>
-            <small>C2 / تراثي</small>
-          </label>
         </div>
       </fieldset>
       <fieldset class="interests">
         <legend>اهتماماتك <span>(حتى ثلاثة)</span></legend>
+        <p id="interest-count" aria-live="polite">0/3</p>
         <label><input type="checkbox" name="interest" value="daily-life"> الحياة اليومية</label>
         <label><input type="checkbox" name="interest" value="classical-arabic"> العربية الكلاسيكية</label>
         <label><input type="checkbox" name="interest" value="language"> اللغة والأدب</label>
@@ -71,10 +66,11 @@
         <button id="onboarding-skip" class="quiet" type="button">تخطي الآن</button>
       </div>
     </section>
-    <section id="assigned" aria-labelledby="assigned-title">
+    <section id="assigned" aria-labelledby="assigned-title" hidden>
       <h2 id="assigned-title" class="visually-hidden" tabindex="-1">كلمتك اليومية</h2>
       <article class="word-card">
         <p id="fixed-label" class="fixed">ثابتة لليوم</p>
+        <p id="assignment-date" class="assignment-date" aria-live="polite" hidden></p>
         <h2 id="word" tabindex="-1" lang="ar"></h2>
         <p id="meaning-ar" class="meaning" lang="ar"></p>
         <p id="meaning-en" class="english" lang="en" dir="ltr"></p>
@@ -114,7 +110,7 @@
       <div class="reminder-row">
         <label for="reminder-time">تذكير يومي</label>
         <input id="reminder-time" type="time" value="09:00">
-        <button id="reminder" type="button" role="switch" aria-checked="false" aria-pressed="false" aria-label="تفعيل التذكير اليومي"></button>
+        <button id="reminder" type="button" role="switch" aria-checked="false" aria-label="تفعيل التذكير اليومي"></button>
       </div>
     </section>
     <section id="empty" aria-labelledby="empty-title" hidden>
@@ -140,9 +136,14 @@
         <button id="practice-close" class="practice-close" type="button" aria-label="إغلاق">✕</button>
       </header>
       <div id="practice-body" class="practice-body">
+        <div id="practice-error" class="practice-error" role="alert" hidden>
+          <p id="practice-error-message">تعذّر تحميل المراجعات. حاول مجددًا.</p>
+          <button id="practice-retry" class="continue" type="button">إعادة المحاولة</button>
+        </div>
         <div class="flashcard-scene">
-          <div id="flashcard-card" class="flashcard-card" role="button" tabindex="0" aria-label="اقلب البطاقة">
-            <div class="flashcard-front">
+          <button id="card-front-flip" class="card-front-flip" type="button" aria-pressed="false" aria-label="اقلب البطاقة">اقلب البطاقة</button>
+          <div id="flashcard-card" class="flashcard-card" role="group">
+            <div id="card-front-face" class="flashcard-front" aria-hidden="false">
               <div id="card-front-word" class="card-word" lang="ar"></div>
               <div id="card-front-vocalization" class="card-vocalization" lang="ar"></div>
               <div id="card-front-weight" class="card-weight" lang="ar"></div>
@@ -152,9 +153,9 @@
                   <path fill="currentColor" d="M14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77zm-2 0L7 7H3v10h4l5 3.77V3.23zM16.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
                 </svg>
               </button>
-              <p class="flip-hint">اضغط أو اضغط المسافة لقلب البطاقة</p>
+              <p class="flip-hint">استخدم زر «اقلب البطاقة» لكشف المعنى</p>
             </div>
-            <div class="flashcard-back">
+            <div id="card-back-face" class="flashcard-back" aria-hidden="true">
               <div id="card-back-meaning-ar" class="card-meaning-ar" lang="ar"></div>
               <div id="card-back-meaning-en" class="card-meaning-en" lang="en" dir="ltr"></div>
               <div id="card-back-example-ar" class="card-example-ar" lang="ar"></div>
@@ -162,31 +163,32 @@
             </div>
           </div>
         </div>
-        <div id="practice-ratings" class="practice-ratings" role="group" aria-label="تقييم التذكر">
-          <button id="rate-again" class="rate-btn rate-again" data-rating="again" type="button">
+        <div id="practice-ratings" class="practice-ratings" role="group" aria-label="تقييم التذكر" hidden>
+          <button id="rate-again" class="rate-btn rate-again" data-rating="again" type="button" disabled>
             <span class="rate-title">أعد (1)</span>
-            <small class="rate-interval">&lt; 1 يوم</small>
+            <small class="rate-interval">—</small>
           </button>
-          <button id="rate-hard" class="rate-btn rate-hard" data-rating="hard" type="button">
+          <button id="rate-hard" class="rate-btn rate-hard" data-rating="hard" type="button" disabled>
             <span class="rate-title">صعب (2)</span>
-            <small class="rate-interval">+1 يوم</small>
+            <small class="rate-interval">—</small>
           </button>
-          <button id="rate-good" class="rate-btn rate-good" data-rating="good" type="button">
+          <button id="rate-good" class="rate-btn rate-good" data-rating="good" type="button" disabled>
             <span class="rate-title">جيد (3)</span>
-            <small class="rate-interval">أيام</small>
+            <small class="rate-interval">—</small>
           </button>
-          <button id="rate-easy" class="rate-btn rate-easy" data-rating="easy" type="button">
+          <button id="rate-easy" class="rate-btn rate-easy" data-rating="easy" type="button" disabled>
             <span class="rate-title">سهل (4)</span>
-            <small class="rate-interval">أسبوع</small>
+            <small class="rate-interval">—</small>
           </button>
         </div>
       </div>
       <div id="practice-finished" class="practice-finished" hidden>
-        <p>🎉 أحسنت! أنهيت جميع مراجعات اليوم.</p>
+        <p id="practice-finished-message">🎉 أحسنت! أنهيت جميع مراجعات اليوم.</p>
         <button id="practice-finish-btn" class="continue" type="button">إتمام</button>
       </div>
     </div>
   </dialog>
+  <script src="../shared/date.js"></script>
   <script src="../shared/theme.js"></script>
   <script src="../shared/streak.js"></script>
   <script src="../shared/export.js"></script>

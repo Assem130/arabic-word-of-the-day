@@ -28,6 +28,8 @@ const elWeight = document.getElementById("word-weight");
 const elRoot = document.getElementById("word-root");
 const elCategory = document.getElementById("word-category");
 const elMeaning = document.getElementById("word-meaning");
+const elWordContext = document.getElementById("word-context-text");
+const elWordContextEnglish = document.getElementById("word-context-en");
 const elExampleText = document.getElementById("word-example-text");
 const elCountdownTimer = document.getElementById("countdown-timer");
 const btnSpeak = document.getElementById("btn-speak");
@@ -64,6 +66,8 @@ const btnReturnToday = document.getElementById("btn-return-today");
 const streakBadge = document.getElementById("streak-badge");
 const dueReviewBadge = document.getElementById("due-review-badge");
 const dueCountEl = document.getElementById("due-count");
+const btnInlineReview = document.getElementById("btn-inline-review");
+const inlineReviewCount = document.getElementById("inline-review-count");
 const btnExportCard = document.getElementById("btn-export-card");
 const btnExportAnki = document.getElementById("btn-export-anki");
 const practiceDialog = document.getElementById("practice-dialog");
@@ -85,7 +89,21 @@ let shortcutsDialogInvoker = null;
 let activeReviewQueue = [];
 let activeReviewIndex = 0;
 let isFlashcardFlipped = false;
+let activeReviewDueCount = 0;
+let activeReviewRemainingCount = 0;
 let sessionReviewStats = { totalReviewed: 0, ratings: { again: 0, hard: 0, good: 0, easy: 0 } };
+
+function toArabicDigits(value) {
+    return String(value ?? "").replace(/[0-9]/g, (digit) => "٠١٢٣٤٥٦٧٨٩"[digit]);
+}
+
+function formatReviewCount(count) {
+    const value = Math.max(0, Number(count) || 0);
+    if (value === 1) return "مراجعة واحدة";
+    if (value === 2) return "مراجعتين";
+    if (value >= 3 && value <= 10) return `${toArabicDigits(value)} مراجعات`;
+    return `${toArabicDigits(value)} مراجعة`;
+}
 
 document.addEventListener("DOMContentLoaded", () => {
     if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
@@ -206,11 +224,15 @@ function renderWord(word, archiveDateKey) {
     elCategory.textContent = word.category;
     document.getElementById("word-pronunciation").textContent = word.pronunciation;
     elMeaning.textContent = word.meaning;
+    elWordContext.textContent = word.context || "";
+    elWordContextEnglish.textContent = word.contextEnglish || "";
+    const showEnglish = Boolean(appState.preferences.showEnglish);
     const english = document.getElementById("word-meaning-en");
     english.textContent = word.englishMeaning;
-    english.hidden = !appState.preferences.showEnglish;
-    btnToggleEnglish.setAttribute("aria-pressed", String(appState.preferences.showEnglish));
-    btnToggleEnglish.textContent = appState.preferences.showEnglish ? "إخفاء الإنجليزية" : "إظهار الإنجليزية";
+    english.hidden = !showEnglish;
+    elWordContextEnglish.hidden = !showEnglish;
+    btnToggleEnglish.setAttribute("aria-pressed", String(showEnglish));
+    btnToggleEnglish.textContent = showEnglish ? "إخفاء الإنجليزية" : "إظهار الإنجليزية";
 
     renderExample(word);
     updateFavoriteButton(word);
@@ -971,14 +993,11 @@ function setButtonSpeakingState(buttonEl, isSpeaking, activeIcon = "i-waveform",
 }
 
 function updateHistoryUI() {
-    const allHistory = Object.entries(appState.history)
-        .map(([id, record]) => ({
-            word: WORDS_DB.find(item => item.id === Number(id)),
-            firstSeen: record.firstSeen,
-            isFavorite: Boolean(appState.favorites && appState.favorites[id])
-        }))
-        .filter(item => item.word)
-        .sort((a, b) => b.firstSeen.localeCompare(a.firstSeen));
+    const allHistory = getSortedHistoryItems()
+        .map(item => ({
+            ...item,
+            isFavorite: Boolean(appState.favorites && appState.favorites[item.id])
+        }));
 
     const favoritesList = allHistory.filter(item => item.isFavorite);
 
@@ -1036,6 +1055,17 @@ function updateHistoryUI() {
         li.appendChild(button);
         listHistory.appendChild(li);
     }
+}
+
+function getSortedHistoryItems() {
+    return Object.entries(appState.history || {})
+        .map(([id, record]) => ({
+            id: Number(id),
+            word: WORDS_DB.find(item => item.id === Number(id)),
+            firstSeen: record && record.firstSeen
+        }))
+        .filter(item => item.word && Number.isSafeInteger(item.id) && isValidDateKey(item.firstSeen))
+        .sort((a, b) => b.firstSeen.localeCompare(a.firstSeen) || a.id - b.id);
 }
 
 function exportHistory() {
@@ -1397,6 +1427,9 @@ function setupEventListeners() {
             startSpacedRepetitionReview();
         });
     }
+    if (btnInlineReview) {
+        btnInlineReview.addEventListener("click", () => startSpacedRepetitionReview());
+    }
 
     if (historyDialog) {
         historyDialog.addEventListener("close", () => {
@@ -1443,10 +1476,8 @@ function setupEventListeners() {
             } else if (event.key === " " || event.code === "Space" || event.key === "Enter") {
                 const tag = document.activeElement?.tagName;
                 if (tag !== "BUTTON" && tag !== "A" && tag !== "INPUT") {
-                    if (!isFlashcardFlipped) {
-                        event.preventDefault();
-                        flipFlashcard();
-                    }
+                    event.preventDefault();
+                    flipFlashcard();
                 }
             } else if (event.key === "1" || event.key === "Digit1" || event.key === "Numpad1" || event.key === "١") {
                 if (isFlashcardFlipped) {
@@ -1653,7 +1684,7 @@ function setupEventListeners() {
 function updateDueReviewBadge() {
     const badge = document.getElementById("due-review-badge");
     const countEl = document.getElementById("due-count");
-    if (!badge && !countEl) return;
+    if (!badge && !countEl && !btnInlineReview && !inlineReviewCount) return;
     if (!Core || typeof Core.getReviewStats !== "function") return;
 
     const stats = Core.getReviewStats(appState, activeDateKey || Core.getLocalDateKey(new Date()), WORDS_DB);
@@ -1670,6 +1701,11 @@ function updateDueReviewBadge() {
             badge.classList.remove("has-due", "pulse");
         }
     }
+    if (inlineReviewCount) inlineReviewCount.textContent = toArabicDigits(dueCount);
+    if (btnInlineReview) {
+        btnInlineReview.hidden = dueCount === 0;
+        btnInlineReview.setAttribute("aria-label", `راجع الكلمات المستحقة: ${toArabicDigits(dueCount)} ${formatReviewCount(dueCount)}`);
+    }
 }
 
 function startSpacedRepetitionReview() {
@@ -1678,11 +1714,21 @@ function startSpacedRepetitionReview() {
 
     practiceDialogInvoker = document.activeElement;
     const todayKey = activeDateKey || (Core ? Core.getLocalDateKey(new Date()) : "");
+    const stats = (Core && typeof Core.getReviewStats === "function")
+        ? Core.getReviewStats(appState, todayKey, WORDS_DB)
+        : null;
+    const configuredLimit = Number.isInteger(appState.preferences?.dailyReviewLimit)
+        && appState.preferences.dailyReviewLimit >= 1
+        && appState.preferences.dailyReviewLimit <= 100
+        ? appState.preferences.dailyReviewLimit
+        : 20;
     const dueItems = (Core && typeof Core.getDueReviewWords === "function")
-        ? Core.getDueReviewWords(appState, WORDS_DB, todayKey)
+        ? Core.getDueReviewWords(appState, WORDS_DB, todayKey, configuredLimit)
         : [];
 
     activeReviewQueue = Array.isArray(dueItems) ? dueItems : [];
+    activeReviewDueCount = Number.isInteger(stats?.dueCount) ? stats.dueCount : activeReviewQueue.length;
+    activeReviewRemainingCount = Math.max(0, activeReviewDueCount - activeReviewQueue.length);
 
     activeReviewIndex = 0;
     sessionReviewStats = { totalReviewed: 0, ratings: { again: 0, hard: 0, good: 0, easy: 0 } };
@@ -1789,17 +1835,25 @@ function renderFlashcardStep() {
     scene.className = "flashcard-scene";
     scene.id = "flashcard-scene";
 
+    const flipButton = document.createElement("button");
+    flipButton.type = "button";
+    flipButton.className = "card-front-flip";
+    flipButton.id = "card-front-flip";
+    flipButton.setAttribute("aria-pressed", "false");
+    flipButton.setAttribute("aria-label", "اقلب البطاقة");
+    flipButton.textContent = "اقلب البطاقة";
+
     const card = document.createElement("div");
     card.className = "flashcard-card";
     card.id = "flashcard-card";
-    card.tabIndex = 0;
-    card.setAttribute("role", "button");
-    card.setAttribute("aria-pressed", "false");
-    card.setAttribute("aria-label", "بطاقة الكلمة: اضغط مسافة أو انقر لقلب البطاقة");
+    card.setAttribute("role", "group");
+    card.setAttribute("aria-label", "بطاقة الكلمة");
 
     // Front Face
     const front = document.createElement("div");
     front.className = "flashcard-face flashcard-front";
+    front.id = "card-front-face";
+    front.setAttribute("aria-hidden", "false");
 
     const frontMeta = document.createElement("div");
     frontMeta.className = "flashcard-meta-top";
@@ -1845,6 +1899,7 @@ function renderFlashcardStep() {
     frontAudioBtn.type = "button";
     frontAudioBtn.className = "flashcard-audio-btn";
     frontAudioBtn.id = "fc-btn-audio";
+    frontAudioBtn.disabled = false;
     frontAudioBtn.title = "استمع إلى النطق (P)";
     frontAudioBtn.setAttribute("aria-label", "استمع إلى نطق الكلمة");
     frontAudioBtn.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-volume-high"/></svg> <span>استمع</span>';
@@ -1856,7 +1911,7 @@ function renderFlashcardStep() {
 
     const frontHint = document.createElement("p");
     frontHint.className = "flashcard-hint-text";
-    frontHint.innerHTML = "اضغط <kbd>Space</kbd> أو انقر لكشف المعنى";
+    frontHint.textContent = "استخدم زر «اقلب البطاقة» لكشف المعنى";
 
     frontBottom.append(frontAudioBtn, frontHint);
     front.append(frontMeta, frontCenter, frontBottom);
@@ -1864,6 +1919,8 @@ function renderFlashcardStep() {
     // Back Face
     const back = document.createElement("div");
     back.className = "flashcard-face flashcard-back";
+    back.id = "card-back-face";
+    back.setAttribute("aria-hidden", "true");
 
     const backMeta = document.createElement("div");
     backMeta.className = "flashcard-meta-top";
@@ -1909,6 +1966,7 @@ function renderFlashcardStep() {
     backAudioBtn.type = "button";
     backAudioBtn.className = "flashcard-audio-btn";
     backAudioBtn.id = "fc-btn-back-audio";
+    backAudioBtn.disabled = true;
     backAudioBtn.title = "استمع إلى المثال";
     backAudioBtn.setAttribute("aria-label", "استمع إلى نطق المثال");
     backAudioBtn.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-volume-high"/></svg> <span>استمع إلى المثال</span>';
@@ -1916,15 +1974,22 @@ function renderFlashcardStep() {
         e.stopPropagation();
         speakText(word.example || word.word, backAudioBtn, "i-waveform", "i-volume-high", { word, type: "example" });
     });
+    backBottom.append(backAudioBtn);
+
+    back.append(backMeta, backCenter, backBottom);
+    card.append(front, back);
+
+    const ratingSection = document.createElement("div");
+    ratingSection.className = "flashcard-rating-section";
+    ratingSection.id = "flashcard-rating-section";
+    ratingSection.hidden = true;
+    ratingSection.setAttribute("aria-hidden", "true");
+
     const backPrompt = document.createElement("p");
     backPrompt.className = "flashcard-rate-prompt";
     backPrompt.id = "fc-back-prompt";
     backPrompt.textContent = "قيّم مستوى استحضارك للفظ:";
-    backBottom.append(backAudioBtn, backPrompt);
-
-    back.append(backMeta, backCenter, backBottom);
-    card.append(front, back);
-    scene.appendChild(card);
+    ratingSection.append(backPrompt);
 
     // 4-Tier SM-2 Rating Controls Bar
     const ratingBar = document.createElement("div");
@@ -1932,13 +1997,14 @@ function renderFlashcardStep() {
     ratingBar.id = "flashcard-rating-bar";
     ratingBar.setAttribute("role", "group");
     ratingBar.setAttribute("aria-label", "خيارات تقييم الاستذكار");
+    ratingBar.setAttribute("aria-hidden", "true");
     ratingBar.hidden = true;
 
     const ratingConfigs = [
-        { grade: 1, key: "1", canonical: "again", title: "مجدداً", interval: "< يوم", class: "rating-again", aria: "إعادة (اضغط 1): لم أتذكرها" },
-        { grade: 3, key: "2", canonical: "hard", title: "صعب", interval: "+1-2 ي", class: "rating-hard", aria: "صعب (اضغط 2): تذكرتها بصعوبة" },
-        { grade: 4, key: "3", canonical: "good", title: "جيد", interval: "+4-6 ي", class: "rating-good", aria: "جيد (اضغط 3): تذكرتها جيداً" },
-        { grade: 5, key: "4", canonical: "easy", title: "سهل", interval: "+10-15 ي", class: "rating-easy", aria: "سهل (اضغط 4): راسخة تماماً" }
+        { grade: 1, key: "1", canonical: "again", title: "مجدداً", class: "rating-again", aria: "إعادة (اضغط 1): لم أتذكرها" },
+        { grade: 3, key: "2", canonical: "hard", title: "صعب", class: "rating-hard", aria: "صعب (اضغط 2): تذكرتها بصعوبة" },
+        { grade: 4, key: "3", canonical: "good", title: "جيد", class: "rating-good", aria: "جيد (اضغط 3): تذكرتها جيداً" },
+        { grade: 5, key: "4", canonical: "easy", title: "سهل", class: "rating-easy", aria: "سهل (اضغط 4): راسخة تماماً" }
     ];
 
     ratingConfigs.forEach(cfg => {
@@ -1947,6 +2013,7 @@ function renderFlashcardStep() {
         btn.className = `rating-btn ${cfg.class}`;
         btn.setAttribute("data-rating", String(cfg.grade));
         btn.setAttribute("aria-label", cfg.aria);
+        btn.disabled = true;
 
         const keyBadge = document.createElement("span");
         keyBadge.className = "rating-badge-key";
@@ -1958,7 +2025,7 @@ function renderFlashcardStep() {
 
         const intSpan = document.createElement("span");
         intSpan.className = "rating-interval";
-        intSpan.textContent = cfg.interval;
+        intSpan.textContent = currentItem.reviewOptions?.[cfg.canonical]?.label || "—";
 
         btn.append(keyBadge, titleSpan, intSpan);
 
@@ -1970,50 +2037,62 @@ function renderFlashcardStep() {
         ratingBar.appendChild(btn);
     });
 
-    // Flip Handlers
-    card.addEventListener("click", () => {
-        if (!isFlashcardFlipped) flipFlashcard();
-    });
+    ratingSection.append(ratingBar);
+    flipButton.addEventListener("click", flipFlashcard);
 
-    card.addEventListener("keydown", (e) => {
-        if ((e.key === " " || e.key === "Enter" || e.code === "Space") && !isFlashcardFlipped) {
-            e.preventDefault();
-            flipFlashcard();
-        }
-    });
-
-    container.append(headerStatus, scene, ratingBar);
+    scene.append(flipButton, card);
+    container.append(headerStatus, scene, ratingSection);
     practiceBody.appendChild(container);
 
-    if (typeof card.focus === "function") {
-        card.focus();
+    if (typeof flipButton.focus === "function") {
+        flipButton.focus();
     }
 }
 
 function flipFlashcard() {
-    if (isFlashcardFlipped) return;
-    isFlashcardFlipped = true;
-
     const card = document.getElementById("flashcard-card");
-    if (card) {
-        card.classList.add("is-flipped");
-        card.setAttribute("aria-pressed", "true");
+    if (!card) return;
+    card.classList.toggle("is-flipped");
+    isFlashcardFlipped = card.classList.contains("is-flipped");
+
+    const front = document.getElementById("card-front-face");
+    const back = document.getElementById("card-back-face");
+    const frontAudioBtn = document.getElementById("fc-btn-audio");
+    const backAudioBtn = document.getElementById("fc-btn-back-audio");
+    if (front) front.setAttribute("aria-hidden", String(isFlashcardFlipped));
+    if (back) back.setAttribute("aria-hidden", String(!isFlashcardFlipped));
+    if (frontAudioBtn) frontAudioBtn.disabled = isFlashcardFlipped;
+    if (backAudioBtn) backAudioBtn.disabled = !isFlashcardFlipped;
+
+    const flipButton = document.getElementById("card-front-flip");
+    if (flipButton) {
+        const label = isFlashcardFlipped ? "أخفِ المعنى" : "اقلب البطاقة";
+        flipButton.setAttribute("aria-pressed", String(isFlashcardFlipped));
+        flipButton.setAttribute("aria-label", label);
+        flipButton.textContent = label;
     }
 
     const ratingBar = document.getElementById("flashcard-rating-bar");
+    const ratingSection = document.getElementById("flashcard-rating-section");
+    if (ratingSection) {
+        ratingSection.hidden = !isFlashcardFlipped;
+        ratingSection.setAttribute("aria-hidden", String(!isFlashcardFlipped));
+    }
     if (ratingBar) {
-        ratingBar.hidden = false;
+        ratingBar.hidden = !isFlashcardFlipped;
+        ratingBar.setAttribute("aria-hidden", String(!isFlashcardFlipped));
+        ratingBar.querySelectorAll("button").forEach((button) => {
+            button.disabled = !isFlashcardFlipped;
+        });
     }
 
-    const currentItem = activeReviewQueue[activeReviewIndex];
-    if (currentItem && currentItem.word) {
-        announceAudioStatus(`تم كشف المعنى: ${currentItem.word.meaning}. اضغط 1 للإعادة، 2 لصعب، 3 لجيد، 4 لسهل.`);
-    }
+    announceAudioStatus(isFlashcardFlipped ? "كُشف المعنى." : "أُخفي المعنى.");
 
-    // Move focus to the 'Good' (3) button or first rating button
-    const goodBtn = ratingBar?.querySelector?.('.rating-good') || ratingBar?.querySelector?.('button');
-    if (goodBtn && typeof goodBtn.focus === "function") {
-        goodBtn.focus();
+    if (isFlashcardFlipped) {
+        const goodBtn = ratingBar?.querySelector?.('.rating-good') || ratingBar?.querySelector?.('button');
+        if (goodBtn && typeof goodBtn.focus === "function") goodBtn.focus();
+    } else if (flipButton && typeof flipButton.focus === "function") {
+        flipButton.focus();
     }
 }
 
@@ -2022,15 +2101,27 @@ function handleRatingSubmission(rating) {
     if (!currentItem || !currentItem.word) return;
 
     const todayKey = activeDateKey || (Core ? Core.getLocalDateKey(new Date()) : "");
+    const previousState = appState;
+    let candidateState;
     if (Core && typeof Core.recordReview === "function") {
-        const result = Core.recordReview(appState, currentItem.word.id, rating, todayKey, VALID_WORD_IDS);
-        appState = result.updatedState;
+        const result = Core.recordReview(previousState, currentItem.word.id, rating, todayKey, VALID_WORD_IDS);
+        candidateState = result && result.updatedState;
     } else {
-        if (!appState.history) appState.history = {};
-        if (!appState.history[currentItem.word.id]) appState.history[currentItem.word.id] = { firstSeen: todayKey };
+        candidateState = {
+            ...previousState,
+            history: { ...(previousState.history || {}) }
+        };
+        if (!candidateState.history[currentItem.word.id]) candidateState.history[currentItem.word.id] = { firstSeen: todayKey };
     }
 
-    saveState();
+    if (!candidateState) return;
+    appState = candidateState;
+    if (!saveState()) {
+        appState = previousState;
+        announceAudioStatus("تعذّر حفظ المراجعة. حاول مجددًا.");
+        return;
+    }
+
     updateDueReviewBadge();
     updateStreakUI();
     updateHistoryUI();
@@ -2068,7 +2159,11 @@ function renderReviewCompletionSummary() {
 
     const desc = document.createElement("p");
     desc.className = "practice-summary-desc";
-    desc.textContent = `أحسنت! راجعت ${wordPlural} بنجاح. المراجعة اليومية المنتظمة تثبت المفردات في الذاكرة طويلة المدى.`;
+    const remainingCount = Math.max(0, activeReviewRemainingCount + activeReviewQueue.length - count);
+    const cappedMessage = remainingCount > 0
+        ? `أتممت ${toArabicDigits(count)} من ${toArabicDigits(activeReviewDueCount)} مراجعة؛ تبقت ${formatReviewCount(remainingCount)}.`
+        : "";
+    desc.textContent = cappedMessage || `أحسنت! راجعت ${wordPlural} بنجاح. المراجعة اليومية المنتظمة تثبت المفردات في الذاكرة طويلة المدى.`;
 
     const todayKey = activeDateKey || (Core ? Core.getLocalDateKey(new Date()) : "");
     const stats = (Core && typeof Core.getReviewStats === "function") ? Core.getReviewStats(appState, todayKey, WORDS_DB) : null;
@@ -2102,7 +2197,12 @@ function renderReviewCompletionSummary() {
     summary.append(title, desc, statsGrid, closeBtn);
     practiceBody.appendChild(summary);
 
-    announceAudioStatus(`🎉 أحسنت! اكتملت مراجعة اليوم بنجاح. راجعت ${wordPlural}.`);
+    if (remainingCount > 0 && dueReviewBadge) {
+        dueReviewBadge.hidden = false;
+        dueReviewBadge.setAttribute("aria-label", `المراجعات المتبقية بعد الجلسة: ${toArabicDigits(remainingCount)} ${formatReviewCount(remainingCount)}`);
+        if (dueCountEl) dueCountEl.textContent = String(remainingCount);
+    }
+    announceAudioStatus(cappedMessage || `🎉 أحسنت! اكتملت مراجعة اليوم بنجاح. راجعت ${wordPlural}.`);
     if (typeof closeBtn.focus === "function") {
         closeBtn.focus();
     }
@@ -2139,16 +2239,24 @@ function setupKeyboardShortcuts() {
             toggleFavorite();
         } else if (event.key === "h" || event.key === "H" || event.key === "ا") {
             event.preventDefault();
-            if (historyDialog) historyDialog.showModal();
+            if (historyDialog) {
+                historyDialogInvoker = document.activeElement || btnToggleHistory;
+                historyDialog.showModal();
+                if (btnCloseHistory && typeof btnCloseHistory.focus === "function") btnCloseHistory.focus();
+            }
         } else if (event.key === "q" || event.key === "Q" || event.key === "ض") {
             event.preventDefault();
             startSpacedRepetitionReview();
         } else if (event.key === "?" || event.key === "؟") {
             event.preventDefault();
-            if (shortcutsDialog) shortcutsDialog.showModal();
+            if (shortcutsDialog) {
+                shortcutsDialogInvoker = document.activeElement || btnMenuShortcuts || btnToggleMenu;
+                shortcutsDialog.showModal();
+                if (btnCloseShortcuts && typeof btnCloseShortcuts.focus === "function") btnCloseShortcuts.focus();
+            }
         } else if (event.key === "ArrowLeft" || event.key === "ArrowRight" || event.key === "j" || event.key === "k") {
             // Browse history words chronologically
-            const historyIds = Object.keys(appState.history).map(Number).filter(id => WORDS_DB.some(w => w.id === id));
+            const historyIds = getSortedHistoryItems().map(item => item.id);
             if (historyIds.length > 1 && currentWord) {
                 const curIdx = historyIds.indexOf(currentWord.id);
                 if (curIdx !== -1) {
