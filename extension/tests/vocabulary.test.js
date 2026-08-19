@@ -96,6 +96,16 @@ test("loads all 365 reviewed Arabic seed records", () => {
   assert.equal(vocabulary[60].word, "الوَابِل");
 });
 
+test("converter reads canonical metadata, not its generated output", () => {
+  const converter = fs.readFileSync(path.join(__dirname, "..", "tools", "convert-vocabulary.js"), "utf8");
+  const metadata = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "data", "vocabulary-metadata.json"), "utf8"));
+
+  assert.equal(metadata.length, 365);
+  assert.ok(metadata.every((record) => Number.isInteger(record.sourceId) && record.reviewed === true));
+  assert.match(converter, /vocabulary-metadata\.json/);
+  assert.doesNotMatch(converter, /existingOutputPath|existingMetadata/);
+});
+
 test("canonicalSearchKey removes tatweel, diacritics, maps alef variants and maqsura without mapping taa marbuta or conflating hamzas", () => {
   const { canonicalSearchKey } = vocabularyApi();
   assert.equal(typeof canonicalSearchKey, "function", "canonicalSearchKey must be exported");

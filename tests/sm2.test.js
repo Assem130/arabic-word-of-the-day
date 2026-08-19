@@ -3,6 +3,16 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const Core = require("../app-core.js");
+const ExtensionState = require("../extension/shared/state.js");
+
+test("website and extension use the same review policy", () => {
+    const item = { wordId: 7, repetition: 2, interval: 6, ef: 2.5, lapses: 0, reviewCount: 2, history: [] };
+    assert.deepEqual(
+        { ...Core.calculateSM2(item, "easy", "2026-08-19") },
+        { ...ExtensionState.calculateSM2(item, "easy", "2026-08-19") }
+    );
+    assert.deepEqual(Core.getReviewOptions(item, "2026-08-19"), ExtensionState.getReviewOptions(item, "2026-08-19"));
+});
 
 test("SM-2 Engine — mapRatingToGrade rating normalization", async (t) => {
     await t.test("maps 4-point rating strings correctly", () => {

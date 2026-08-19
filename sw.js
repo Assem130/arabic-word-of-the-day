@@ -1,5 +1,5 @@
 // Service Worker for Kalimat (Offline PWA)
-const STATIC_CACHE_NAME = "kalimat-static-v1.4";
+const STATIC_CACHE_NAME = "kalimat-static-v1.5";
 const AUDIO_CACHE_NAME = "kalimat-audio-v1";
 const STATIC_ASSETS = [
     "./",
@@ -8,6 +8,7 @@ const STATIC_ASSETS = [
     "./style.css",
     "./revamp.css",
     "./app-core.js",
+    "./web-ui.js",
     "./revamp.js",
     "./words.js",
     "./app.js",

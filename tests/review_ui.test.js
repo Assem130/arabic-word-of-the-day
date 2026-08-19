@@ -9,6 +9,8 @@ import vm from "node:vm";
 
 const WORDS_PATH = path.resolve("./words.js");
 const CORE_PATH = path.resolve("./app-core.js");
+const REVIEW_POLICY_PATH = path.resolve("./extension/shared/review-policy.js");
+const SPEECH_PATH = path.resolve("./extension/shared/speech.js");
 const APP_PATH = path.resolve("./app.js");
 const INDEX_HTML_PATH = path.resolve("./index.html");
 const WORD_HTML_PATH = path.resolve("./word.html");
@@ -17,6 +19,8 @@ const REVAMP_CSS_PATH = path.resolve("./revamp.css");
 
 const wordsCode = fs.readFileSync(WORDS_PATH, "utf8");
 const coreCode = fs.readFileSync(CORE_PATH, "utf8");
+const reviewPolicyCode = fs.readFileSync(REVIEW_POLICY_PATH, "utf8");
+const speechCode = fs.readFileSync(SPEECH_PATH, "utf8");
 const appCode = fs.readFileSync(APP_PATH, "utf8");
 const indexHtml = fs.readFileSync(INDEX_HTML_PATH, "utf8");
 const wordHtml = fs.readFileSync(WORD_HTML_PATH, "utf8");
@@ -337,6 +341,8 @@ function createDOMEnvironment(initialState = null) {
     sandbox.window.WORDS_DB = loadedWords;
 
     sandbox.module = { exports: {} };
+    vm.runInContext(reviewPolicyCode, sandbox);
+    vm.runInContext(speechCode, sandbox);
     vm.runInContext(coreCode, sandbox);
     const loadedCore = (sandbox.module && sandbox.module.exports && Object.keys(sandbox.module.exports).length > 0) ? sandbox.module.exports : sandbox.KalimatCore;
     sandbox.KalimatCore = loadedCore;

@@ -79,8 +79,8 @@ html[data-theme="midnight"] {
 
 html, body {
   margin: 0;
-  width: 100%;
-  min-width: 0;
+  width: 380px;
+  min-width: 380px;
   max-width: 380px;
   background: var(--bg-page);
   color: var(--text-page);
@@ -89,9 +89,7 @@ html, body {
 }
 
 main {
-  width: 100%;
-  min-width: 0;
-  max-width: 380px;
+  width: 380px;
   padding: 16px 18px 20px;
 }
 

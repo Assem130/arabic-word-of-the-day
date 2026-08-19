@@ -4,6 +4,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const Core = require("../app-core.js");
+const WebUI = require("../web-ui.js");
 const words = require("../words.js");
 
 // Mock Element for VM sandbox testing
@@ -326,7 +327,7 @@ test("4. Interactive Explorer Controller & Reactive DOM Sync (initLexiconExplore
     global.window = sandbox.windowMock;
 
     try {
-        const explorer = Core.initLexiconExplorer({
+        const explorer = WebUI.initLexiconExplorer({
             wordsDb: words,
             searchInputId: "input-lexicon-search",
             rootSelectId: "select-lexicon-root",
@@ -472,7 +473,7 @@ test("5. Lexicon cards render hostile corpus fields as literal text", () => {
     global.window = sandbox.windowMock;
 
     try {
-        Core.initLexiconExplorer({
+        WebUI.initLexiconExplorer({
             wordsDb: [hostileWord],
             gridId: "lexicon-grid"
         });
@@ -555,7 +556,7 @@ test("6. Resilient Web Audio V8 GC Anchoring (R4)", async () => {
     global.window = sandbox.windowMock;
 
     try {
-        const explorer = Core.initLexiconExplorer({
+        const explorer = WebUI.initLexiconExplorer({
             wordsDb: words,
             gridId: "lexicon-grid"
         });

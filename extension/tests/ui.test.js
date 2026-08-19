@@ -3,11 +3,28 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
+const ReviewSession = require("../shared/review-session.js");
 
 const popup = path.join(__dirname, "..", "popup");
 const files = Object.fromEntries(["popup.html", "popup.css", "popup.js"].map((name) => [name, path.join(popup, name)]));
 const atlas = path.join(__dirname, "..", "atlas");
 let activeElement = null;
+
+test("review session keeps queue, reveal, submission, and recovery transitions shared", () => {
+  const session = ReviewSession.create();
+  const queue = ReviewSession.parseQueue({
+    kind: "queue", words: [{ wordId: 1, word: { id: 1, word: "كلمة", meaningAr: "لفظ" } }],
+    dueCount: 1, visibleCount: 1, remainingCount: 0,
+  });
+  ReviewSession.acceptQueue(session, queue);
+  ReviewSession.showCard(session, 0);
+  assert.equal(ReviewSession.toggleReveal(session), true);
+  assert.equal(ReviewSession.beginSubmission(session)?.wordId, 1);
+  assert.equal(ReviewSession.advance(session), null);
+  ReviewSession.recover(session);
+  assert.equal(ReviewSession.isRecovery(session), true);
+  assert.equal(ReviewSession.count(session), 0);
+});
 
 function atlasSource(name) {
   return fs.readFileSync(path.join(atlas, name), "utf8");
@@ -278,6 +295,8 @@ function popupApi(responses = {}, options = {}) {
   if (Object.hasOwn(options, "SpeechSynthesisUtterance")) context.SpeechSynthesisUtterance = options.SpeechSynthesisUtterance;
   context.globalThis = context;
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, "..", "shared", "date.js"), "utf8"), context);
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, "..", "shared", "review-session.js"), "utf8"), context);
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, "..", "shared", "speech.js"), "utf8"), context);
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, "..", "shared", "vocabulary.js"), "utf8"), context);
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, "..", "shared", "theme.js"), "utf8"), context);
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, "..", "shared", "streak.js"), "utf8"), context);
@@ -467,6 +486,8 @@ function atlasApi(responses = {}, options = {}) {
   if (Object.hasOwn(options, "SpeechSynthesisUtterance")) context.SpeechSynthesisUtterance = options.SpeechSynthesisUtterance;
   context.globalThis = context;
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, "..", "shared", "date.js"), "utf8"), context);
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, "..", "shared", "review-session.js"), "utf8"), context);
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, "..", "shared", "speech.js"), "utf8"), context);
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, "..", "shared", "vocabulary.js"), "utf8"), context);
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, "..", "shared", "theme.js"), "utf8"), context);
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, "..", "shared", "streak.js"), "utf8"), context);
@@ -483,6 +504,7 @@ test("popup ships separate native files without unsafe markup or timer work", ()
   assert.match(html, /<html\s+lang="ar"\s+dir="rtl">/);
   assert.match(html, /<link[^>]+href="popup\.css"/);
   assert.match(html, /<script\s+src="\.\.\/shared\/date\.js"><\/script>[\s\S]*<script\s+src="popup\.js"><\/script>/);
+  assert.match(html, /<script\s+src="\.\.\/shared\/speech\.js"><\/script>/);
   assert.match(html, /<script\s+src="popup\.js"><\/script>/);
   const withoutApprovedRemote = `${html}\n${css}\n${js}`.replace(/https:\/\/ar\.wiktionary\.org[^\s"'`)]*/g, "");
   assert.doesNotMatch(withoutApprovedRemote, /https?:\/\/|\b(?:innerHTML|outerHTML)\b|\b(?:setInterval|setTimeout)\s*\(/);
@@ -513,8 +535,8 @@ test("popup exposes RTL accessible onboarding and assigned-word controls", () =>
   assert.doesNotMatch(html, /<button[^>]+id="reminder"[^>]*aria-pressed=/);
   assert.match(html, /<button[^>]+id="reminder"[^>]+aria-label="تفعيل التذكير اليومي"/);
   assert.match(source("popup.css"), /grid-template-columns:\s*repeat\(4, 1fr\)/);
-  assert.match(source("popup.css"), /html, body\s*\{[\s\S]*?width:\s*100%;[\s\S]*?min-width:\s*0;[\s\S]*?max-width:\s*380px;/);
-  assert.match(source("popup.css"), /main\s*\{[\s\S]*?width:\s*100%;[\s\S]*?min-width:\s*0;[\s\S]*?max-width:\s*380px;/);
+  assert.match(source("popup.css"), /html, body\s*\{[\s\S]*?width:\s*380px;[\s\S]*?min-width:\s*380px;[\s\S]*?max-width:\s*380px;/);
+  assert.match(source("popup.css"), /main\s*\{[\s\S]*?width:\s*380px;/);
   assert.match(html, /<button id="onboarding-submit"[^>]+class="continue"/);
   assert.match(html, /<article class="word-card">\s*<p id="fixed-label"/);
   assert.match(html, /<section class="example-card"/);
@@ -1180,6 +1202,7 @@ test("Atlas ships a dark, accessible four-view page without unsafe sinks or time
   assert.match(html, /<html\s+lang="ar"\s+dir="rtl">/);
   assert.match(html, /<link[^>]+href="atlas\.css"/);
   assert.match(html, /<script\s+src="atlas\.js"><\/script>/);
+  assert.match(html, /<script\s+src="\.\.\/shared\/speech\.js"><\/script>/);
   assert.match(html, /id="today-date"/);
   assert.match(js, /word-speak/);
   for (const id of ["today", "explore", "history", "settings", "atlas-search", "return-today", "history-filter", "settings-level", "settings-english", "settings-time", "export", "import-file", "clear", "recovery-export", "recovery-import", "recovery-clear", "today-action-status", "explore-lookup"]) assert.match(html, new RegExp(`id="${id}"`));

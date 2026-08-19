@@ -111,7 +111,7 @@ document.addEventListener("DOMContentLoaded", () => {
             navigator.serviceWorker.register("./sw.js").catch(() => {});
         });
     }
-    const themeFn = typeof setupThemeController === "function" ? setupThemeController : (window.setupThemeController || (window.KalimatCore && window.KalimatCore.setupThemeController));
+    const themeFn = window.KalimatWebUI?.setupThemeController;
     if (typeof themeFn === "function") themeFn();
     loadState();
     activeDateKey = Core.getLocalDateKey(new Date());
@@ -841,102 +841,31 @@ async function speakText(text, buttonEl, activeIcon = "i-waveform", idleIcon = "
         return;
     }
 
-    setButtonPlaybackState(buttonEl, "speaking", activeIcon, idleIcon);
-
     const UtteranceClass = window.SpeechSynthesisUtterance || (typeof SpeechSynthesisUtterance !== "undefined" ? SpeechSynthesisUtterance : null);
     if (!UtteranceClass) {
         setButtonPlaybackState(buttonEl, "idle", activeIcon, idleIcon);
         return;
     }
-
-    if (repeatCount <= 1) {
-        let utterance = null;
-        try {
-            utterance = new UtteranceClass(cleanSpeechText);
-            utterance.lang = arVoice.lang || "ar-SA";
-            utterance.voice = arVoice;
-            utterance.rate = targetRate;
-            utterance.pitch = 1.0;
-
-            window._activeUtterance = utterance;
-
-            utterance.onstart = () => {
-                if (activePlaybackSessionId === sessionId) {
-                    setButtonPlaybackState(buttonEl, "speaking", activeIcon, idleIcon);
-                }
-            };
-
-            utterance.onend = utterance.onerror = () => {
-                if (window._activeUtterance === utterance) {
-                    window._activeUtterance = null;
-                }
-                if (activePlaybackSessionId === sessionId) {
-                    setButtonPlaybackState(buttonEl, "idle", activeIcon, idleIcon);
-                }
-            };
-
-            window.speechSynthesis.speak(utterance);
-        } catch {
-            if (window._activeUtterance === utterance) {
-                window._activeUtterance = null;
-            }
-            if (activePlaybackSessionId === sessionId) {
-                setButtonPlaybackState(buttonEl, "idle", activeIcon, idleIcon);
-            }
-        }
-        return;
-    }
-
-    for (let i = 0; i < repeatCount; i++) {
-        if (activePlaybackSessionId !== sessionId) break;
-
-        let speakSucceeded = false;
-        await new Promise(resolve => {
-            let utterance = null;
-            try {
-                utterance = new UtteranceClass(cleanSpeechText);
-                utterance.lang = arVoice.lang || "ar-SA";
-                utterance.voice = arVoice;
-                utterance.rate = targetRate;
-                utterance.pitch = 1.0;
-
-                window._activeUtterance = utterance;
-
-                utterance.onstart = () => {
-                    if (activePlaybackSessionId === sessionId) {
-                        setButtonPlaybackState(buttonEl, "speaking", activeIcon, idleIcon);
-                    }
-                };
-
-                utterance.onend = utterance.onerror = () => {
-                    if (window._activeUtterance === utterance) {
-                        window._activeUtterance = null;
-                    }
-                    resolve();
-                };
-
-                window.speechSynthesis.speak(utterance);
-                speakSucceeded = true;
-            } catch {
-                if (window._activeUtterance === utterance) {
-                    window._activeUtterance = null;
-                }
-                resolve();
-            }
-        });
-
-        if (!speakSucceeded || activePlaybackSessionId !== sessionId) {
-            break;
-        }
-
-        if (i < repeatCount - 1 && activePlaybackSessionId === sessionId) {
-            await new Promise(r => setTimeout(r, 500));
-        }
-    }
-
-    if (activePlaybackSessionId === sessionId) {
-        setButtonPlaybackState(buttonEl, "idle", activeIcon, idleIcon);
-    }
+    setButtonPlaybackState(buttonEl, "speaking", activeIcon, idleIcon);
+    const result = globalThis.KalimatSpeech?.speak(cleanSpeechText, {
+        speech: window.speechSynthesis,
+        Utterance: UtteranceClass,
+        selectVoice: () => arVoice,
+        requireVoice: true,
+        rate: targetRate,
+        repeat: repeatCount,
+        gapMs: 500,
+        onStart: () => {
+            if (activePlaybackSessionId === sessionId) setButtonPlaybackState(buttonEl, "speaking", activeIcon, idleIcon);
+        },
+        onEnd: () => {
+            if (activePlaybackSessionId === sessionId) setButtonPlaybackState(buttonEl, "idle", activeIcon, idleIcon);
+        },
+        onError: () => {
+            if (activePlaybackSessionId === sessionId) setButtonPlaybackState(buttonEl, "idle", activeIcon, idleIcon);
+        },
+    });
+    if (result?.kind !== "ok") setButtonPlaybackState(buttonEl, "idle", activeIcon, idleIcon);
 }
 
 function setButtonPlaybackState(buttonEl, state, activeIcon = "i-waveform", idleIcon = "i-volume-high") {

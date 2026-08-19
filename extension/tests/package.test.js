@@ -30,6 +30,9 @@ const runtimeFiles = [
   "shared/date.js",
   "shared/export.js",
   "shared/lookup.js",
+  "shared/review-policy.js",
+  "shared/review-session.js",
+  "shared/speech.js",
   "shared/selector.js",
   "shared/state.js",
   "shared/streak.js",
@@ -131,7 +134,7 @@ test("Firefox manifest uses ordered event-page scripts with no host permissions"
   const firefox = manifest("firefox");
   assertSafeManifest(firefox, "firefox");
   assert.deepEqual(Object.keys(firefox.background), ["scripts"]);
-  assert.deepEqual(firefox.background.scripts, ["shared/date.js", "shared/vocabulary.js", "shared/state.js", "shared/selector.js", "shared/lookup.js", "background.js"]);
+  assert.deepEqual(firefox.background.scripts, ["shared/date.js", "shared/vocabulary.js", "shared/review-policy.js", "shared/state.js", "shared/selector.js", "shared/lookup.js", "background.js"]);
 });
 
 test("packaged CSS enforces design tokens, system Arabic typography, and accessible focus styles", () => {

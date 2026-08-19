@@ -4,7 +4,7 @@ document.addEventListener("DOMContentLoaded", () => {
             navigator.serviceWorker.register("./sw.js").catch(() => {});
         });
     }
-    const themeFn = typeof setupThemeController === "function" ? setupThemeController : (window.setupThemeController || (window.KalimatCore && window.KalimatCore.setupThemeController));
+    const themeFn = window.KalimatWebUI?.setupThemeController;
     if (typeof themeFn === "function") themeFn();
 
     const Core = window.KalimatCore;
@@ -88,9 +88,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // Initialize Lexicon & Root Tree Explorer
-    if (Core && typeof Core.initLexiconExplorer === "function") {
+    if (Core && typeof window.KalimatWebUI?.initLexiconExplorer === "function") {
         const wordsList = (typeof WORDS_DB !== "undefined" && Array.isArray(WORDS_DB)) ? WORDS_DB : (typeof WORDS !== "undefined" && Array.isArray(WORDS) ? WORDS : []);
-        Core.initLexiconExplorer({
+        window.KalimatWebUI.initLexiconExplorer({
             wordsDb: wordsList,
             searchInputId: "input-lexicon-search",
             rootSelectId: "select-lexicon-root",

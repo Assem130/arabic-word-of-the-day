@@ -2,6 +2,7 @@
   "use strict";
 
   const ExtApi = globalThis.browser ?? globalThis.chrome;
+  const ReviewSession = globalThis.KalimatReviewSession;
   const byId = (id) => document.getElementById(id);
   const state = {
     word: null,
@@ -16,20 +17,13 @@
     reminderBusy: false,
     speakAvailable: false,
     view: "",
-    reviewRevealed: false,
-    reviewSubmitting: false,
-    reviewQueueError: "",
-    reviewQueueRecovery: false,
   };
   let elements;
   let reminderQueue = null;
   let themeController = null;
   let onboardingInFlight = false;
-  let reviewQueue = [];
-  let reviewMeta = { dueCount: 0, visibleCount: 0, remainingCount: 0 };
+  const reviewSession = ReviewSession.create();
   let reviewQueueLoad = null;
-  let reviewQueueLoaded = false;
-  let currentReviewIndex = 0;
   let reviewInvoker = null;
 
   function toArabicDigits(value) {
@@ -144,9 +138,9 @@
   }
 
   function syncReviewControls() {
-    const revealed = state.reviewRevealed === true;
+    const revealed = ReviewSession.isRevealed(reviewSession);
     if (elements.practiceRatings) elements.practiceRatings.hidden = !revealed;
-    for (const button of reviewButtons()) button.disabled = !revealed || state.reviewSubmitting === true;
+    for (const button of reviewButtons()) button.disabled = !revealed || ReviewSession.isSubmitting(reviewSession);
     if (elements.cardFrontSpeak) elements.cardFrontSpeak.disabled = revealed;
     if (elements.cardFrontFace) elements.cardFrontFace.setAttribute("aria-hidden", String(revealed));
     if (elements.cardBackFace) elements.cardBackFace.setAttribute("aria-hidden", String(!revealed));
@@ -160,8 +154,7 @@
   }
 
   function clearPracticeCard() {
-    state.reviewRevealed = false;
-    state.reviewSubmitting = false;
+    ReviewSession.resetCard(reviewSession);
     for (const element of [elements.cardFrontWord, elements.cardFrontVocalization, elements.cardFrontWeight, elements.cardFrontRoot, elements.cardBackMeaningAr, elements.cardBackMeaningEn, elements.cardBackExampleAr, elements.cardBackContext]) {
       if (element) element.textContent = "";
     }
@@ -174,81 +167,35 @@
     syncReviewControls();
   }
 
-  function setReviewQueueError(message = "تعذّر تحميل المراجعات. حاول مجددًا.") {
-    state.reviewQueueError = message;
-    reviewQueue = [];
-    reviewMeta = { dueCount: 0, visibleCount: 0, remainingCount: 0 };
-    reviewQueueLoaded = false;
-    currentReviewIndex = 0;
-    hideReviewBadge();
-    clearPracticeCard();
-  }
-
-  function parseReviewQueue(response) {
-    if (!response || response.kind !== "queue" || !Array.isArray(response.words)) return null;
-    const values = ["dueCount", "visibleCount", "remainingCount"];
-    for (const key of values) {
-      if (response[key] !== undefined && (!Number.isInteger(response[key]) || response[key] < 0)) return null;
-    }
-    if (response.words.some((item) => {
-      if (!item || typeof item !== "object") return true;
-      const word = item.word && typeof item.word === "object" ? item.word : item;
-      const hasId = Boolean(item.wordId || item.id || word.id);
-      const hasWord = typeof word.word === "string" && word.word.trim() !== "";
-      const hasMeaning = (typeof word.meaningAr === "string" && word.meaningAr.trim() !== "") || (typeof word.meaning === "string" && word.meaning.trim() !== "");
-      return !hasId || !hasWord || !hasMeaning;
-    })) return null;
-    const dueCount = response.dueCount === undefined ? response.words.length : response.dueCount;
-    const visibleCount = response.visibleCount === undefined ? response.words.length : response.visibleCount;
-    const remainingCount = response.remainingCount === undefined ? Math.max(0, dueCount - visibleCount) : response.remainingCount;
-    if (visibleCount !== response.words.length || visibleCount > dueCount || remainingCount !== dueCount - visibleCount) return null;
-    if (response.words.length === 0 && dueCount !== 0) return null;
-    return { words: response.words, dueCount, visibleCount, remainingCount, storageWarning: response.storageWarning === true };
-  }
-
   function loadDueReviews({ force = false } = {}) {
-    if (!force && reviewQueueLoaded) return Promise.resolve();
+    if (!force && ReviewSession.isLoaded(reviewSession)) return Promise.resolve();
     if (reviewQueueLoad) return reviewQueueLoad;
 
-    reviewQueue = [];
-    reviewMeta = { dueCount: 0, visibleCount: 0, remainingCount: 0 };
-    reviewQueueLoaded = false;
-    state.reviewQueueError = "";
-    state.reviewQueueRecovery = false;
     hideReviewBadge();
     reviewQueueLoad = (async () => {
-      try {
-        const response = await ExtApi.runtime.sendMessage({ type: "review.queue" });
-        if (response?.kind === "recovery") {
-          state.reviewQueueError = "";
-          state.reviewQueueRecovery = true;
-          reviewQueueLoaded = false;
-          reviewQueue = [];
-          reviewMeta = { dueCount: 0, visibleCount: 0, remainingCount: 0 };
+      const result = await ReviewSession.load(reviewSession, () => ExtApi.runtime.sendMessage({ type: "review.queue" }));
+      if (result.kind === "recovery") {
           hideReviewBadge();
-          renderRecovery(response.recoveryRaw);
-          return { kind: "recovery" };
-        }
-        const result = parseReviewQueue(response);
-        if (!result) throw new Error("Invalid review queue.");
-        state.reviewQueueError = "";
-        state.reviewQueueRecovery = false;
-        reviewQueue = result.words;
-        reviewMeta = { dueCount: result.dueCount, visibleCount: result.visibleCount, remainingCount: result.remainingCount };
-        reviewQueueLoaded = true;
-        warning(result.storageWarning || state.reminderWarning || state.storageWarning);
+          renderRecovery(result.recoveryRaw);
+          return result;
+      }
+      if (result.kind === "queue") {
+        const queue = result.queue;
+        warning(queue.storageWarning || state.reminderWarning || state.storageWarning);
         if (elements.dueReviewBadge) {
-          if (result.dueCount > 0) {
+          if (queue.dueCount > 0) {
             elements.dueReviewBadge.hidden = false;
-            elements.dueReviewBadge.textContent = `${result.dueCount} مستحقة`;
-            elements.dueReviewBadge.setAttribute("aria-label", `المراجعات المستحقة اليوم: ${formatReviewCount(result.dueCount)}`);
+            elements.dueReviewBadge.textContent = `${queue.dueCount} مستحقة`;
+            elements.dueReviewBadge.setAttribute("aria-label", `المراجعات المستحقة اليوم: ${formatReviewCount(queue.dueCount)}`);
           } else {
             elements.dueReviewBadge.hidden = true;
           }
         }
-      } catch (_) {
-        setReviewQueueError();
+      } else {
+        hideReviewBadge();
+        clearPracticeCard();
       }
+      return result;
     })();
     const pending = reviewQueueLoad;
     pending.then(() => {
@@ -269,34 +216,33 @@
     if (elements.practiceBody) elements.practiceBody.hidden = false;
     if (elements.practiceFinished) elements.practiceFinished.hidden = true;
     if (elements.practiceError) elements.practiceError.hidden = false;
-    if (elements.practiceErrorMessage) elements.practiceErrorMessage.textContent = state.reviewQueueError || "تعذّر تحميل المراجعات. حاول مجددًا.";
+    if (elements.practiceErrorMessage) elements.practiceErrorMessage.textContent = ReviewSession.error(reviewSession) || "تعذّر تحميل المراجعات. حاول مجددًا.";
     clearPracticeCard();
-    status(state.reviewQueueError || "تعذّر تحميل المراجعات. حاول مجددًا.");
+    status(ReviewSession.error(reviewSession) || "تعذّر تحميل المراجعات. حاول مجددًا.");
   }
 
   function showPracticeContent() {
-    if (state.reviewQueueRecovery) return;
-    if (state.reviewQueueError) return showPracticeError();
-    if (reviewQueue.length === 0) return showPracticeFinished();
-    currentReviewIndex = 0;
-    showPracticeCard(currentReviewIndex);
+    if (ReviewSession.isRecovery(reviewSession)) return;
+    if (ReviewSession.hasError(reviewSession)) return showPracticeError();
+    if (ReviewSession.count(reviewSession) === 0) return showPracticeFinished();
+    showPracticeCard(0);
   }
 
   function openPracticeModal() {
     if (!elements.practiceDialog) return;
     reviewInvoker = document.activeElement && typeof document.activeElement.focus === "function" ? document.activeElement : null;
-    if (state.reviewQueueError) {
+    if (ReviewSession.hasError(reviewSession)) {
       loadDueReviews({ force: true }).then((result) => {
-        if (result?.kind === "recovery" || state.reviewQueueRecovery) return;
+        if (result?.kind === "recovery" || ReviewSession.isRecovery(reviewSession)) return;
         showPracticeContent();
         presentPracticeDialog();
       });
       return;
     }
-    const needsLoad = !reviewQueueLoaded || reviewQueue.length === 0;
+    const needsLoad = !ReviewSession.isLoaded(reviewSession) || ReviewSession.count(reviewSession) === 0;
     if (needsLoad) {
       loadDueReviews().then((result) => {
-        if (result?.kind === "recovery" || state.reviewQueueRecovery) return;
+        if (result?.kind === "recovery" || ReviewSession.isRecovery(reviewSession)) return;
         showPracticeContent();
         presentPracticeDialog();
       });
@@ -323,7 +269,7 @@
   }
 
   function handlePracticeDialogClose() {
-    if (state.reviewQueueRecovery) {
+    if (ReviewSession.isRecovery(reviewSession)) {
       reviewInvoker = null;
       return;
     }
@@ -342,20 +288,15 @@
   }
 
   function showPracticeCard(index) {
-    if (index < 0 || index >= reviewQueue.length) {
+    if (index < 0 || index >= ReviewSession.count(reviewSession)) {
       showPracticeFinished();
       return;
     }
     if (elements.practiceBody) elements.practiceBody.hidden = false;
     if (elements.practiceFinished) elements.practiceFinished.hidden = true;
 
-    const item = reviewQueue[index];
+    const item = ReviewSession.showCard(reviewSession, index);
     const word = item.word || item;
-
-    state.reviewRevealed = false;
-    state.reviewSubmitting = false;
-    state.reviewQueueError = "";
-    state.reviewQueueRecovery = false;
     if (elements.practiceError) elements.practiceError.hidden = true;
     const reviewOptions = item.reviewOptions || {};
     for (const [key, button] of [["again", elements.rateAgain], ["hard", elements.rateHard], ["good", elements.rateGood], ["easy", elements.rateEasy]]) {
@@ -365,7 +306,7 @@
       if (interval) interval.textContent = label;
     }
     if (elements.practiceProgress) {
-      elements.practiceProgress.textContent = `${index + 1} / ${reviewQueue.length}`;
+      elements.practiceProgress.textContent = `${index + 1} / ${ReviewSession.count(reviewSession)}`;
     }
     if (elements.cardFrontWord) elements.cardFrontWord.textContent = word.word || "";
     if (elements.cardFrontVocalization) elements.cardFrontVocalization.textContent = word.vocalization || word.pronunciation || "";
@@ -386,6 +327,7 @@
     if (elements.practiceFinished) elements.practiceFinished.hidden = false;
     if (elements.practiceError) elements.practiceError.hidden = true;
     clearPracticeCard();
+    const reviewMeta = ReviewSession.meta(reviewSession);
     const remainingCount = Math.max(0, reviewMeta.remainingCount);
     const finishedMessage = elements.practiceFinishedMessage;
     if (remainingCount > 0) {
@@ -404,17 +346,16 @@
   }
 
   function flipCard() {
-    state.reviewRevealed = !state.reviewRevealed;
+    ReviewSession.toggleReveal(reviewSession);
     syncReviewControls();
-    status(state.reviewRevealed ? "كُشف المعنى." : "أُخفي المعنى.");
+    status(ReviewSession.isRevealed(reviewSession) ? "كُشف المعنى." : "أُخفي المعنى.");
   }
 
   async function submitRating(rating) {
-    if (!state.reviewRevealed || state.reviewSubmitting || currentReviewIndex >= reviewQueue.length) return;
-    const currentItem = reviewQueue[currentReviewIndex];
+    const currentItem = ReviewSession.beginSubmission(reviewSession);
+    if (!currentItem) return;
     const wordId = currentItem.word?.id ?? currentItem.wordId ?? currentItem.id;
     const buttons = reviewButtons();
-    state.reviewSubmitting = true;
     syncReviewControls();
     buttons.forEach((button) => button.setAttribute("aria-busy", "true"));
     try {
@@ -426,20 +367,20 @@
       });
       if (result?.kind === "recovery") return renderRecovery();
       if (result?.kind !== "ok") throw new Error("Review unchanged.");
-      currentReviewIndex++;
-      if (currentReviewIndex < reviewQueue.length) {
-        showPracticeCard(currentReviewIndex);
+      const nextIndex = ReviewSession.advance(reviewSession);
+      if (nextIndex !== null) {
+        showPracticeCard(nextIndex);
         status("تم حفظ المراجعة.");
       } else {
         showPracticeFinished();
-        if (reviewMeta.remainingCount === 0) status("تم حفظ المراجعة.");
+        if (ReviewSession.meta(reviewSession).remainingCount === 0) status("تم حفظ المراجعة.");
       }
     } catch (_) {
-      state.reviewSubmitting = false;
+      ReviewSession.finishSubmission(reviewSession);
       syncReviewControls();
       status("تعذّر حفظ المراجعة. حاول مجددًا.");
     } finally {
-      state.reviewSubmitting = false;
+      ReviewSession.finishSubmission(reviewSession);
       buttons.forEach((button) => button.setAttribute("aria-busy", "false"));
     }
   }
@@ -774,60 +715,17 @@
   }
 
   function speak(customText = null) {
-    const speech = globalThis.speechSynthesis;
-    if (!speech || typeof globalThis.SpeechSynthesisUtterance !== "function") return;
     const targetText = typeof customText === "string" ? customText : (state.word?.word ?? "");
-    const cleanWord = String(targetText).replace(/[\u200B-\u200F\uFEFF\u0640]/g, "").trim();
-    if (!cleanWord) return;
-
-    const availableVoices = typeof speech.getVoices === "function"
-      ? (speech.getVoices() || [])
-      : [];
-    const arabicVoice = availableVoices.find((v) => {
-      const l = (v.lang || "").toLowerCase();
-      const n = (v.name || "").toLowerCase();
-      return (l === "ar-sa" || l.startsWith("ar")) && (n.includes("natural") || n.includes("neural") || n.includes("online") || n.includes("siri") || n.includes("enhanced"));
-    }) || availableVoices.find((v) => (v.lang || "").toLowerCase().startsWith("ar"));
-    if (!arabicVoice) {
+    const result = globalThis.KalimatSpeech?.speak(targetText, {
+      rate: state.profile?.preferences?.speechRate ?? 0.85,
+      repeat: state.profile?.preferences?.speechRepeat ?? 1,
+      requireVoice: true,
+    });
+    if (result?.kind === "no-arabic-voice") {
       status("لم يتم العثور على صوت عربي. فعّل حزمة صوت عربية في إعدادات النظام ثم حاول مجددًا.");
-      return;
+    } else if (result?.kind === "unavailable") {
+      status("تعذّر تشغيل النطق على هذا الجهاز.");
     }
-
-    const speechRate = state.profile?.preferences?.speechRate ?? 0.85;
-    const speechRepeat = state.profile?.preferences?.speechRepeat ?? 1;
-    let remaining = speechRepeat;
-    globalThis._activeUtterance = null;
-    try {
-      speech.cancel();
-    } catch (_) { /* best effort */ }
-
-    const speakNext = () => {
-      const utterance = new SpeechSynthesisUtterance(cleanWord);
-      utterance.lang = "ar-SA";
-      utterance.rate = speechRate;
-      utterance.pitch = 1.0;
-      utterance.voice = arabicVoice;
-      utterance.lang = arabicVoice.lang || "ar-SA";
-      globalThis._activeUtterance = utterance;
-      utterance.onend = () => {
-        if (globalThis._activeUtterance !== utterance) return;
-        if (remaining > 1) {
-          remaining -= 1;
-          speakNext();
-        } else {
-          globalThis._activeUtterance = null;
-        }
-      };
-      utterance.onerror = () => {
-        if (globalThis._activeUtterance === utterance) globalThis._activeUtterance = null;
-      };
-      try {
-        speech.speak(utterance);
-      } catch (_) {
-        if (globalThis._activeUtterance === utterance) globalThis._activeUtterance = null;
-      }
-    };
-    speakNext();
   }
 
   function openAtlas() {
@@ -924,25 +822,25 @@
         }
       }
       if (event.key === "1" || event.key === "١") {
-        if (!state.reviewRevealed) return;
+        if (!ReviewSession.isRevealed(reviewSession)) return;
         event.preventDefault();
         submitRating("again");
         return;
       }
       if (event.key === "2" || event.key === "٢") {
-        if (!state.reviewRevealed) return;
+        if (!ReviewSession.isRevealed(reviewSession)) return;
         event.preventDefault();
         submitRating("hard");
         return;
       }
       if (event.key === "3" || event.key === "٣") {
-        if (!state.reviewRevealed) return;
+        if (!ReviewSession.isRevealed(reviewSession)) return;
         event.preventDefault();
         submitRating("good");
         return;
       }
       if (event.key === "4" || event.key === "٤") {
-        if (!state.reviewRevealed) return;
+        if (!ReviewSession.isRevealed(reviewSession)) return;
         event.preventDefault();
         submitRating("easy");
         return;
@@ -993,7 +891,7 @@
     if (elements.practiceFinishBtn) elements.practiceFinishBtn.addEventListener("click", closePracticeModal);
     if (elements.practiceRetry) elements.practiceRetry.addEventListener("click", () => {
       loadDueReviews({ force: true }).then((result) => {
-        if (result?.kind === "recovery" || state.reviewQueueRecovery) {
+        if (result?.kind === "recovery" || ReviewSession.isRecovery(reviewSession)) {
           dismissPracticeForRecovery();
           return;
         }
@@ -1005,7 +903,7 @@
     if (elements.cardFrontSpeak) {
       elements.cardFrontSpeak.addEventListener("click", (e) => {
         e.stopPropagation();
-        const currentItem = reviewQueue[currentReviewIndex];
+        const currentItem = ReviewSession.current(reviewSession);
         const w = currentItem?.word || currentItem;
         if (w?.word) speak(w.word);
       });

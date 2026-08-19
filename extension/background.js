@@ -1,5 +1,5 @@
 if (!globalThis.KalimatVocabulary && typeof importScripts === "function") {
-  importScripts("shared/date.js", "shared/vocabulary.js", "shared/state.js", "shared/selector.js", "shared/lookup.js");
+  importScripts("shared/date.js", "shared/vocabulary.js", "shared/review-policy.js", "shared/state.js", "shared/selector.js", "shared/lookup.js");
 }
 
 const dependencies = typeof module === "object" && module.exports

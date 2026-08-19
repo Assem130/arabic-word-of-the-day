@@ -1,5 +1,6 @@
 (function (root, factory) {
   const DateApi = typeof module === "object" && module.exports ? require("./date.js") : root.KalimatDate;
+  const ReviewPolicy = typeof module === "object" && module.exports ? require("./review-policy.js") : root.KalimatReviewPolicy;
   const isDateKey = DateApi.isDateKey;
   const getLocalDateKey = DateApi.getLocalDateKey || ((d) => d.toISOString().slice(0, 10));
   const addDaysToDateKey = DateApi.addDaysToDateKey || ((k, n) => {
@@ -12,11 +13,12 @@
     return Math.floor(Date.UTC(y2, m2 - 1, d2) / 86400000) - Math.floor(Date.UTC(y1, m1 - 1, d1) / 86400000);
   });
 
-  const api = factory({ isDateKey, getLocalDateKey, addDaysToDateKey, getDaysDifference });
+  const api = factory({ isDateKey, getLocalDateKey, addDaysToDateKey, getDaysDifference, ReviewPolicy });
   if (typeof module === "object" && module.exports) module.exports = api;
   root.KalimatState = api;
 })(globalThis, function (DateApi) {
   "use strict";
+  const ReviewPolicy = DateApi.ReviewPolicy;
 
   const isDateKey = DateApi.isDateKey;
   const getLocalDateKey = DateApi.getLocalDateKey || ((d) => d.toISOString().slice(0, 10));
@@ -196,22 +198,7 @@
   }
 
   function mapRatingToGrade(rating) {
-    if (typeof rating === "number") {
-      if (isNaN(rating)) return 4;
-      return Math.min(5, Math.max(0, Math.round(rating)));
-    }
-    if (typeof rating === "string") {
-      const trimmed = rating.trim().toLowerCase();
-      if (/^\d+$/.test(trimmed)) {
-        const parsed = parseInt(trimmed, 10);
-        return Math.min(5, Math.max(0, parsed));
-      }
-      if (trimmed === "again" || trimmed === "أعد" || trimmed === "اعد" || trimmed === "مجددا" || trimmed === "مجدداً") return 1;
-      if (trimmed === "hard" || trimmed === "صعب") return 3;
-      if (trimmed === "good" || trimmed === "جيد") return 4;
-      if (trimmed === "easy" || trimmed === "سهل") return 5;
-    }
-    return 4;
+    return ReviewPolicy.mapRatingToGrade(rating);
   }
 
   function withSrsAliases(item) {
@@ -271,87 +258,15 @@
   }
 
   function calculateSM2(item, rating, reviewDateKey) {
-    const q = mapRatingToGrade(rating);
-    const dateKey = isDateKey(reviewDateKey) ? reviewDateKey : getLocalDateKey(new Date());
-
-    const prevRepetition = (item && Number.isInteger(item.repetition) && item.repetition >= 0)
-      ? item.repetition
-      : ((item && Number.isInteger(item.repetitions) && item.repetitions >= 0) ? item.repetitions : 0);
-    const prevInterval = normalizeSrsInterval(item && item.interval);
-    const prevEf = normalizeSrsEf(item && (typeof item.ef === "number" ? item.ef : item.easeFactor));
-    const prevLapses = (item && Number.isInteger(item.lapses) && item.lapses >= 0) ? item.lapses : 0;
-    const prevReviewCount = (item && Number.isInteger(item.reviewCount) && item.reviewCount >= 0) ? item.reviewCount : 0;
-    const prevHistory = (item && Array.isArray(item.history)) ? [...item.history] : [];
-
-    const rawEf = prevEf + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02));
-    const roundedEf = Math.round(rawEf * 100) / 100;
-    const newEf = Math.max(1.3, roundedEf);
-
-    let newRepetition = 0;
-    let newInterval = 1;
-    let newLapses = prevLapses;
-
-    const ratingStr = typeof rating === "string" ? rating.toLowerCase().trim() : "";
-
-    if (q < 3) {
-      newRepetition = 0;
-      newInterval = 1;
-      newLapses = prevLapses + 1;
-    } else {
-      if (prevRepetition === 0) {
-        newInterval = 1;
-      } else if (prevRepetition === 1) {
-        newInterval = 6;
-      } else {
-        newInterval = Math.round(prevInterval * newEf);
-      }
-      newRepetition = prevRepetition + 1;
-    }
-
-    const nextReviewDate = addDaysToDateKey(dateKey, newInterval);
-    const lastReviewedDate = dateKey;
-
-    const canonicalRating = ratingStr || (q === 1 ? "again" : q === 3 ? "hard" : q === 4 ? "good" : q === 5 ? "easy" : String(q));
-    const historyEntry = {
-      date: dateKey,
-      grade: q,
-      rating: canonicalRating,
-      interval: newInterval,
-      ef: newEf,
-    };
-
-    const updatedHistory = [...prevHistory, historyEntry].slice(-50);
-
-    const result = {
-      repetition: newRepetition,
-      interval: newInterval,
-      ef: newEf,
-      nextReviewDate,
-      lastReviewedDate,
-      reviewCount: prevReviewCount + 1,
-      lapses: newLapses,
-      historyEntry,
-      history: updatedHistory,
-    };
-
-    if (item && item.wordId !== undefined) {
-      result.wordId = item.wordId;
-    }
-
-    return withSrsAliases(result);
+    return withSrsAliases(ReviewPolicy.calculate(item, rating, reviewDateKey, {
+      isDateKey,
+      getLocalDateKey,
+      addDaysToDateKey,
+    }));
   }
 
   function getReviewOptions(item, reviewDateKey) {
-    const entries = ["again", "hard", "good", "easy"].map((rating) => {
-      const next = calculateSM2(item, rating, reviewDateKey);
-      const label = next.interval === 1 ? "غدًا" : `بعد ${next.interval} يوم`;
-      return [rating, {
-        interval: next.interval,
-        nextReviewDate: next.nextReviewDate,
-        label,
-      }];
-    });
-    return Object.fromEntries(entries);
+    return ReviewPolicy.getOptions(item, reviewDateKey, { isDateKey, getLocalDateKey, addDaysToDateKey });
   }
 
   function copyProfile(raw, vocabulary, assignmentMaximum = MAX_ASSIGNMENTS) {
@@ -701,27 +616,13 @@
       }
     }
 
-    dueItems.sort((a, b) => {
-      if (b.daysOverdue !== a.daysOverdue) {
-        return b.daysOverdue - a.daysOverdue;
-      }
-      const intA = typeof a.srs.interval === "number" ? a.srs.interval : 0;
-      const intB = typeof b.srs.interval === "number" ? b.srs.interval : 0;
-      if (intA !== intB) return intA - intB;
-      const efA = typeof a.srs.ef === "number" ? a.srs.ef : 2.5;
-      const efB = typeof b.srs.ef === "number" ? b.srs.ef : 2.5;
-      if (efA !== efB) return efA - efB;
-      const repA = typeof a.srs.repetition === "number" ? a.srs.repetition : 0;
-      const repB = typeof b.srs.repetition === "number" ? b.srs.repetition : 0;
-      if (repA !== repB) return repA - repB;
-      return (Number(a.word.id) || 0) - (Number(b.word.id) || 0);
-    });
+    const orderedItems = ReviewPolicy.sortDue(dueItems, (item) => Number(item.word.id) || 0);
 
     if (typeof limit === "number" && limit > 0) {
-      return dueItems.slice(0, Math.floor(limit));
+      return orderedItems.slice(0, Math.floor(limit));
     }
 
-    return dueItems;
+    return orderedItems;
   }
 
   function getReviewStats(profile, vocabulary, dateKey) {
@@ -730,26 +631,13 @@
     const current = copyProfile(profile, vocabulary);
     const srsList = Object.values(current.srs);
 
-    const totalCards = srsList.length;
-    let dueToday = 0;
-    let reviewedToday = 0;
-    let totalGrade = 0;
-    let successReviews = 0;
-    let totalReviews = 0;
+    const summary = ReviewPolicy.summarize(srsList, todayKey);
     let learningCount = 0;
     let reviewCount = 0;
     let masteredCount = 0;
-    let sumEf = 0;
 
     for (const item of srsList) {
       if (!item) continue;
-      sumEf += item.ef || 2.5;
-      if (item.nextReviewDate && item.nextReviewDate <= todayKey) {
-        dueToday++;
-      }
-      if (item.lastReviewedDate === todayKey) {
-        reviewedToday++;
-      }
       if (item.repetition === 0) {
         learningCount++;
       } else if (item.repetition >= 4 && item.interval >= 21) {
@@ -757,30 +645,18 @@
       } else {
         reviewCount++;
       }
-      if (Array.isArray(item.history)) {
-        for (const h of item.history) {
-          if (h && typeof h === "object") {
-            totalReviews++;
-            const grade = typeof h.grade === "number" ? h.grade : mapRatingToGrade(h.rating);
-            if (grade >= 3) successReviews++;
-          }
-        }
-      }
     }
 
-    const retentionRate = totalReviews > 0 ? Math.round((successReviews / totalReviews) * 1000) / 10 : 100;
-    const averageEF = totalCards > 0 ? Math.round((sumEf / totalCards) * 100) / 100 : 2.5;
-
     return {
-      totalCards,
-      dueToday,
-      dueCount: dueToday,
-      reviewedToday,
-      retentionRate,
+      totalCards: summary.totalCards,
+      dueToday: summary.dueToday,
+      dueCount: summary.dueToday,
+      reviewedToday: summary.reviewedToday,
+      retentionRate: summary.retentionRate,
       learningCount,
       reviewCount,
       masteredCount,
-      averageEF,
+      averageEF: summary.averageEF,
     };
   }
 

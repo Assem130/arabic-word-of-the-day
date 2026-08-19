@@ -1,0 +1,5403 @@
+[
+  {
+    "sourceId": 1,
+    "id": 1,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "low",
+    "topics": [
+      "classical-arabic",
+      "language"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 2,
+    "id": 2,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "low",
+    "topics": [
+      "classical-arabic",
+      "language"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 3,
+    "id": 3,
+    "contentVersion": 2,
+    "difficultyBand": "intermediate",
+    "usefulnessBand": "medium",
+    "topics": [
+      "daily-life",
+      "travel",
+      "food"
+    ],
+    "partOfSpeech": "noun",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 4,
+    "id": 4,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "low",
+    "topics": [
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 5,
+    "id": 5,
+    "contentVersion": 2,
+    "difficultyBand": "intermediate",
+    "usefulnessBand": "medium",
+    "topics": [
+      "daily-life"
+    ],
+    "partOfSpeech": "noun",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 6,
+    "id": 6,
+    "contentVersion": 2,
+    "difficultyBand": "intermediate",
+    "usefulnessBand": "medium",
+    "topics": [
+      "family"
+    ],
+    "partOfSpeech": "noun",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 7,
+    "id": 7,
+    "contentVersion": 2,
+    "difficultyBand": "intermediate",
+    "usefulnessBand": "medium",
+    "topics": [
+      "daily-life",
+      "travel"
+    ],
+    "partOfSpeech": "noun",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 8,
+    "id": 8,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "classical-arabic",
+      "family",
+      "language"
+    ],
+    "partOfSpeech": "adjective",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 9,
+    "id": 9,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "low",
+    "topics": [
+      "classical-arabic",
+      "travel"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 10,
+    "id": 10,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "classical-arabic"
+    ],
+    "partOfSpeech": "adjective",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 11,
+    "id": 11,
+    "contentVersion": 2,
+    "difficultyBand": "intermediate",
+    "usefulnessBand": "medium",
+    "topics": [
+      "classical-arabic",
+      "daily-life"
+    ],
+    "partOfSpeech": "adjective",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 12,
+    "id": 12,
+    "contentVersion": 2,
+    "difficultyBand": "intermediate",
+    "usefulnessBand": "medium",
+    "topics": [
+      "daily-life"
+    ],
+    "partOfSpeech": "noun",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 13,
+    "id": 13,
+    "contentVersion": 2,
+    "difficultyBand": "beginner",
+    "usefulnessBand": "high",
+    "topics": [
+      "daily-life",
+      "food"
+    ],
+    "partOfSpeech": "noun",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 14,
+    "id": 14,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "low",
+    "topics": [
+      "classical-arabic",
+      "family"
+    ],
+    "partOfSpeech": "adjective",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 15,
+    "id": 15,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "low",
+    "topics": [
+      "classical-arabic",
+      "food",
+      "language"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 16,
+    "id": 16,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "low",
+    "topics": [
+      "classical-arabic",
+      "food"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 17,
+    "id": 17,
+    "contentVersion": 2,
+    "difficultyBand": "intermediate",
+    "usefulnessBand": "high",
+    "topics": [
+      "family",
+      "language"
+    ],
+    "partOfSpeech": "noun",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 18,
+    "id": 18,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "classical-arabic",
+      "family"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 19,
+    "id": 19,
+    "contentVersion": 2,
+    "difficultyBand": "beginner",
+    "usefulnessBand": "high",
+    "topics": [
+      "daily-life",
+      "food"
+    ],
+    "partOfSpeech": "noun",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 20,
+    "id": 20,
+    "contentVersion": 2,
+    "difficultyBand": "intermediate",
+    "usefulnessBand": "high",
+    "topics": [
+      "family"
+    ],
+    "partOfSpeech": "noun",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 21,
+    "id": 21,
+    "contentVersion": 2,
+    "difficultyBand": "intermediate",
+    "usefulnessBand": "medium",
+    "topics": [
+      "daily-life",
+      "travel",
+      "food"
+    ],
+    "partOfSpeech": "noun",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 22,
+    "id": 22,
+    "contentVersion": 2,
+    "difficultyBand": "intermediate",
+    "usefulnessBand": "high",
+    "topics": [
+      "family",
+      "daily-life"
+    ],
+    "partOfSpeech": "noun",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 23,
+    "id": 23,
+    "contentVersion": 2,
+    "difficultyBand": "intermediate",
+    "usefulnessBand": "high",
+    "topics": [
+      "family"
+    ],
+    "partOfSpeech": "noun",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 24,
+    "id": 24,
+    "contentVersion": 2,
+    "difficultyBand": "beginner",
+    "usefulnessBand": "high",
+    "topics": [
+      "daily-life",
+      "food"
+    ],
+    "partOfSpeech": "noun",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 25,
+    "id": 25,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "classical-arabic",
+      "family",
+      "language"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 26,
+    "id": 26,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "classical-arabic",
+      "family"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 27,
+    "id": 27,
+    "contentVersion": 2,
+    "difficultyBand": "beginner",
+    "usefulnessBand": "high",
+    "topics": [
+      "daily-life"
+    ],
+    "partOfSpeech": "noun",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 28,
+    "id": 28,
+    "contentVersion": 2,
+    "difficultyBand": "intermediate",
+    "usefulnessBand": "high",
+    "topics": [
+      "travel",
+      "daily-life"
+    ],
+    "partOfSpeech": "noun",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 29,
+    "id": 29,
+    "contentVersion": 2,
+    "difficultyBand": "beginner",
+    "usefulnessBand": "high",
+    "topics": [
+      "family",
+      "daily-life"
+    ],
+    "partOfSpeech": "noun",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 30,
+    "id": 30,
+    "contentVersion": 2,
+    "difficultyBand": "intermediate",
+    "usefulnessBand": "medium",
+    "topics": [
+      "daily-life",
+      "travel",
+      "food"
+    ],
+    "partOfSpeech": "noun",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 31,
+    "id": 31,
+    "contentVersion": 2,
+    "difficultyBand": "intermediate",
+    "usefulnessBand": "high",
+    "topics": [
+      "language"
+    ],
+    "partOfSpeech": "noun",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 32,
+    "id": 32,
+    "contentVersion": 2,
+    "difficultyBand": "intermediate",
+    "usefulnessBand": "high",
+    "topics": [
+      "family",
+      "daily-life"
+    ],
+    "partOfSpeech": "noun",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 33,
+    "id": 33,
+    "contentVersion": 2,
+    "difficultyBand": "intermediate",
+    "usefulnessBand": "high",
+    "topics": [
+      "family",
+      "language"
+    ],
+    "partOfSpeech": "noun",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 34,
+    "id": 34,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "low",
+    "topics": [
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 35,
+    "id": 35,
+    "contentVersion": 2,
+    "difficultyBand": "beginner",
+    "usefulnessBand": "high",
+    "topics": [
+      "daily-life",
+      "travel"
+    ],
+    "partOfSpeech": "noun",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 36,
+    "id": 36,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "low",
+    "topics": [
+      "classical-arabic",
+      "travel"
+    ],
+    "partOfSpeech": "adverb",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 37,
+    "id": 37,
+    "contentVersion": 2,
+    "difficultyBand": "beginner",
+    "usefulnessBand": "high",
+    "topics": [
+      "family",
+      "food",
+      "daily-life"
+    ],
+    "partOfSpeech": "noun",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 38,
+    "id": 38,
+    "contentVersion": 2,
+    "difficultyBand": "intermediate",
+    "usefulnessBand": "high",
+    "topics": [
+      "language",
+      "daily-life"
+    ],
+    "partOfSpeech": "noun",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 39,
+    "id": 39,
+    "contentVersion": 2,
+    "difficultyBand": "beginner",
+    "usefulnessBand": "high",
+    "topics": [
+      "daily-life",
+      "travel",
+      "language"
+    ],
+    "partOfSpeech": "noun",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 40,
+    "id": 40,
+    "contentVersion": 2,
+    "difficultyBand": "intermediate",
+    "usefulnessBand": "medium",
+    "topics": [
+      "language"
+    ],
+    "partOfSpeech": "adjective",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 41,
+    "id": 41,
+    "contentVersion": 2,
+    "difficultyBand": "intermediate",
+    "usefulnessBand": "medium",
+    "topics": [
+      "travel"
+    ],
+    "partOfSpeech": "noun",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 42,
+    "id": 42,
+    "contentVersion": 2,
+    "difficultyBand": "intermediate",
+    "usefulnessBand": "medium",
+    "topics": [
+      "family",
+      "travel"
+    ],
+    "partOfSpeech": "noun",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 43,
+    "id": 43,
+    "contentVersion": 2,
+    "difficultyBand": "intermediate",
+    "usefulnessBand": "high",
+    "topics": [
+      "family",
+      "language"
+    ],
+    "partOfSpeech": "noun",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 44,
+    "id": 44,
+    "contentVersion": 2,
+    "difficultyBand": "intermediate",
+    "usefulnessBand": "medium",
+    "topics": [
+      "family"
+    ],
+    "partOfSpeech": "noun",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 45,
+    "id": 45,
+    "contentVersion": 2,
+    "difficultyBand": "intermediate",
+    "usefulnessBand": "medium",
+    "topics": [
+      "family"
+    ],
+    "partOfSpeech": "noun",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 46,
+    "id": 46,
+    "contentVersion": 2,
+    "difficultyBand": "intermediate",
+    "usefulnessBand": "medium",
+    "topics": [
+      "family"
+    ],
+    "partOfSpeech": "adjective",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 47,
+    "id": 47,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "low",
+    "topics": [
+      "classical-arabic",
+      "travel"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 48,
+    "id": 48,
+    "contentVersion": 2,
+    "difficultyBand": "intermediate",
+    "usefulnessBand": "medium",
+    "topics": [
+      "language"
+    ],
+    "partOfSpeech": "noun",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 49,
+    "id": 49,
+    "contentVersion": 2,
+    "difficultyBand": "intermediate",
+    "usefulnessBand": "low",
+    "topics": [
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 50,
+    "id": 50,
+    "contentVersion": 2,
+    "difficultyBand": "beginner",
+    "usefulnessBand": "high",
+    "topics": [
+      "daily-life"
+    ],
+    "partOfSpeech": "noun",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 51,
+    "id": 51,
+    "contentVersion": 2,
+    "difficultyBand": "intermediate",
+    "usefulnessBand": "medium",
+    "topics": [
+      "language"
+    ],
+    "partOfSpeech": "noun",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 52,
+    "id": 52,
+    "contentVersion": 2,
+    "difficultyBand": "intermediate",
+    "usefulnessBand": "medium",
+    "topics": [
+      "family",
+      "language"
+    ],
+    "partOfSpeech": "noun",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 53,
+    "id": 53,
+    "contentVersion": 2,
+    "difficultyBand": "intermediate",
+    "usefulnessBand": "medium",
+    "topics": [
+      "travel",
+      "language"
+    ],
+    "partOfSpeech": "noun",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 54,
+    "id": 54,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 55,
+    "id": 55,
+    "contentVersion": 2,
+    "difficultyBand": "intermediate",
+    "usefulnessBand": "medium",
+    "topics": [
+      "family"
+    ],
+    "partOfSpeech": "noun",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 56,
+    "id": 56,
+    "contentVersion": 2,
+    "difficultyBand": "intermediate",
+    "usefulnessBand": "medium",
+    "topics": [
+      "family",
+      "daily-life",
+      "travel"
+    ],
+    "partOfSpeech": "noun",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 57,
+    "id": 57,
+    "contentVersion": 2,
+    "difficultyBand": "intermediate",
+    "usefulnessBand": "medium",
+    "topics": [
+      "travel"
+    ],
+    "partOfSpeech": "noun",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 58,
+    "id": 58,
+    "contentVersion": 2,
+    "difficultyBand": "intermediate",
+    "usefulnessBand": "medium",
+    "topics": [
+      "classical-arabic",
+      "travel",
+      "food"
+    ],
+    "partOfSpeech": "noun",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 59,
+    "id": 59,
+    "contentVersion": 2,
+    "difficultyBand": "intermediate",
+    "usefulnessBand": "medium",
+    "topics": [
+      "family"
+    ],
+    "partOfSpeech": "noun",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 60,
+    "id": 60,
+    "contentVersion": 2,
+    "difficultyBand": "intermediate",
+    "usefulnessBand": "medium",
+    "topics": [
+      "family"
+    ],
+    "partOfSpeech": "noun",
+    "register": "standard",
+    "reviewed": true
+  },
+  {
+    "sourceId": 61,
+    "id": 61,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "nature",
+      "astronomy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 62,
+    "id": 62,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "nature",
+      "astronomy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 63,
+    "id": 63,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "nature",
+      "astronomy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 64,
+    "id": 64,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "nature",
+      "astronomy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 65,
+    "id": 65,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "nature",
+      "astronomy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 66,
+    "id": 66,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "nature",
+      "astronomy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 67,
+    "id": 67,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "nature",
+      "astronomy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 68,
+    "id": 68,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "nature",
+      "astronomy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 69,
+    "id": 69,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "nature",
+      "astronomy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 70,
+    "id": 70,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "nature",
+      "astronomy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 71,
+    "id": 71,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "nature",
+      "astronomy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 72,
+    "id": 72,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "nature",
+      "astronomy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 73,
+    "id": 73,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "nature",
+      "astronomy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 74,
+    "id": 74,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "nature",
+      "astronomy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 75,
+    "id": 75,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "nature",
+      "astronomy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 76,
+    "id": 76,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "nature",
+      "astronomy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 77,
+    "id": 77,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "nature",
+      "astronomy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 78,
+    "id": 78,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "nature",
+      "astronomy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 79,
+    "id": 79,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "nature",
+      "astronomy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 80,
+    "id": 80,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "nature",
+      "astronomy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 81,
+    "id": 81,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "nature",
+      "astronomy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 82,
+    "id": 82,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "nature",
+      "astronomy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 83,
+    "id": 83,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "nature",
+      "astronomy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 84,
+    "id": 84,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "nature",
+      "astronomy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 85,
+    "id": 85,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "nature",
+      "astronomy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 86,
+    "id": 86,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "wisdom",
+      "philosophy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 87,
+    "id": 87,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "wisdom",
+      "philosophy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 88,
+    "id": 88,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "wisdom",
+      "philosophy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 89,
+    "id": 89,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "wisdom",
+      "philosophy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 90,
+    "id": 90,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "wisdom",
+      "philosophy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 91,
+    "id": 91,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "wisdom",
+      "philosophy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 92,
+    "id": 92,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "wisdom",
+      "philosophy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 93,
+    "id": 93,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "wisdom",
+      "philosophy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 94,
+    "id": 94,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "wisdom",
+      "philosophy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 95,
+    "id": 95,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "wisdom",
+      "philosophy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 96,
+    "id": 96,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "wisdom",
+      "philosophy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 97,
+    "id": 97,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "wisdom",
+      "philosophy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 98,
+    "id": 98,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "wisdom",
+      "philosophy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 99,
+    "id": 99,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "wisdom",
+      "philosophy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 100,
+    "id": 100,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "wisdom",
+      "philosophy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 101,
+    "id": 101,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "wisdom",
+      "philosophy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 102,
+    "id": 102,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "wisdom",
+      "philosophy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 103,
+    "id": 103,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "wisdom",
+      "philosophy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 104,
+    "id": 104,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "wisdom",
+      "philosophy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 105,
+    "id": 105,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "wisdom",
+      "philosophy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 106,
+    "id": 106,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "wisdom",
+      "philosophy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 107,
+    "id": 107,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "wisdom",
+      "philosophy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 108,
+    "id": 108,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "wisdom",
+      "philosophy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 109,
+    "id": 109,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "wisdom",
+      "philosophy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 110,
+    "id": 110,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "wisdom",
+      "philosophy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 111,
+    "id": 111,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "wisdom",
+      "philosophy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 112,
+    "id": 112,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "wisdom",
+      "philosophy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 113,
+    "id": 113,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "wisdom",
+      "philosophy",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 114,
+    "id": 114,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "virtues",
+      "character",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 115,
+    "id": 115,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "virtues",
+      "character",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 116,
+    "id": 116,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "virtues",
+      "character",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 117,
+    "id": 117,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "virtues",
+      "character",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 118,
+    "id": 118,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "virtues",
+      "character",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 119,
+    "id": 119,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "virtues",
+      "character",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 120,
+    "id": 120,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "virtues",
+      "character",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 121,
+    "id": 121,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "virtues",
+      "character",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 122,
+    "id": 122,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "virtues",
+      "character",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 123,
+    "id": 123,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "virtues",
+      "character",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 124,
+    "id": 124,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "virtues",
+      "character",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 125,
+    "id": 125,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "virtues",
+      "character",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 126,
+    "id": 126,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "virtues",
+      "character",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 127,
+    "id": 127,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "virtues",
+      "character",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 128,
+    "id": 128,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "virtues",
+      "character",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 129,
+    "id": 129,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "virtues",
+      "character",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 130,
+    "id": 130,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "virtues",
+      "character",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 131,
+    "id": 131,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "virtues",
+      "character",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 132,
+    "id": 132,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "virtues",
+      "character",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 133,
+    "id": 133,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "virtues",
+      "character",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 134,
+    "id": 134,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "virtues",
+      "character",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 135,
+    "id": 135,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "virtues",
+      "character",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 136,
+    "id": 136,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "virtues",
+      "character",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 137,
+    "id": 137,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "virtues",
+      "character",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 138,
+    "id": 138,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "faith",
+      "spirituality",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 139,
+    "id": 139,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "faith",
+      "spirituality",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 140,
+    "id": 140,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "faith",
+      "spirituality",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 141,
+    "id": 141,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "faith",
+      "spirituality",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 142,
+    "id": 142,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "faith",
+      "spirituality",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 143,
+    "id": 143,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "faith",
+      "spirituality",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 144,
+    "id": 144,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "faith",
+      "spirituality",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 145,
+    "id": 145,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "faith",
+      "spirituality",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 146,
+    "id": 146,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "faith",
+      "spirituality",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 147,
+    "id": 147,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "faith",
+      "spirituality",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 148,
+    "id": 148,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "faith",
+      "spirituality",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 149,
+    "id": 149,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "faith",
+      "spirituality",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 150,
+    "id": 150,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "faith",
+      "spirituality",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 151,
+    "id": 151,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "faith",
+      "spirituality",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 152,
+    "id": 152,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "faith",
+      "spirituality",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 153,
+    "id": 153,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "faith",
+      "spirituality",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 154,
+    "id": 154,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "faith",
+      "spirituality",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 155,
+    "id": 155,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "faith",
+      "spirituality",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 156,
+    "id": 156,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "faith",
+      "spirituality",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 157,
+    "id": 157,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "faith",
+      "spirituality",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 158,
+    "id": 158,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "faith",
+      "spirituality",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 159,
+    "id": 159,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "faith",
+      "spirituality",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 160,
+    "id": 160,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "faith",
+      "spirituality",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 161,
+    "id": 161,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "faith",
+      "spirituality",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 162,
+    "id": 162,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "faith",
+      "spirituality",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 163,
+    "id": 163,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "faith",
+      "spirituality",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 164,
+    "id": 164,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "knowledge",
+      "intellect",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 165,
+    "id": 165,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "knowledge",
+      "intellect",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 166,
+    "id": 166,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "knowledge",
+      "intellect",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 167,
+    "id": 167,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "knowledge",
+      "intellect",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 168,
+    "id": 168,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "knowledge",
+      "intellect",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 169,
+    "id": 169,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "knowledge",
+      "intellect",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 170,
+    "id": 170,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "knowledge",
+      "intellect",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 171,
+    "id": 171,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "knowledge",
+      "intellect",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 172,
+    "id": 172,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "knowledge",
+      "intellect",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 173,
+    "id": 173,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "knowledge",
+      "intellect",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 174,
+    "id": 174,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "knowledge",
+      "intellect",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 175,
+    "id": 175,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "knowledge",
+      "intellect",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 176,
+    "id": 176,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "knowledge",
+      "intellect",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 177,
+    "id": 177,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "knowledge",
+      "intellect",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 178,
+    "id": 178,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "knowledge",
+      "intellect",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 179,
+    "id": 179,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "knowledge",
+      "intellect",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 180,
+    "id": 180,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "knowledge",
+      "intellect",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 181,
+    "id": 181,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "knowledge",
+      "intellect",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 182,
+    "id": 182,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "knowledge",
+      "intellect",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 183,
+    "id": 183,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "knowledge",
+      "intellect",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 184,
+    "id": 184,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "knowledge",
+      "intellect",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 185,
+    "id": 185,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "knowledge",
+      "intellect",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 186,
+    "id": 186,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "knowledge",
+      "intellect",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 187,
+    "id": 187,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "knowledge",
+      "intellect",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 188,
+    "id": 188,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "knowledge",
+      "intellect",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 189,
+    "id": 189,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "knowledge",
+      "intellect",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 190,
+    "id": 190,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "knowledge",
+      "intellect",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 191,
+    "id": 191,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "knowledge",
+      "intellect",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 192,
+    "id": 192,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "poetry",
+      "literature",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 193,
+    "id": 193,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "poetry",
+      "literature",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 194,
+    "id": 194,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "poetry",
+      "literature",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 195,
+    "id": 195,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "poetry",
+      "literature",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 196,
+    "id": 196,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "poetry",
+      "literature",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 197,
+    "id": 197,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "poetry",
+      "literature",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 198,
+    "id": 198,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "poetry",
+      "literature",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 199,
+    "id": 199,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "poetry",
+      "literature",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 200,
+    "id": 200,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "poetry",
+      "literature",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 201,
+    "id": 201,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "poetry",
+      "literature",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 202,
+    "id": 202,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "poetry",
+      "literature",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 203,
+    "id": 203,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "poetry",
+      "literature",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 204,
+    "id": 204,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "poetry",
+      "literature",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 205,
+    "id": 205,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "poetry",
+      "literature",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 206,
+    "id": 206,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "poetry",
+      "literature",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 207,
+    "id": 207,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "poetry",
+      "literature",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 208,
+    "id": 208,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "poetry",
+      "literature",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 209,
+    "id": 209,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "poetry",
+      "literature",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 210,
+    "id": 210,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "poetry",
+      "literature",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 211,
+    "id": 211,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "poetry",
+      "literature",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 212,
+    "id": 212,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "poetry",
+      "literature",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 213,
+    "id": 213,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "poetry",
+      "literature",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 214,
+    "id": 214,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "poetry",
+      "literature",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 215,
+    "id": 215,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "poetry",
+      "literature",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 216,
+    "id": 216,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "poetry",
+      "literature",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 217,
+    "id": 217,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "poetry",
+      "literature",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 218,
+    "id": 218,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "poetry",
+      "literature",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 219,
+    "id": 219,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "poetry",
+      "literature",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 220,
+    "id": 220,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "poetry",
+      "literature",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 221,
+    "id": 221,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "community",
+      "society",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 222,
+    "id": 222,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "community",
+      "society",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 223,
+    "id": 223,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "community",
+      "society",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 224,
+    "id": 224,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "community",
+      "society",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 225,
+    "id": 225,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "community",
+      "society",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 226,
+    "id": 226,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "community",
+      "society",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 227,
+    "id": 227,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "community",
+      "society",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 228,
+    "id": 228,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "community",
+      "society",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 229,
+    "id": 229,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "community",
+      "society",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 230,
+    "id": 230,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "community",
+      "society",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 231,
+    "id": 231,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "community",
+      "society",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 232,
+    "id": 232,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "community",
+      "society",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 233,
+    "id": 233,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "community",
+      "society",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 234,
+    "id": 234,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "community",
+      "society",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 235,
+    "id": 235,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "community",
+      "society",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 236,
+    "id": 236,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "community",
+      "society",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 237,
+    "id": 237,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "community",
+      "society",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 238,
+    "id": 238,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "community",
+      "society",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 239,
+    "id": 239,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "community",
+      "society",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 240,
+    "id": 240,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "community",
+      "society",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 241,
+    "id": 241,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "community",
+      "society",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 242,
+    "id": 242,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "community",
+      "society",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 243,
+    "id": 243,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "community",
+      "society",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 244,
+    "id": 244,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "community",
+      "society",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 245,
+    "id": 245,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "community",
+      "society",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 246,
+    "id": 246,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "community",
+      "society",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 247,
+    "id": 247,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "emotions",
+      "heart",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 248,
+    "id": 248,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "emotions",
+      "heart",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 249,
+    "id": 249,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "emotions",
+      "heart",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 250,
+    "id": 250,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "emotions",
+      "heart",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 251,
+    "id": 251,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "emotions",
+      "heart",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 252,
+    "id": 252,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "emotions",
+      "heart",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 253,
+    "id": 253,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "emotions",
+      "heart",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 254,
+    "id": 254,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "emotions",
+      "heart",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 255,
+    "id": 255,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "emotions",
+      "heart",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 256,
+    "id": 256,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "emotions",
+      "heart",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 257,
+    "id": 257,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "emotions",
+      "heart",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 258,
+    "id": 258,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "emotions",
+      "heart",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 259,
+    "id": 259,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "emotions",
+      "heart",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 260,
+    "id": 260,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "emotions",
+      "heart",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 261,
+    "id": 261,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "emotions",
+      "heart",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 262,
+    "id": 262,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "emotions",
+      "heart",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 263,
+    "id": 263,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "emotions",
+      "heart",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 264,
+    "id": 264,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "emotions",
+      "heart",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 265,
+    "id": 265,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "emotions",
+      "heart",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 266,
+    "id": 266,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "emotions",
+      "heart",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 267,
+    "id": 267,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "emotions",
+      "heart",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 268,
+    "id": 268,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "emotions",
+      "heart",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 269,
+    "id": 269,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "time",
+      "seasons",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 270,
+    "id": 270,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "time",
+      "seasons",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 271,
+    "id": 271,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "time",
+      "seasons",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 272,
+    "id": 272,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "time",
+      "seasons",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 273,
+    "id": 273,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "time",
+      "seasons",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 274,
+    "id": 274,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "time",
+      "seasons",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 275,
+    "id": 275,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "time",
+      "seasons",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 276,
+    "id": 276,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "time",
+      "seasons",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 277,
+    "id": 277,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "time",
+      "seasons",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 278,
+    "id": 278,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "time",
+      "seasons",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 279,
+    "id": 279,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "time",
+      "seasons",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 280,
+    "id": 280,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "time",
+      "seasons",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 281,
+    "id": 281,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "time",
+      "seasons",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 282,
+    "id": 282,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "time",
+      "seasons",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 283,
+    "id": 283,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "time",
+      "seasons",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 284,
+    "id": 284,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "time",
+      "seasons",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 285,
+    "id": 285,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "time",
+      "seasons",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 286,
+    "id": 286,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "time",
+      "seasons",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 287,
+    "id": 287,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "time",
+      "seasons",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 288,
+    "id": 288,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "time",
+      "seasons",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 289,
+    "id": 289,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "time",
+      "seasons",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 290,
+    "id": 290,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "time",
+      "seasons",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 291,
+    "id": 291,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "time",
+      "seasons",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 292,
+    "id": 292,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "time",
+      "seasons",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 293,
+    "id": 293,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "time",
+      "seasons",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 294,
+    "id": 294,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "travel",
+      "resolve",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 295,
+    "id": 295,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "travel",
+      "resolve",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 296,
+    "id": 296,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "travel",
+      "resolve",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 297,
+    "id": 297,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "travel",
+      "resolve",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 298,
+    "id": 298,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "travel",
+      "resolve",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 299,
+    "id": 299,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "travel",
+      "resolve",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 300,
+    "id": 300,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "travel",
+      "resolve",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 301,
+    "id": 301,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "travel",
+      "resolve",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 302,
+    "id": 302,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "travel",
+      "resolve",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 303,
+    "id": 303,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "travel",
+      "resolve",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 304,
+    "id": 304,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "travel",
+      "resolve",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 305,
+    "id": 305,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "travel",
+      "resolve",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 306,
+    "id": 306,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "travel",
+      "resolve",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 307,
+    "id": 307,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "travel",
+      "resolve",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 308,
+    "id": 308,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "travel",
+      "resolve",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 309,
+    "id": 309,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "travel",
+      "resolve",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 310,
+    "id": 310,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "travel",
+      "resolve",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 311,
+    "id": 311,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "travel",
+      "resolve",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 312,
+    "id": 312,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "travel",
+      "resolve",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 313,
+    "id": 313,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "travel",
+      "resolve",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 314,
+    "id": 314,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "travel",
+      "resolve",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 315,
+    "id": 315,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "travel",
+      "resolve",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 316,
+    "id": 316,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "travel",
+      "resolve",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 317,
+    "id": 317,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "travel",
+      "resolve",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 318,
+    "id": 318,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "travel",
+      "resolve",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 319,
+    "id": 319,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "travel",
+      "resolve",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 320,
+    "id": 320,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "travel",
+      "resolve",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 321,
+    "id": 321,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "creation",
+      "life",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 322,
+    "id": 322,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "creation",
+      "life",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 323,
+    "id": 323,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "creation",
+      "life",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 324,
+    "id": 324,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "creation",
+      "life",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 325,
+    "id": 325,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "creation",
+      "life",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 326,
+    "id": 326,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "creation",
+      "life",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 327,
+    "id": 327,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "creation",
+      "life",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 328,
+    "id": 328,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "creation",
+      "life",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 329,
+    "id": 329,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "creation",
+      "life",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 330,
+    "id": 330,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "creation",
+      "life",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 331,
+    "id": 331,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "creation",
+      "life",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 332,
+    "id": 332,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "creation",
+      "life",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 333,
+    "id": 333,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "creation",
+      "life",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 334,
+    "id": 334,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "creation",
+      "life",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 335,
+    "id": 335,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "creation",
+      "life",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 336,
+    "id": 336,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "creation",
+      "life",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 337,
+    "id": 337,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "creation",
+      "life",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 338,
+    "id": 338,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "creation",
+      "life",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 339,
+    "id": 339,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "creation",
+      "life",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 340,
+    "id": 340,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "creation",
+      "life",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 341,
+    "id": 341,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "creation",
+      "life",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 342,
+    "id": 342,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "creation",
+      "life",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 343,
+    "id": 343,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "creation",
+      "life",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 344,
+    "id": 344,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "creation",
+      "life",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 345,
+    "id": 345,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "language",
+      "eloquence",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 346,
+    "id": 346,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "language",
+      "eloquence",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 347,
+    "id": 347,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "language",
+      "eloquence",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 348,
+    "id": 348,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "language",
+      "eloquence",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 349,
+    "id": 349,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "language",
+      "eloquence",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 350,
+    "id": 350,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "language",
+      "eloquence",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 351,
+    "id": 351,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "language",
+      "eloquence",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 352,
+    "id": 352,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "language",
+      "eloquence",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 353,
+    "id": 353,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "language",
+      "eloquence",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 354,
+    "id": 354,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "language",
+      "eloquence",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 355,
+    "id": 355,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "language",
+      "eloquence",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 356,
+    "id": 356,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "language",
+      "eloquence",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 357,
+    "id": 357,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "language",
+      "eloquence",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 358,
+    "id": 358,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "language",
+      "eloquence",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 359,
+    "id": 359,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "language",
+      "eloquence",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 360,
+    "id": 360,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "language",
+      "eloquence",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 361,
+    "id": 361,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "language",
+      "eloquence",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 362,
+    "id": 362,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "language",
+      "eloquence",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 363,
+    "id": 363,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "language",
+      "eloquence",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 364,
+    "id": 364,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "language",
+      "eloquence",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  },
+  {
+    "sourceId": 365,
+    "id": 365,
+    "contentVersion": 2,
+    "difficultyBand": "advanced",
+    "usefulnessBand": "medium",
+    "topics": [
+      "language",
+      "eloquence",
+      "classical-arabic"
+    ],
+    "partOfSpeech": "noun",
+    "register": "classical",
+    "reviewed": true
+  }
+]

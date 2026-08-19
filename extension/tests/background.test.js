@@ -258,7 +258,7 @@ test("review queue reports total and remaining counts when the daily limit caps 
   });
 });
 
-test("browser background bootstrap imports the five shared domain modules", async () => {
+test("browser background bootstrap imports the six shared domain modules", async () => {
   const fake = fakeExtension({ permissions: false, reminderApis: false });
   const imported = [];
   const context = vm.createContext({ chrome: fake.extension, console, crypto: webcrypto, TextEncoder, fetch: async () => ({ ok: true, async json() { return fake.vocabulary; } }) });
@@ -270,8 +270,8 @@ test("browser background bootstrap imports the five shared domain modules", asyn
     }
   };
   assert.doesNotThrow(() => vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "background.js"), "utf8"), context, { filename: "background.js" }));
-  assert.deepEqual(imported, ["shared/date.js", "shared/vocabulary.js", "shared/state.js", "shared/selector.js", "shared/lookup.js"]);
-  for (const name of ["KalimatDate", "KalimatVocabulary", "KalimatState", "KalimatSelector", "KalimatLookup"]) assert.equal(typeof context[name], "object");
+  assert.deepEqual(imported, ["shared/date.js", "shared/vocabulary.js", "shared/review-policy.js", "shared/state.js", "shared/selector.js", "shared/lookup.js"]);
+  for (const name of ["KalimatDate", "KalimatVocabulary", "KalimatReviewPolicy", "KalimatState", "KalimatSelector", "KalimatLookup"]) assert.equal(typeof context[name], "object");
   assert.equal((await fake.extension.runtime.onMessage.listeners[0]({ type: "settings.get" })).kind, "settings");
 });
 

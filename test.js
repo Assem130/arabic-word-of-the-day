@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const vm = require("node:vm");
 const Core = require("./app-core.js");
+const WebUI = require("./web-ui.js");
 
 class FakeElement {
     constructor(tagName = "div") {
@@ -487,8 +488,9 @@ const revamp = fs.readFileSync("revamp.js", "utf8");
 const appSource = fs.readFileSync("app.js", "utf8");
 const wordsScript = wordPage.indexOf('<script src="words.js"');
 const coreScript = wordPage.indexOf('<script src="app-core.js"');
+const webUiScript = wordPage.indexOf('<script src="web-ui.js"');
 const appScript = wordPage.indexOf('<script src="app.js"');
-assert.equal(wordsScript >= 0 && wordsScript < coreScript && coreScript < appScript, true, "word.html must load words.js, app-core.js, then app.js");
+assert.equal(wordsScript >= 0 && wordsScript < coreScript && coreScript < webUiScript && webUiScript < appScript, true, "word.html must load the core before its browser adapter");
 for (const id of ["word-pronunciation", "word-meaning-en", "word-context-text", "word-context-en", "btn-inline-review", "inline-review-count", "btn-toggle-english", "history-dialog", "btn-export-history", "btn-import-history", "input-import-history", "storage-warning", "btn-reset-storage", "streak-badge", "btn-export-card", "btn-export-anki"]) {
     assert.equal(wordPage.includes(`id="${id}"`), true, `word.html must include ${id}`);
 }
@@ -589,9 +591,8 @@ assert.match(css, /\.nav\s*\{[^}]*background:\s*var\(--nav-bg\)/, ".nav backgrou
 assert.match(css, /\.theme-select\s*\{/, "revamp.css must style .theme-select");
 assert.match(css, /\.theme-select\s+option\s*\{/, "revamp.css must style .theme-select option");
 
-assert.match(popupCss, /html,\s*body\s*\{[^}]*width:\s*100%;[^}]*min-width:\s*0;[^}]*max-width:\s*380px;/s, "popup html/body layout must stay fluid and bounded");
-assert.match(popupCss, /main\s*\{[^}]*width:\s*100%;[^}]*min-width:\s*0;[^}]*max-width:\s*380px;/s, "popup main layout must stay fluid and bounded");
-assert.match(popupCss, /@media\s*\(max-width:\s*380px\)\s*\{[\s\S]*main\s*\{[^}]*width:\s*100vw;/, "popup narrow media layout must remain responsive");
+assert.match(popupCss, /html,\s*body\s*\{[^}]*width:\s*380px;[^}]*min-width:\s*380px;[^}]*max-width:\s*380px;/s, "popup html/body layout must stay fixed at the extension viewport width");
+assert.match(popupCss, /main\s*\{[^}]*width:\s*380px;/s, "popup main layout must match the extension viewport width");
 
 assert.match(css, /@media\s+print\s*\{/, "revamp.css must contain @media print block");
 assert.match(css, /background:\s*white\s*!important;\s*color:\s*black\s*!important;/, "@media print body reset");
@@ -599,10 +600,12 @@ assert.match(css, /\.skip-link,\s*\.nav-wrap,\s*\.nav,\s*\.footer,\s*\.back-link
 assert.match(css, /\.word-experience,\s*\n?\s*\.word-card,\s*\n?\s*\.word-reading/, "@media print word experience selectors including .word-reading");
 
 const homeCoreIndex = homePage.indexOf('<script src="app-core.js"');
+const homeWebUiIndex = homePage.indexOf('<script src="web-ui.js"');
 const homeRevampIndex = homePage.indexOf('<script src="revamp.js"');
-assert.equal(homeCoreIndex >= 0 && homeCoreIndex < homeRevampIndex, true, "index.html must load app-core.js before revamp.js");
+assert.equal(homeCoreIndex >= 0 && homeCoreIndex < homeWebUiIndex && homeWebUiIndex < homeRevampIndex, true, "index.html must load the core before its browser adapter");
 
-assert.equal(typeof Core.setupThemeController, "function", "KalimatCore must export setupThemeController");
+assert.equal(typeof WebUI.setupThemeController, "function", "KalimatWebUI must export setupThemeController");
+assert.equal(typeof Core.setupThemeController, "undefined", "KalimatCore must remain headless");
 assert.doesNotMatch(appSource, /function\s+setupThemeController\s*\(/, "app.js must not contain duplicate setupThemeController definition");
 assert.doesNotMatch(revamp, /function\s+setupThemeController\s*\(/, "revamp.js must not contain duplicate setupThemeController definition");
 
@@ -635,6 +638,7 @@ const revampContext = {
 revampContext.globalThis = revampContext;
 revampContext.window = revampContext;
 vm.runInNewContext(fs.readFileSync("app-core.js", "utf8"), revampContext);
+vm.runInNewContext(fs.readFileSync("web-ui.js", "utf8"), revampContext);
 vm.runInNewContext(revamp, revampContext);
 revampListeners.get("DOMContentLoaded")();
 assert.deepEqual(touchPanels.map(panel => panel.open), [true, true, true], "touch initialization must open all disclosure cards");
@@ -660,6 +664,7 @@ const reducedMotionContext = {
 reducedMotionContext.globalThis = reducedMotionContext;
 reducedMotionContext.window = reducedMotionContext;
 vm.runInNewContext(fs.readFileSync("app-core.js", "utf8"), reducedMotionContext);
+vm.runInNewContext(fs.readFileSync("web-ui.js", "utf8"), reducedMotionContext);
 vm.runInNewContext(revamp, reducedMotionContext);
 reducedMotionListeners.get("DOMContentLoaded")();
 assert.equal(reducedHeroCopy.classList.values.has("is-visible"), true, "reduced-motion hero copy must remain visible");
@@ -919,9 +924,14 @@ function loadBrowserApp({ state, rawStorage, storageFails = false, exportProbe, 
     context.globalThis = context;
     context.window.KalimatCore = Core;
     vm.createContext(context);
-    for (const file of ["words.js", "app-core.js", "app.js"]) {
-        vm.runInContext(fs.readFileSync(file, "utf8"), context, { filename: file });
-    }
+    vm.runInContext(fs.readFileSync("words.js", "utf8"), context, { filename: "words.js" });
+    vm.runInContext(fs.readFileSync("extension/shared/review-policy.js", "utf8"), context, { filename: "review-policy.js" });
+    vm.runInContext(fs.readFileSync("extension/shared/speech.js", "utf8"), context, { filename: "speech.js" });
+    vm.runInContext(fs.readFileSync("app-core.js", "utf8"), context, { filename: "app-core.js" });
+    context.window.KalimatWebUI = context.KalimatWebUI;
+    vm.runInContext(fs.readFileSync("web-ui.js", "utf8"), context, { filename: "web-ui.js" });
+    context.window.KalimatWebUI = context.KalimatWebUI;
+    vm.runInContext(fs.readFileSync("app.js", "utf8"), context, { filename: "app.js" });
     document.emit("DOMContentLoaded");
     return { context, document, elements, initialWarningHidden, localStorage, timers };
 }
