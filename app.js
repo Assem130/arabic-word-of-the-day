@@ -46,6 +46,7 @@ const btnToggleMenu = document.getElementById("btn-toggle-menu");
 const btnToggleEnglish = document.getElementById("btn-toggle-english");
 const btnExportHistory = document.getElementById("btn-export-history");
 const btnImportHistory = document.getElementById("btn-import-history");
+const btnClearLearningData = document.getElementById("btn-clear-learning-data");
 const inputImportHistory = document.getElementById("input-import-history");
 const inputSearchHistory = document.getElementById("input-search-history");
 const relatedWordsSection = document.getElementById("related-words-section");
@@ -1572,6 +1573,9 @@ function setupEventListeners() {
         if (file) await importHistory(file);
         inputImportHistory.value = "";
     });
+    if (btnClearLearningData) {
+        btnClearLearningData.addEventListener("click", clearLearningData);
+    }
     btnCopyLink.addEventListener("click", () => {
         if (currentWord) copyToClipboard(getShareText(currentWord));
         setMenuOpen(false);
@@ -1839,8 +1843,8 @@ function renderFlashcardStep() {
     });
 
     const frontHint = document.createElement("p");
-    frontHint.className = "flashcard-hint-text";
-    frontHint.textContent = "استخدم زر «اقلب البطاقة» لكشف المعنى";
+    frontHint.className = "flashcard-hint-text review-helper";
+    frontHint.textContent = "اقلب البطاقة، ثم اختر مدى تذكّرك؛ سنحدد موعد عودتها.";
 
     frontBottom.append(frontAudioBtn, frontHint);
     front.append(frontMeta, frontCenter, frontBottom);
@@ -2210,8 +2214,35 @@ function setMenuOpen(isOpen) {
     const restoreFocus = wasOpen && dropdownMenu.contains(document.activeElement);
     dropdownMenu.hidden = !isOpen;
     btnToggleMenu.setAttribute("aria-expanded", String(isOpen));
-    if (isOpen) dropdownMenu.querySelector("button")?.focus();
+    if (isOpen) {
+        const controls = [];
+        const collectVisibleControls = (parent, parentHidden = false) => {
+            for (const child of parent.children || []) {
+                const hidden = parentHidden || child.hidden;
+                if (!hidden && ["A", "BUTTON", "SELECT"].includes(child.tagName) && child.getAttribute("aria-hidden") !== "true") {
+                    controls.push(child);
+                }
+                collectVisibleControls(child, hidden);
+            }
+        };
+        collectVisibleControls(dropdownMenu);
+        controls[0]?.focus();
+    }
     else if (restoreFocus && typeof btnToggleMenu.focus === "function") btnToggleMenu.focus();
+}
+
+function clearLearningData() {
+    if (!btnClearLearningData) return;
+    const confirmed = typeof window.confirm === "function"
+        && window.confirm("هل تريد مسح مخزونك اللغوي من هذا الجهاز؟");
+    if (!confirmed) {
+        btnClearLearningData.focus();
+        return;
+    }
+    try {
+        localStorage.removeItem(STORAGE_KEY);
+    } catch {}
+    if (window.location && typeof window.location.reload === "function") window.location.reload();
 }
 
 function getShareTitle(word, archiveDateKey = activeArchiveDateKey) {
@@ -2307,6 +2338,7 @@ if (typeof window !== "undefined") {
         copyToClipboard,
         exportHistory,
         exportAnkiDeck,
+        clearLearningData,
         renderSocialCard,
         startSpacedRepetitionReview,
         startPracticeQuiz: startSpacedRepetitionReview,

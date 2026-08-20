@@ -534,7 +534,10 @@ test("popup exposes RTL accessible onboarding and assigned-word controls", () =>
   assert.match(html, /<button[^>]+id="reminder"[^>]+role="switch"[^>]+aria-checked="false"/);
   assert.doesNotMatch(html, /<button[^>]+id="reminder"[^>]*aria-pressed=/);
   assert.match(html, /<button[^>]+id="reminder"[^>]+aria-label="تفعيل التذكير اليومي"/);
-  assert.match(source("popup.css"), /grid-template-columns:\s*repeat\(4, 1fr\)/);
+  assert.match(source("popup.css"), /\.levels\s*\{[\s\S]*?grid-template-columns:\s*repeat\(3, 1fr\)/);
+  for (const [value, label] of [["1", "أيسر"], ["2", "متوازن"], ["3", "أعمق"]]) {
+    assert.match(html, new RegExp(`value="${value}"[\\s\\S]*?<strong>${label}<\\/strong>`));
+  }
   assert.match(source("popup.css"), /html, body\s*\{[\s\S]*?width:\s*380px;[\s\S]*?min-width:\s*380px;[\s\S]*?max-width:\s*380px;/);
   assert.match(source("popup.css"), /main\s*\{[\s\S]*?width:\s*380px;/);
   assert.match(html, /<button id="onboarding-submit"[^>]+class="continue"/);

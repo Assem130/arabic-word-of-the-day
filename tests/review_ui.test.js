@@ -409,6 +409,59 @@ test("Word-page utility controls stay inside the disclosure menu", () => {
     }
 });
 
+test("Hidden lexicon clear controls are removed from layout", () => {
+    assert.match(
+        revampCss,
+        /\.lexicon-clear-btn\[hidden\]\s*\{[^}]*display:\s*none\b/s,
+        "the clear-filter control must not render while hidden"
+    );
+});
+
+test("Word menu opens on its first visible link and Escape restores the trigger", () => {
+    const env = createDOMEnvironment();
+    const menu = env.doc.getElementById("app-menu-dropdown");
+    const trigger = env.doc.getElementById("btn-toggle-menu");
+    const link = env.doc.createElement("a");
+    const button = env.doc.createElement("button");
+    menu.hidden = true;
+    menu.append(link, button);
+
+    trigger.dispatchEvent({ type: "click", stopPropagation() {} });
+    assert.equal(env.doc.activeElement, link, "opening the menu must focus its first visible link");
+
+    env.doc.dispatchEvent({ type: "keydown", key: "Escape" });
+    assert.equal(env.doc.activeElement, trigger, "Escape must restore focus to the menu trigger");
+});
+
+test("Confirmed learning-data deletion removes only learning state and reloads", () => {
+    const env = createDOMEnvironment();
+    const clearButton = env.doc.getElementById("btn-clear-learning-data");
+    const storedState = env.localStorage.getItem("arabic_words_state");
+    let reloadCount = 0;
+    env.localStorage.setItem("kalimat_theme", "midnight");
+    env.sandbox.window.confirm = () => true;
+    env.sandbox.window.location.reload = () => { reloadCount += 1; };
+
+    clearButton.dispatchEvent({ type: "click" });
+
+    assert.notEqual(storedState, null, "the fixture must start with learning state");
+    assert.equal(env.localStorage.getItem("arabic_words_state"), null);
+    assert.equal(env.localStorage.getItem("kalimat_theme"), "midnight");
+    assert.equal(reloadCount, 1, "confirmed deletion must reload once");
+});
+
+test("Cancelled learning-data deletion preserves state and focus", () => {
+    const env = createDOMEnvironment();
+    const clearButton = env.doc.getElementById("btn-clear-learning-data");
+    const storedState = env.localStorage.getItem("arabic_words_state");
+    env.sandbox.window.confirm = () => false;
+    clearButton.focus();
+    clearButton.dispatchEvent({ type: "click" });
+
+    assert.equal(env.localStorage.getItem("arabic_words_state"), storedState);
+    assert.equal(env.doc.activeElement, clearButton);
+});
+
 // -----------------------------------------------------------------------------
 // Test 2: CSS 3D Flip Card, Rating Buttons & Pulse Animations
 // -----------------------------------------------------------------------------
@@ -610,6 +663,10 @@ test("4. Interactive Spaced Repetition Review Lifecycle (Queue, 3D Flip, SM-2 Ra
     assert.match(frontEase.textContent, /عامل السهولة:\s*2\.5/, "front displays initial Easiness Factor");
     assert.equal(ratingSection.hidden, true, "rating section must be hidden before card is flipped");
     assert.equal(ratingPrompt.parentNode, ratingSection, "rating prompt must sit with the rating controls, outside the card overflow");
+    assert.equal(
+        practiceBody.querySelector(".review-helper").textContent,
+        "اقلب البطاقة، ثم اختر مدى تذكّرك؛ سنحدد موعد عودتها."
+    );
     assert.equal(ratingBar.hidden, true, "rating bar must be hidden before card is flipped");
     assert.equal(KalimatApp.isFlashcardFlipped(), false, "isFlashcardFlipped is initially false");
     const firstReviewOptions = KalimatApp.getActiveReviewQueue()[0].reviewOptions;
