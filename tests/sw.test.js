@@ -92,6 +92,7 @@ test("the offline shell pre-caches every same-origin page script", () => {
     for (const source of new Set(scriptSources)) {
         assert.ok(staticAssets.includes(source), `${source} must be in STATIC_ASSETS`);
     }
+    assert.ok(staticAssets.includes("./privacy.html"), "privacy.html must be in STATIC_ASSETS");
 });
 
 test("install invokes the complete offline precache and activates the worker", async () => {

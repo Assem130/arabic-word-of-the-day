@@ -137,6 +137,7 @@ function assertNoUnsafePayload(browser) {
   const files = packageTextFiles(browser);
   const forbiddenPath = /(?:^|\/)(?:tests|tools)(?:\/|$)|\.map$|(?:^|\/)manifest\.(?:chrome|firefox)\.json$|(?:^|\/)PRIVACY\.md$/i;
   const allowedRemoteUrl = /^https:\/\/ar\.wiktionary\.org\//i;
+  const allowedPrivacyUrl = /^https:\/\/assem130\.github\.io\/arabic-word-of-the-day\/privacy\.html$/i;
   const remoteUrlRegex = /\b(?:https?|wss?):\/\/[^\s"'`<>]+/gi;
   const unsafeSink = /\b(?:innerHTML|outerHTML|insertAdjacentHTML|document\.write|eval\s*\(|new\s+Function\s*\(|Function\s*\(|set(?:Timeout|Interval)\s*\(\s*["'])/;
   const secret = /-----BEGIN [^-]+ PRIVATE KEY-----|(?:api[_-]?key|access[_-]?token|secret[_-]?key|password)\s*[:=]\s*["'][^"']{8,}["']|\b(?:sk|pk|ghp|github_pat|xox[baprs]-)[A-Za-z0-9_-]{16,}\b/i;
@@ -148,7 +149,8 @@ function assertNoUnsafePayload(browser) {
     for (const url of urls) {
       const isAllowed =
         (relative === "manifest.json" && browser === "chrome" && allowedRemoteUrl.test(url)) ||
-        (["background.js", "atlas/atlas.js", "shared/lookup.js"].includes(relative) && allowedRemoteUrl.test(url));
+        (["background.js", "atlas/atlas.js", "shared/lookup.js"].includes(relative) && allowedRemoteUrl.test(url)) ||
+        (["popup/popup.html", "atlas/atlas.html"].includes(relative) && allowedPrivacyUrl.test(url));
       assert.ok(isAllowed, `${browser}/${relative} contains unauthorized remote URL: ${url}`);
     }
     assert.equal(unsafeSink.test(text), false, `${browser}/${relative} contains an unsafe sink`);

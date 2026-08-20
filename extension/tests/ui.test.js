@@ -506,7 +506,9 @@ test("popup ships separate native files without unsafe markup or timer work", ()
   assert.match(html, /<script\s+src="\.\.\/shared\/date\.js"><\/script>[\s\S]*<script\s+src="popup\.js"><\/script>/);
   assert.match(html, /<script\s+src="\.\.\/shared\/speech\.js"><\/script>/);
   assert.match(html, /<script\s+src="popup\.js"><\/script>/);
-  const withoutApprovedRemote = `${html}\n${css}\n${js}`.replace(/https:\/\/ar\.wiktionary\.org[^\s"'`)]*/g, "");
+  const withoutApprovedRemote = `${html}\n${css}\n${js}`
+    .replace(/https:\/\/ar\.wiktionary\.org[^\s"'`)]*/g, "")
+    .replace(/https:\/\/assem130\.github\.io\/arabic-word-of-the-day\/privacy\.html/gi, "");
   assert.doesNotMatch(withoutApprovedRemote, /https?:\/\/|\b(?:innerHTML|outerHTML)\b|\b(?:setInterval|setTimeout)\s*\(/);
   assert.doesNotMatch(`${html}\n${js}`, /online[ -]lookup|lookup-result/i, "Popup must keep online lookup in Atlas only");
   assert.doesNotMatch(html, /\son[a-z]+\s*=/i);
@@ -1222,7 +1224,9 @@ test("Atlas ships a dark, accessible four-view page without unsafe sinks or time
   assert.match(html, /<button[^>]+id="settings-reminder"[^>]+role="switch"[^>]+aria-checked="false"/);
   assert.doesNotMatch(html, /<button[^>]+id="settings-reminder"[^>]*aria-pressed=/);
   assert.match(html, /id="search-count"[^>]+aria-live="polite"/);
-  const withoutApprovedRemote = `${html}\n${css}\n${js}`.replace(/https:\/\/ar\.wiktionary\.org[^\s"'`)]*/g, "");
+  const withoutApprovedRemote = `${html}\n${css}\n${js}`
+    .replace(/https:\/\/ar\.wiktionary\.org[^\s"'`)]*/g, "")
+    .replace(/https:\/\/assem130\.github\.io\/arabic-word-of-the-day\/privacy\.html/gi, "");
   assert.doesNotMatch(withoutApprovedRemote, /https?:\/\/|\b(?:innerHTML|outerHTML)\b|\b(?:setInterval|setTimeout)\s*\(/);
   assert.doesNotMatch(html, /\son[a-z]+\s*=/i);
   assert.match(css, /background:\s*#102b2a/i);
