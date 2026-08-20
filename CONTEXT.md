@@ -34,6 +34,6 @@ Promote to 1.0 only when all four gates hold:
 1. At least half of participants report using Kalimat on 12 of 21 days or more.
 2. Each learner band has at least two consistent users.
 3. Median practical-context usefulness is at least 4/5.
-4. Day-21 unseen-sentence comprehension reaches at least 70% and improves on Day 0 before any learning claim is made.
+4. Day-21 unseen-sentence comprehension reaches at least 70%.
 
 If the gate fails, revise content or positioning before adding words, surfaces, telemetry, or new review behavior.

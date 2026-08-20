@@ -35,12 +35,12 @@ Then open <http://localhost:8000/>. Python 3 is the only development runtime req
 
 ## Extension beta installation
 
-Until Chrome Web Store and Firefox Add-ons submissions are complete, install from the GitHub release assets for `v0.3.0-beta.1`:
+If the planned GitHub release `v0.3.0-beta.1` has been published, download its assets:
 
 - `kalimat-chrome-0.3.0.zip` — load the unpacked `extension/dist/chrome` directory in Chrome’s extension developer mode, or use the release archive as documented by the release notes.
 - `kalimat-firefox-0.3.0.zip` — load `extension/dist/firefox` temporarily in Firefox’s debugging page.
 
-Store listing links are intentionally omitted until the stores approve a public submission.
+Until that release is published, build locally with the packaging command below and load the unpacked `extension/dist/chrome` or `extension/dist/firefox` directory in the relevant browser. Store listing links are intentionally omitted until the stores approve a public submission.
 
 ## Verification
 
