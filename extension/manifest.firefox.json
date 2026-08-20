@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Kalimat",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A daily Arabic word.",
   "permissions": ["storage", "contextMenus"],
   "optional_permissions": ["alarms", "notifications"],
@@ -10,5 +10,10 @@
   "background": { "scripts": ["shared/date.js", "shared/vocabulary.js", "shared/review-policy.js", "shared/state.js", "shared/selector.js", "shared/lookup.js", "background.js"] },
   "icons": { "16": "icons/icon-16.png", "32": "icons/icon-32.png", "48": "icons/icon-48.png", "128": "icons/icon-128.png" },
   "content_security_policy": { "extension_pages": "script-src 'self'; object-src 'self'" },
-  "browser_specific_settings": { "gecko": { "id": "kalimat@example.invalid" } }
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "kalimat@assem130.github.io",
+      "data_collection_permissions": { "required": ["none"] }
+    }
+  }
 }

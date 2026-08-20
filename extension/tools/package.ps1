@@ -1,4 +1,6 @@
 $ErrorActionPreference = "Stop"
+Add-Type -AssemblyName System.IO.Compression
+Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 $extensionRoot = [IO.Path]::GetFullPath((Split-Path -Parent $PSScriptRoot))
 $distRoot = Join-Path $extensionRoot "dist"
@@ -129,8 +131,11 @@ foreach ($browser in "chrome", "firefox") {
 
     $manifestSource = Join-Path $extensionRoot "manifest.$browser.json"
     $manifest = Get-Content -Raw -LiteralPath $manifestSource | ConvertFrom-Json
-    if ($manifest.manifest_version -ne 3 -or $null -eq $manifest.content_security_policy.extension_pages) {
+    if ($manifest.manifest_version -ne 3 -or $manifest.version -ne "0.3.0" -or $null -eq $manifest.content_security_policy.extension_pages) {
         throw "Invalid $browser manifest."
+    }
+    if ($browser -eq "firefox" -and ($manifest.browser_specific_settings.gecko.id -ne "kalimat@assem130.github.io" -or $null -eq $manifest.browser_specific_settings.gecko.data_collection_permissions -or $manifest.browser_specific_settings.gecko.data_collection_permissions.required -ne @("none"))) {
+        throw "Invalid Firefox store disclosure."
     }
     Copy-Item -LiteralPath $manifestSource -Destination (Join-Path $target "manifest.json") -Force
 
@@ -140,7 +145,42 @@ foreach ($browser in "chrome", "firefox") {
     if ($popupBytes -ge 102400) { throw "$browser popup code exceeds 100 KiB: $popupBytes bytes" }
     $fileItems = @(Get-ChildItem -LiteralPath $target -File -Recurse)
     $totalBytes = [int64](($fileItems | Measure-Object -Property Length -Sum).Sum)
-    $reports += "Packaged $browser`: $($fileItems.Count) files, $totalBytes bytes (vocabulary $vocabularyBytes bytes; popup $popupBytes bytes)."
+
+    $archivePath = Join-Path $distRoot "kalimat-$browser-0.3.0.zip"
+    if (Test-Path -LiteralPath $archivePath) {
+        $archiveItem = Get-Item -LiteralPath $archivePath -Force
+        $expectedArchive = [IO.Path]::GetFullPath($archivePath).TrimEnd('\')
+        $actualArchive = [IO.Path]::GetFullPath($archiveItem.FullName).TrimEnd('\')
+        if ($archiveItem.PSIsContainer -or (($archiveItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) -or -not $actualArchive.Equals($expectedArchive, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Refusing to remove an unvalidated package archive: $archivePath"
+        }
+        Remove-Item -LiteralPath $archivePath -Force
+    }
+    $archiveStream = [IO.File]::Open($archivePath, [IO.FileMode]::CreateNew)
+    try {
+        $archive = New-Object IO.Compression.ZipArchive($archiveStream, [IO.Compression.ZipArchiveMode]::Create, $false)
+        $zipTimestamp = [DateTimeOffset]::new(1980, 1, 1, 0, 0, 0, [TimeSpan]::Zero)
+        try {
+            foreach ($relativePath in @($runtimeFiles + "manifest.json")) {
+                $entry = $archive.CreateEntry($relativePath, [IO.Compression.CompressionLevel]::Optimal)
+                $entry.LastWriteTime = $zipTimestamp
+                $input = [IO.File]::OpenRead((Join-Path $target $relativePath))
+                $output = $entry.Open()
+                try {
+                    $input.CopyTo($output)
+                } finally {
+                    $output.Dispose()
+                    $input.Dispose()
+                }
+            }
+        } finally {
+            $archive.Dispose()
+        }
+    } finally {
+        $archiveStream.Dispose()
+    }
+    $archiveBytes = [int64](Get-Item -LiteralPath $archivePath).Length
+    $reports += "Packaged $browser`: $($fileItems.Count) files, $totalBytes bytes (archive $archiveBytes bytes; vocabulary $vocabularyBytes bytes; popup $popupBytes bytes)."
 }
 
 Write-Output ($reports -join [Environment]::NewLine)

@@ -506,7 +506,7 @@ test("popup ships separate native files without unsafe markup or timer work", ()
   assert.match(html, /<script\s+src="\.\.\/shared\/date\.js"><\/script>[\s\S]*<script\s+src="popup\.js"><\/script>/);
   assert.match(html, /<script\s+src="\.\.\/shared\/speech\.js"><\/script>/);
   assert.match(html, /<script\s+src="popup\.js"><\/script>/);
-  const withoutApprovedRemote = `${html}\n${css}\n${js}`.replace(/https:\/\/ar\.wiktionary\.org[^\s"'`)]*/g, "");
+  const withoutApprovedRemote = `${html.replace("https://assem130.github.io/arabic-word-of-the-day/privacy.html", "")}\n${css}\n${js}`;
   assert.doesNotMatch(withoutApprovedRemote, /https?:\/\/|\b(?:innerHTML|outerHTML)\b|\b(?:setInterval|setTimeout)\s*\(/);
   assert.doesNotMatch(`${html}\n${js}`, /online[ -]lookup|lookup-result/i, "Popup must keep online lookup in Atlas only");
   assert.doesNotMatch(html, /\son[a-z]+\s*=/i);
@@ -534,9 +534,17 @@ test("popup exposes RTL accessible onboarding and assigned-word controls", () =>
   assert.match(html, /<button[^>]+id="reminder"[^>]+role="switch"[^>]+aria-checked="false"/);
   assert.doesNotMatch(html, /<button[^>]+id="reminder"[^>]*aria-pressed=/);
   assert.match(html, /<button[^>]+id="reminder"[^>]+aria-label="تفعيل التذكير اليومي"/);
-  assert.match(source("popup.css"), /grid-template-columns:\s*repeat\(4, 1fr\)/);
-  assert.match(source("popup.css"), /html, body\s*\{[\s\S]*?width:\s*380px;[\s\S]*?min-width:\s*380px;[\s\S]*?max-width:\s*380px;/);
-  assert.match(source("popup.css"), /main\s*\{[\s\S]*?width:\s*380px;/);
+  const popupCss = source("popup.css");
+  assert.match(popupCss, /\.levels\s*\{[\s\S]*?grid-template-columns:\s*repeat\(3, 1fr\)/);
+  for (const [value, label] of [["1", "أيسر"], ["2", "متوازن"], ["3", "أعمق"]]) {
+    assert.match(html, new RegExp(`value="${value}"[\\s\\S]*?<strong>${label}<\\/strong>`));
+  }
+  assert.doesNotMatch(html, />\s*(?:A1-A2|B1-B2|C1|beginner|intermediate|advanced)\s*</i, "Popup must not advertise unsupported challenge bands");
+  assert.match(popupCss, /html, body\s*\{[\s\S]*?width:\s*380px;[\s\S]*?min-width:\s*380px;[\s\S]*?max-width:\s*380px;/);
+  assert.match(popupCss, /main\s*\{[\s\S]*?width:\s*380px;/);
+  const narrowPopupCss = popupCss.match(/@media\s*\(max-width:\s*380px\)[\s\S]*?(?=@media\s*\(|$)/)?.[0] || "";
+  assert.match(narrowPopupCss, /\.levels\s*\{[^}]*grid-template-columns:\s*repeat\(3, 1fr\)/);
+  assert.doesNotMatch(narrowPopupCss, /\.levels\s*\{[^}]*grid-template-columns:\s*repeat\(\s*2\b/);
   assert.match(html, /<button id="onboarding-submit"[^>]+class="continue"/);
   assert.match(html, /<article class="word-card">\s*<p id="fixed-label"/);
   assert.match(html, /<section class="example-card"/);
@@ -1209,13 +1217,17 @@ test("Atlas ships a dark, accessible four-view page without unsafe sinks or time
   assert.match(html, /id="today-action-status"[^>]+role="status"[^>]+aria-live="polite"/);
   assert.doesNotMatch(html, /id="today-lookup"/);
   assert.equal((html.match(/name="atlas-level"/g) || []).length, 3);
+  for (const [value, label] of [["1", "أيسر"], ["2", "متوازن"], ["3", "أعمق"]]) {
+    assert.match(html, new RegExp(`value="${value}"> ${label}`));
+  }
+  assert.doesNotMatch(html, />\s*(?:A1-A2|B1-B2|C1|مبتدئ|متوسط|متقدم|beginner|intermediate|advanced)\s*</i, "Atlas must not advertise unsupported challenge bands");
   assert.match(html, /<input[^>]+id="settings-speech-rate"[^>]+type="number"[^>]+min="0\.5"[^>]+max="1\.5"[^>]+step="0\.05"/);
   assert.match(html, /<select[^>]+id="settings-speech-repeat"[\s\S]*value="1"[\s\S]*value="3"/);
   assert.equal((html.match(/name="atlas-interest"/g) || []).length, 6);
   assert.match(html, /<button[^>]+id="settings-reminder"[^>]+role="switch"[^>]+aria-checked="false"/);
   assert.doesNotMatch(html, /<button[^>]+id="settings-reminder"[^>]*aria-pressed=/);
   assert.match(html, /id="search-count"[^>]+aria-live="polite"/);
-  const withoutApprovedRemote = `${html}\n${css}\n${js}`.replace(/https:\/\/ar\.wiktionary\.org[^\s"'`)]*/g, "");
+  const withoutApprovedRemote = `${html.replace("https://assem130.github.io/arabic-word-of-the-day/privacy.html", "")}\n${css}\n${js.replace(/https:\/\/ar\.wiktionary\.org[^\s"'`)]*/g, "")}`;
   assert.doesNotMatch(withoutApprovedRemote, /https?:\/\/|\b(?:innerHTML|outerHTML)\b|\b(?:setInterval|setTimeout)\s*\(/);
   assert.doesNotMatch(html, /\son[a-z]+\s*=/i);
   assert.match(css, /background:\s*#102b2a/i);

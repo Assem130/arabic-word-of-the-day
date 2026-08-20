@@ -290,6 +290,8 @@ html[data-theme="midnight"] .due-review-badge.pulse {
 .hero h1 { margin: 0; font-size: clamp(4.6rem, 10vw, 10rem); font-weight: 400; line-height: 1.1; letter-spacing: normal; }
 .hero h1 span { color: var(--paper); }
 .hero-lede { max-width: 33ch; margin: 34px 0; color: rgb(243 239 229 / 88%); font-size: clamp(1.15rem, 2vw, 1.45rem); line-height: 1.65; }
+.hero .local-data-note { margin: -12px 0 28px; color: rgb(243 239 229 / 82%); font: 500 .9rem/1.6 var(--sans); }
+.manifesto .channel-boundary { margin: 24px 0 0; color: var(--ink-soft); font: 500 .95rem/1.6 var(--sans); }
 .primary-button { padding: 0 20px; background: var(--lime); color: var(--ink); }
 .primary-button:hover, .speak-button:hover { transform: translateY(-2px); }
 .primary-button:active, .speak-button:active, .icon-button:active, .nav-word-link:active { transform: translateY(1px); }
@@ -373,6 +375,8 @@ html[data-theme="midnight"] .due-review-badge.pulse {
 .reading-sidebar .next-word { color: var(--ink-soft); }
 .next-word b { color: var(--ink); font-weight: 600; }
 .archive-notice { padding-top: 18px; border-top: 1px solid var(--line-dark); color: var(--ink-soft); font-size: .95rem; }
+.reading-sidebar .local-data-note,
+.reading-sidebar .channel-boundary { color: var(--ink-soft); font: 500 .85rem/1.6 var(--sans); }
 .archive-preview-note { margin: 18px 0 0; color: var(--ink-soft); font-size: .95rem; }
 .return-today-button { min-height: 44px; margin-top: 12px; padding: 0 14px; background: var(--ink); color: var(--paper-light); font: 600 .75rem var(--sans); }
 .inline-review-button { width: 100%; min-height: 44px; margin-top: 18px; padding: 10px 14px; border: 1px solid var(--line-dark); background: var(--ink); color: var(--paper-light); font: 600 .82rem var(--sans); cursor: pointer; }
@@ -496,6 +500,7 @@ html[data-theme="midnight"] .due-review-badge.pulse {
 .practice-header-status {
     margin-bottom: 14px;
 }
+.review-helper { margin: 0 0 14px; color: var(--ink-soft); font: 500 .9rem/1.6 var(--sans); }
 .practice-progress-bar-wrap {
     width: 100%;
     height: 8px;
@@ -1075,6 +1080,7 @@ html[data-theme="midnight"] .rating-btn:focus-visible {
     transition: all .2s ease;
     white-space: nowrap;
 }
+.lexicon-clear-btn[hidden] { display: none; }
 
 .lexicon-clear-btn:hover,
 .lexicon-clear-btn:focus-visible {

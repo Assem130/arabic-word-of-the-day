@@ -1,0 +1,48 @@
+name: Verify Kalimat
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run root and combined tests
+        shell: pwsh
+        run: |
+          node test.js
+          node --test tests/*.test.js extension/tests/*.test.js
+
+      - name: Check tracked JavaScript syntax
+        shell: pwsh
+        run: |
+          $files = @(git ls-files '*.js' | Where-Object { $_ -notlike 'extension/dist/*' })
+          if ($files.Count -eq 0) { throw 'No tracked JavaScript files found.' }
+          foreach ($file in $files) { node --check $file }
+
+      - name: Build clean extension packages
+        shell: pwsh
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File extension/tools/package.ps1
+
+      - name: Verify extension packages
+        shell: pwsh
+        run: |
+          $env:KALIMAT_PACKAGE_ALREADY_BUILT = '1'
+          try { node extension/tests/package.test.js }
+          finally { Remove-Item Env:KALIMAT_PACKAGE_ALREADY_BUILT -ErrorAction SilentlyContinue }
+
+      - name: Check whitespace errors
+        shell: pwsh
+        run: git diff --check
