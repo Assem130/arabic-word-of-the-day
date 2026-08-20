@@ -1044,7 +1044,7 @@ html[data-theme="midnight"] .reminder-row button[aria-checked="true"]::before {
     width: 100vw;
   }
   .levels {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 

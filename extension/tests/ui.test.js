@@ -534,12 +534,16 @@ test("popup exposes RTL accessible onboarding and assigned-word controls", () =>
   assert.match(html, /<button[^>]+id="reminder"[^>]+role="switch"[^>]+aria-checked="false"/);
   assert.doesNotMatch(html, /<button[^>]+id="reminder"[^>]*aria-pressed=/);
   assert.match(html, /<button[^>]+id="reminder"[^>]+aria-label="تفعيل التذكير اليومي"/);
-  assert.match(source("popup.css"), /\.levels\s*\{[\s\S]*?grid-template-columns:\s*repeat\(3, 1fr\)/);
+  const popupCss = source("popup.css");
+  assert.match(popupCss, /\.levels\s*\{[\s\S]*?grid-template-columns:\s*repeat\(3, 1fr\)/);
   for (const [value, label] of [["1", "أيسر"], ["2", "متوازن"], ["3", "أعمق"]]) {
     assert.match(html, new RegExp(`value="${value}"[\\s\\S]*?<strong>${label}<\\/strong>`));
   }
-  assert.match(source("popup.css"), /html, body\s*\{[\s\S]*?width:\s*380px;[\s\S]*?min-width:\s*380px;[\s\S]*?max-width:\s*380px;/);
-  assert.match(source("popup.css"), /main\s*\{[\s\S]*?width:\s*380px;/);
+  assert.match(popupCss, /html, body\s*\{[\s\S]*?width:\s*380px;[\s\S]*?min-width:\s*380px;[\s\S]*?max-width:\s*380px;/);
+  assert.match(popupCss, /main\s*\{[\s\S]*?width:\s*380px;/);
+  const narrowPopupCss = popupCss.match(/@media\s*\(max-width:\s*380px\)[\s\S]*?(?=@media\s*\(|$)/)?.[0] || "";
+  assert.match(narrowPopupCss, /\.levels\s*\{[^}]*grid-template-columns:\s*repeat\(3, 1fr\)/);
+  assert.doesNotMatch(narrowPopupCss, /\.levels\s*\{[^}]*grid-template-columns:\s*repeat\(\s*2\b/);
   assert.match(html, /<button id="onboarding-submit"[^>]+class="continue"/);
   assert.match(html, /<article class="word-card">\s*<p id="fixed-label"/);
   assert.match(html, /<section class="example-card"/);
