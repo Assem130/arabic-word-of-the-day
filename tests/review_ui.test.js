@@ -760,6 +760,33 @@ test("4. Interactive Spaced Repetition Review Lifecycle (Queue, 3D Flip, SM-2 Ra
     assert.equal(practiceDialog.open, false, "close button closes practice dialog");
 });
 
+test("Review card playback delegates to the shared browser-speech module", () => {
+    const today = "2026-01-01";
+    const { sandbox, doc } = createDOMEnvironment({
+        schemaVersion: 1,
+        history: { 1: { firstSeen: today } },
+        srs: {
+            1: { wordId: 1, repetition: 0, interval: 0, ef: 2.5, nextReviewDate: today, lastReviewedDate: null, reviewCount: 0, lapses: 0, history: [] }
+        },
+        favorites: {},
+        preferences: { showEnglish: true, speechRate: 0.85, speechRepeat: 1 }
+    });
+    const calls = [];
+    sandbox.KalimatSpeech.speak = (text, options) => {
+        calls.push({ text, options });
+        return { kind: "ok" };
+    };
+
+    sandbox.window.KalimatApp.startSpacedRepetitionReview();
+    const speaker = doc.getElementById("fc-btn-audio");
+    speaker.dispatchEvent({ type: "click", stopPropagation() {} });
+
+    assert.equal(calls.length, 1, "review playback must call KalimatSpeech once");
+    assert.equal(calls[0].text, doc.getElementById("fc-front-word").textContent);
+    assert.equal(calls[0].options.repeat, 1, "review playback must preserve the configured repeat count");
+    assert.equal(calls[0].options.rate, 0.85, "review playback must preserve the configured speech rate");
+});
+
 test("Failed review writes keep the visible card and announce a retry", () => {
     const { sandbox: initialSandbox } = createDOMEnvironment();
     const Core = initialSandbox.window.KalimatCore;

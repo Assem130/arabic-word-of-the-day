@@ -656,42 +656,6 @@
         return sorted.length > 0 ? sorted[0] : null;
     }
 
-    function getHumanAudioUrl(item, type = "word") {
-        if (!item) return "";
-        const isExample = type === "example";
-        if (typeof item === "object" && item !== null) {
-            if (isExample) {
-                if (typeof item.exampleAudioUrl === "string" && item.exampleAudioUrl.trim()) {
-                    return item.exampleAudioUrl.trim();
-                }
-                if (typeof item.exampleAudio === "string" && item.exampleAudio.trim()) {
-                    return item.exampleAudio.trim();
-                }
-                if (Number.isInteger(item.id) && item.id >= 1) {
-                    return `assets/audio/examples/${item.id}.mp3`;
-                }
-            } else {
-                if (typeof item.audioUrl === "string" && item.audioUrl.trim()) {
-                    return item.audioUrl.trim();
-                }
-                if (typeof item.audio === "string" && item.audio.trim()) {
-                    return item.audio.trim();
-                }
-                if (Number.isInteger(item.id) && item.id >= 1) {
-                    return `assets/audio/words/${item.id}.mp3`;
-                }
-            }
-        } else if (Number.isInteger(Number(item)) && Number(item) >= 1) {
-            const numId = Number(item);
-            return isExample ? `assets/audio/examples/${numId}.mp3` : `assets/audio/words/${numId}.mp3`;
-        }
-        return "";
-    }
-
-    function getNaturalAudioUrl(text) {
-        // Local-first policy: remote TTS is intentionally disabled.
-        return "";
-    }
     function addDaysToDateKey(dateKey, days) {
         if (!isDateKey(dateKey)) {
             dateKey = getLocalDateKey(new Date());
@@ -1234,7 +1198,6 @@
         parseBackup,
         serializeBackup,
         extractSpokenText,
-        getHumanAudioUrl,
         formatWordCitation,
         generateQuizQuestions,
         normalizeArabicText,

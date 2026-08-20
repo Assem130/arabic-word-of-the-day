@@ -5,6 +5,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const Core = require("../app-core.js");
 const WebUI = require("../web-ui.js");
+const Speech = require("../extension/shared/speech.js");
 const words = require("../words.js");
 
 // Mock Element for VM sandbox testing
@@ -227,7 +228,8 @@ function setupLexiconSandbox(wordsDb = words) {
                 this.onerror = null;
             }
         },
-        KalimatCore: Core
+        KalimatCore: Core,
+        KalimatSpeech: Speech
     };
 
     return {
@@ -548,12 +550,21 @@ test("5. Lexicon cards render hostile corpus fields as literal text", () => {
     }
 });
 
-test("6. Resilient Web Audio V8 GC Anchoring (R4)", async () => {
+test("6. Lexicon playback uses shared browser speech without constructing Audio", async () => {
     const sandbox = setupLexiconSandbox(words);
     const originalDocument = global.document;
     const originalWindow = global.window;
     global.document = sandbox.documentMock;
     global.window = sandbox.windowMock;
+
+    const originalAudio = global.Audio;
+    let audioConstructed = 0;
+    global.Audio = class UnexpectedAudio {
+        constructor() {
+            audioConstructed += 1;
+            throw new Error("website audio construction is not allowed");
+        }
+    };
 
     try {
         const explorer = WebUI.initLexiconExplorer({
@@ -572,6 +583,8 @@ test("6. Resilient Web Audio V8 GC Anchoring (R4)", async () => {
         // Click to trigger pronunciation
         await audioBtn.emit("click", { target: audioBtn, stopPropagation() {} });
 
+        assert.equal(audioConstructed, 0, "lexicon playback must not construct HTML Audio");
+
         const activeUtt = sandbox.windowMock._activeUtterance;
         assert.notEqual(activeUtt, null, "SpeechSynthesisUtterance must be anchored to window._activeUtterance");
         assert.equal(activeUtt.lang, "ar-SA", "Utterance language must be ar-SA");
@@ -589,6 +602,7 @@ test("6. Resilient Web Audio V8 GC Anchoring (R4)", async () => {
         errUtt.onerror();
         assert.equal(sandbox.windowMock._activeUtterance, null, "window._activeUtterance must be cleaned up on onerror");
     } finally {
+        global.Audio = originalAudio;
         global.document = originalDocument;
         global.window = originalWindow;
     }
