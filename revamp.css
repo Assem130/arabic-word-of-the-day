@@ -290,7 +290,7 @@ html[data-theme="midnight"] .due-review-badge.pulse {
 .hero h1 { margin: 0; font-size: clamp(4.6rem, 10vw, 10rem); font-weight: 400; line-height: 1.1; letter-spacing: normal; }
 .hero h1 span { color: var(--paper); }
 .hero-lede { max-width: 33ch; margin: 34px 0; color: rgb(243 239 229 / 88%); font-size: clamp(1.15rem, 2vw, 1.45rem); line-height: 1.65; }
-.manifesto .local-data-note,
+.hero .local-data-note { margin: -12px 0 28px; color: rgb(243 239 229 / 82%); font: 500 .9rem/1.6 var(--sans); }
 .manifesto .channel-boundary { margin: 24px 0 0; color: var(--ink-soft); font: 500 .95rem/1.6 var(--sans); }
 .primary-button { padding: 0 20px; background: var(--lime); color: var(--ink); }
 .primary-button:hover, .speak-button:hover { transform: translateY(-2px); }

@@ -369,6 +369,9 @@ test("1. HTML Markup & Accessibility Attributes (index.html & word.html)", () =>
     assert.match(indexHtml, /id="due-review-badge"/, "index.html must include #due-review-badge");
     assert.match(indexHtml, /id="due-count"/, "index.html must include #due-count");
     assert.match(indexHtml, /class="due-icon badge-icon"/, "index.html must style badge icon");
+    assert.match(indexHtml, /<section class="hero"[\s\S]*?<p class="local-data-note">لا حسابات؛ تبقى بيانات تعلّمك على هذا الجهاز\.<\/p>/, "local-data note must be in the hero viewport");
+    assert.equal((indexHtml.match(/class="local-data-note"/g) || []).length, 1, "homepage must show one local-data note");
+    assert.match(indexHtml, /<section class="manifesto"[\s\S]*?<p class="channel-boundary">الموقع والامتداد تجربتان محليتان منفصلتان/, "channel boundary must remain explicit");
 
     // Check #practice-dialog modal attributes in index.html
     assert.match(indexHtml, /<dialog\s+class="practice-dialog"\s+id="practice-dialog"/, "index.html must define <dialog id='practice-dialog'>");

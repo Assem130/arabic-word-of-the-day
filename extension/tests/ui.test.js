@@ -539,6 +539,7 @@ test("popup exposes RTL accessible onboarding and assigned-word controls", () =>
   for (const [value, label] of [["1", "أيسر"], ["2", "متوازن"], ["3", "أعمق"]]) {
     assert.match(html, new RegExp(`value="${value}"[\\s\\S]*?<strong>${label}<\\/strong>`));
   }
+  assert.doesNotMatch(html, />\s*(?:A1-A2|B1-B2|C1|beginner|intermediate|advanced)\s*</i, "Popup must not advertise unsupported challenge bands");
   assert.match(popupCss, /html, body\s*\{[\s\S]*?width:\s*380px;[\s\S]*?min-width:\s*380px;[\s\S]*?max-width:\s*380px;/);
   assert.match(popupCss, /main\s*\{[\s\S]*?width:\s*380px;/);
   const narrowPopupCss = popupCss.match(/@media\s*\(max-width:\s*380px\)[\s\S]*?(?=@media\s*\(|$)/)?.[0] || "";
@@ -1216,6 +1217,10 @@ test("Atlas ships a dark, accessible four-view page without unsafe sinks or time
   assert.match(html, /id="today-action-status"[^>]+role="status"[^>]+aria-live="polite"/);
   assert.doesNotMatch(html, /id="today-lookup"/);
   assert.equal((html.match(/name="atlas-level"/g) || []).length, 3);
+  for (const [value, label] of [["1", "أيسر"], ["2", "متوازن"], ["3", "أعمق"]]) {
+    assert.match(html, new RegExp(`value="${value}"> ${label}`));
+  }
+  assert.doesNotMatch(html, />\s*(?:A1-A2|B1-B2|C1|مبتدئ|متوسط|متقدم|beginner|intermediate|advanced)\s*</i, "Atlas must not advertise unsupported challenge bands");
   assert.match(html, /<input[^>]+id="settings-speech-rate"[^>]+type="number"[^>]+min="0\.5"[^>]+max="1\.5"[^>]+step="0\.05"/);
   assert.match(html, /<select[^>]+id="settings-speech-repeat"[\s\S]*value="1"[\s\S]*value="3"/);
   assert.equal((html.match(/name="atlas-interest"/g) || []).length, 6);
