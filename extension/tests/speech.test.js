@@ -30,3 +30,16 @@ test("speech playback refuses a required Arabic voice", () => {
   const result = Speech.speak("كلمة", { speech: { getVoices: () => [], speak() {} }, Utterance, requireVoice: true });
   assert.equal(result.kind, "no-arabic-voice");
 });
+
+test("speech playback handles a throwing voice list without throwing", () => {
+  class Utterance { constructor(text) { this.text = text; } }
+  const result = Speech.speak("كلمة", {
+    speech: {
+      getVoices() { throw new Error("voices unavailable"); },
+      speak() { throw new Error("speech must not start"); }
+    },
+    Utterance,
+    requireVoice: true
+  });
+  assert.equal(result.kind, "unavailable");
+});

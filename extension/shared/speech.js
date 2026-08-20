@@ -25,7 +25,12 @@
     const Utterance = options.Utterance || root.SpeechSynthesisUtterance;
     const value = clean(text);
     if (!value || !speech || typeof speech.speak !== "function" || typeof Utterance !== "function") return { kind: "unavailable" };
-    const voices = typeof speech.getVoices === "function" ? Array.from(speech.getVoices() || []) : [];
+    let voices = [];
+    try {
+      voices = typeof speech.getVoices === "function" ? Array.from(speech.getVoices() || []) : [];
+    } catch (_) {
+      return { kind: "unavailable" };
+    }
     const voice = (typeof options.selectVoice === "function" ? options.selectVoice(voices) : selectArabicVoice(voices)) || null;
     if (options.requireVoice === true && !voice) return { kind: "no-arabic-voice" };
     const token = {};
