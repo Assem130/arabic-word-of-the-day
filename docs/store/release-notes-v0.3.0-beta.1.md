@@ -20,8 +20,8 @@ Kalimat is a focused, local-first Arabic learning experience for self-identified
 
 | Archive / الأرشيف | Size / الحجم | SHA-256 |
 | --- | ---: | --- |
-| `kalimat-chrome-0.3.0.zip` | 498,270 bytes | `bb563a45e3564268b4ca7c47130b60bdef311925693fc4a109d0b4e2db95dd80` |
-| `kalimat-firefox-0.3.0.zip` | 498,365 bytes | `360d8eb34ba11fc70c5ff6684cb632f1c24cfcb4a576043ffc9d224590a78de0` |
+| `kalimat-chrome-0.3.0.zip` | 498,270 bytes | `c493ef8dcb9b3eb8b0c6612db2fac1d41dfcbc429b6c9bfa52b772fbc302907d` |
+| `kalimat-firefox-0.3.0.zip` | 498,365 bytes | `0b4447b5f3bdf34de45aeb819aed0c5640bd76441c8f60f48caa9474d0b285bc` |
 
 Both archives contain the validated 32-file runtime allowlist and the browser-selected `0.3.0` manifest.
 
@@ -32,13 +32,13 @@ Both archives contain the validated 32-file runtime allowlist and the browser-se
 - `node test.js` — pass (`All checks passed`).
 - `node --test tests/*.test.js extension/tests/*.test.js` — pass, 344 tests. The first managed-Windows run hit sandbox-only `spawn EPERM`; the identical command passed with permitted child-process execution.
 - `node --check` over every tracked JavaScript file outside `extension/dist` — pass, 42 files.
-- Clean `extension/tools/package.ps1` run — pass, 32 files per browser; `node extension/tests/package.test.js` — pass, 12/12.
+- Two clean `extension/tools/package.ps1` runs — pass, 32 files per browser with byte-identical archive hashes; `node extension/tests/package.test.js` — pass, 13/13.
 - `git diff --check` — pass. Store screenshots `01-daily-word.png`, `02-review.png`, and `03-atlas.png` were inspected; each is a real 1280×800 PNG.
 
 - `node test.js` — نجح.
 - الاختبارات الموحّدة — نجحت جميع الاختبارات الـ344 بعد إعادة التشغيل المسموح بها بسبب قيد `spawn EPERM` في Windows المُدار.
 - فحص صياغة JavaScript — نجح لـ42 ملفاً.
-- الحزم واختبارات الحزم — نجحت؛ 32 ملفاً لكل متصفح و12/12 اختباراً.
+- الحزم واختبارات الحزم — نجحت؛ تكرارا بناء نظيفان متطابقان، و32 ملفاً لكل متصفح، و13/13 اختباراً.
 - `git diff --check` — نجح، وتم فحص لقطات المتجر الثلاث، وكل واحدة 1280×800.
 
 ## Manual coverage / التحقق اليدوي
