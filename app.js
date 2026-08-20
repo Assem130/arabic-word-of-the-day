@@ -81,6 +81,7 @@ let isFlashcardFlipped = false;
 let activeReviewDueCount = 0;
 let activeReviewRemainingCount = 0;
 let sessionReviewStats = { totalReviewed: 0, ratings: { again: 0, hard: 0, good: 0, easy: 0 } };
+let speechReadinessCancel = null;
 
 function toArabicDigits(value) {
     return String(value ?? "").replace(/[0-9]/g, (digit) => "٠١٢٣٤٥٦٧٨٩"[digit]);
@@ -388,16 +389,63 @@ function updateStreakUI() {
 }
 
 function stopSpeech() {
+    speechReadinessCancel?.();
     const speech = globalThis.KalimatSpeech;
     if (speech && typeof speech.cancel === "function") {
         try { speech.cancel(window.speechSynthesis); } catch {}
     }
     resetAllSpeakButtons();
-    document.querySelectorAll?.(".flashcard-audio-btn.speaking").forEach((button) => button.classList.remove("speaking"));
 }
 
 const SPEECH_UNAVAILABLE_MSG = "النطق غير متاح على هذا الجهاز. يُرجى استخدام متصفح يدعم النطق الصوتي.";
 const NO_ARABIC_VOICE_MSG = "لم يتم العثور على صوت عربي على هذا الجهاز. يُرجى تفعيل أو تثبيت حزمة الصوت العربي من إعدادات النظام للاستماع للنطق.";
+
+function getSpeechVoices(speech) {
+    if (typeof speech?.getVoices !== "function") return [];
+    try {
+        const voices = speech.getVoices();
+        return voices == null ? null : Array.from(voices);
+    } catch { return null; }
+}
+
+function speakAfterVoiceReadiness(speech, callback) {
+    const voices = getSpeechVoices(speech);
+    if (!speech?.speak || voices === null || typeof speech.getVoices !== "function" || voices.length > 0) {
+        return callback();
+    }
+
+    let settled = false;
+    let timerId = null;
+    const cleanup = () => {
+        speech.removeEventListener?.("voiceschanged", onVoicesChanged);
+        if (timerId !== null && typeof clearTimeout === "function") clearTimeout(timerId);
+        if (speechReadinessCancel === cancel) speechReadinessCancel = null;
+    };
+    const cancel = () => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+    };
+    const onVoicesChanged = () => {
+        const voices = getSpeechVoices(speech);
+        if (settled || !voices || voices.length === 0) return;
+        settled = true;
+        cleanup();
+        callback();
+    };
+
+    speechReadinessCancel = cancel;
+    speech.addEventListener?.("voiceschanged", onVoicesChanged);
+    if (typeof setTimeout === "function") {
+        timerId = setTimeout(() => {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            callback();
+        }, 250);
+    }
+    return { kind: "pending" };
+}
 
 function setupSpeech() {
     if (!globalThis.KalimatSpeech?.speak || !window.speechSynthesis || typeof window.SpeechSynthesisUtterance !== "function" || typeof window.speechSynthesis.speak !== "function") {
@@ -469,6 +517,9 @@ function setupSpeech() {
 function resetAllSpeakButtons() {
     if (btnSpeak) setButtonPlaybackState(btnSpeak, "idle", "i-waveform", "i-volume-high");
     if (btnSpeakExample) setButtonPlaybackState(btnSpeakExample, "idle", "i-waveform", "i-volume-high");
+    document.querySelectorAll?.(".flashcard-audio-btn").forEach((button) => {
+        if (button.classList?.contains?.("speaking")) setButtonPlaybackState(button, "idle", "i-waveform", "i-volume-high");
+    });
 }
 
 function speakText(text, buttonEl, activeIcon = "i-waveform", idleIcon = "i-volume-high", optionsOrWord = null) {
@@ -497,39 +548,37 @@ function speakText(text, buttonEl, activeIcon = "i-waveform", idleIcon = "i-volu
 
     const speech = globalThis.KalimatSpeech;
     setButtonPlaybackState(buttonEl, "speaking", activeIcon, idleIcon);
-    const result = speech?.speak(cleanSpeechText, {
-        target: window,
-        speech: window.speechSynthesis,
-        Utterance: window.SpeechSynthesisUtterance,
-        requireVoice: true,
-        rate: targetRate,
-        repeat: repeatCount,
-        gapMs: 500,
-        onStart: () => setButtonPlaybackState(buttonEl, "speaking", activeIcon, idleIcon),
-        onEnd: () => setButtonPlaybackState(buttonEl, "idle", activeIcon, idleIcon),
-        onError: () => {
-            setButtonPlaybackState(buttonEl, "idle", activeIcon, idleIcon);
+    return speakAfterVoiceReadiness(window.speechSynthesis, () => {
+        const result = speech?.speak(cleanSpeechText, {
+            target: window,
+            speech: window.speechSynthesis,
+            Utterance: window.SpeechSynthesisUtterance,
+            requireVoice: true,
+            rate: targetRate,
+            repeat: repeatCount,
+            gapMs: 500,
+            onStart: () => setButtonPlaybackState(buttonEl, "speaking", activeIcon, idleIcon),
+            onEnd: () => setButtonPlaybackState(buttonEl, "idle", activeIcon, idleIcon),
+            onError: () => {
+                setButtonPlaybackState(buttonEl, "idle", activeIcon, idleIcon);
+                announceAudioStatus(SPEECH_UNAVAILABLE_MSG);
+                showToast(SPEECH_UNAVAILABLE_MSG);
+            }
+        }) || { kind: "unavailable" };
+
+        if (result.kind === "no-arabic-voice") {
+            resetAllSpeakButtons();
+            announceAudioStatus(NO_ARABIC_VOICE_MSG);
+            showToast(NO_ARABIC_VOICE_MSG);
+            if (buttonEl) buttonEl.setAttribute("title", NO_ARABIC_VOICE_MSG);
+        } else if (result.kind !== "ok") {
+            resetAllSpeakButtons();
             announceAudioStatus(SPEECH_UNAVAILABLE_MSG);
             showToast(SPEECH_UNAVAILABLE_MSG);
+            if (buttonEl) buttonEl.setAttribute("title", SPEECH_UNAVAILABLE_MSG);
         }
+        return result;
     });
-
-    if (result?.kind === "no-arabic-voice") {
-        resetAllSpeakButtons();
-        announceAudioStatus(NO_ARABIC_VOICE_MSG);
-        showToast(NO_ARABIC_VOICE_MSG);
-        if (buttonEl) buttonEl.setAttribute("title", NO_ARABIC_VOICE_MSG);
-        return result;
-    }
-    if (result?.kind !== "ok") {
-        resetAllSpeakButtons();
-        announceAudioStatus(SPEECH_UNAVAILABLE_MSG);
-        showToast(SPEECH_UNAVAILABLE_MSG);
-        if (buttonEl) buttonEl.setAttribute("title", SPEECH_UNAVAILABLE_MSG);
-        return result;
-    }
-
-    return result;
 }
 
 function setButtonPlaybackState(buttonEl, state, activeIcon = "i-waveform", idleIcon = "i-volume-high") {

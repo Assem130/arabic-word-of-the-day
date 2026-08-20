@@ -55,6 +55,7 @@ class FakeElement {
             }
         };
         this.attributes = new Map();
+        this.dataset = {};
         this.children = [];
         this.parentNode = null;
         this.textContent = "";
@@ -785,6 +786,69 @@ test("Review card playback delegates to the shared browser-speech module", () =>
     assert.equal(calls[0].text, doc.getElementById("fc-front-word").textContent);
     assert.equal(calls[0].options.repeat, 1, "review playback must preserve the configured repeat count");
     assert.equal(calls[0].options.rate, 0.85, "review playback must preserve the configured speech rate");
+});
+
+test("Speech playback waits for voiceschanged before reporting a missing Arabic voice", () => {
+    const env = createDOMEnvironment();
+    const speech = env.sandbox.window.speechSynthesis;
+    const listeners = new Map();
+    let voices = [];
+    const pendingTimers = [];
+    speech.getVoices = () => voices;
+    speech.addEventListener = (type, callback) => listeners.set(type, callback);
+    speech.removeEventListener = (type, callback) => {
+        if (listeners.get(type) === callback) listeners.delete(type);
+    };
+    env.sandbox.setTimeout = (callback) => {
+        pendingTimers.push(callback);
+        return pendingTimers.length;
+    };
+    env.sandbox.clearTimeout = (id) => {
+        if (pendingTimers[id - 1]) pendingTimers[id - 1] = null;
+    };
+
+    const speaker = env.doc.getElementById("btn-speak");
+    env.sandbox.window.KalimatApp.speakText("السَّمَيْدَعُ", speaker);
+
+    assert.equal(speaker.classList.contains("speaking"), true, "the button stays active while voices are loading");
+    assert.equal(typeof listeners.get("voiceschanged"), "function", "speech playback must listen for voiceschanged");
+
+    voices = [{ name: "Arabic", lang: "ar-SA" }];
+    listeners.get("voiceschanged")();
+
+    assert.notEqual(env.sandbox.window._activeUtterance, null, "speech must start after an Arabic voice becomes ready");
+    assert.equal(speaker.getAttribute("aria-pressed"), "true", "the button remains pressed during playback");
+});
+
+test("Failed or cancelled review playback fully resets the clicked control", () => {
+    const { sandbox, doc } = createDOMEnvironment();
+    const app = sandbox.window.KalimatApp;
+    let result = { kind: "no-arabic-voice" };
+    sandbox.KalimatSpeech.speak = () => result;
+
+    app.startSpacedRepetitionReview();
+    const speaker = doc.getElementById("fc-btn-audio");
+    const assertIdle = () => {
+        assert.equal(speaker.classList.contains("speaking"), false);
+        assert.equal(speaker.getAttribute("aria-pressed"), "false");
+        assert.equal(speaker.getAttribute("aria-busy"), "false");
+        assert.equal(speaker.getAttribute("aria-label"), "استمع إلى نطق الكلمة");
+        const icon = speaker.querySelector("use");
+        if (icon) assert.equal(icon.getAttribute("href"), "#i-volume-high");
+    };
+
+    speaker.dispatchEvent({ type: "click", stopPropagation() {} });
+    assertIdle();
+
+    result = { kind: "unavailable" };
+    speaker.dispatchEvent({ type: "click", stopPropagation() {} });
+    assertIdle();
+
+    result = { kind: "ok" };
+    speaker.dispatchEvent({ type: "click", stopPropagation() {} });
+    assert.equal(speaker.getAttribute("aria-pressed"), "true");
+    app.stopSpeech();
+    assertIdle();
 });
 
 test("Failed review writes keep the visible card and announce a retry", () => {

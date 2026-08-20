@@ -485,6 +485,72 @@
             resetEmptyBtn.addEventListener("click", clearAllFilters);
         }
 
+        let speechReadinessCancel = null;
+        let speechToastTimer = null;
+
+        function getSpeechVoices(speech) {
+            if (typeof speech?.getVoices !== "function") return [];
+            try {
+                const voices = speech.getVoices();
+                return voices == null ? null : Array.from(voices);
+            } catch { return null; }
+        }
+
+        function showSpeechFeedback(message) {
+            const announcer = document.getElementById("audio-announcer");
+            if (announcer) announcer.textContent = message;
+            const toast = document.getElementById("toast");
+            if (!toast) return;
+            if (speechToastTimer !== null && typeof clearTimeout === "function") clearTimeout(speechToastTimer);
+            toast.textContent = message;
+            toast.classList.add("show");
+            if (typeof setTimeout === "function") {
+                speechToastTimer = setTimeout(() => {
+                    toast.classList.remove("show");
+                    speechToastTimer = null;
+                }, 2500);
+            }
+        }
+
+        function speakAfterVoiceReadiness(speech, callback) {
+            const voices = getSpeechVoices(speech);
+            if (!speech?.speak || voices === null || typeof speech.getVoices !== "function" || voices.length > 0) {
+                return callback();
+            }
+
+            let settled = false;
+            let timerId = null;
+            const cleanup = () => {
+                speech.removeEventListener?.("voiceschanged", onVoicesChanged);
+                if (timerId !== null && typeof clearTimeout === "function") clearTimeout(timerId);
+                if (speechReadinessCancel === cancel) speechReadinessCancel = null;
+            };
+            const cancel = () => {
+                if (settled) return;
+                settled = true;
+                cleanup();
+            };
+            const onVoicesChanged = () => {
+                const voices = getSpeechVoices(speech);
+                if (settled || !voices || voices.length === 0) return;
+                settled = true;
+                cleanup();
+                callback();
+            };
+
+            speechReadinessCancel = cancel;
+            speech.addEventListener?.("voiceschanged", onVoicesChanged);
+            if (typeof setTimeout === "function") {
+                timerId = setTimeout(() => {
+                    if (settled) return;
+                    settled = true;
+                    cleanup();
+                    callback();
+                }, 250);
+            }
+            return { kind: "pending" };
+        }
+
         function playWordAudio(word, buttonEl) {
             if (!word) return;
             const speech = Speech || globalThis.KalimatSpeech || window.KalimatSpeech;
@@ -494,47 +560,32 @@
             document.querySelectorAll(".lexicon-audio-btn.speaking").forEach((button) => button.classList.remove("speaking"));
             if (!speech?.speak || !window.speechSynthesis || typeof window.SpeechSynthesisUtterance !== "function") {
                 reset();
-                const announcer = document.getElementById("audio-announcer");
-                if (announcer) announcer.textContent = fallbackMessage;
-                const toast = document.getElementById("toast");
-                if (toast) {
-                    toast.textContent = fallbackMessage;
-                    toast.classList.add("show");
-                }
+                showSpeechFeedback(fallbackMessage);
                 return;
             }
 
             buttonEl?.classList.add("speaking");
+            speechReadinessCancel?.();
             speech.cancel?.(window.speechSynthesis);
-            const result = speech.speak(Core.extractSpokenText(word.word) || word.word, {
-                target: window,
-                speech: window.speechSynthesis,
-                Utterance: window.SpeechSynthesisUtterance,
-                requireVoice: true,
-                rate: 0.85,
-                onEnd: reset,
-                onError: () => {
-                    reset();
-                    const announcer = document.getElementById("audio-announcer");
-                    if (announcer) announcer.textContent = fallbackMessage;
-                    const toast = document.getElementById("toast");
-                    if (toast) {
-                        toast.textContent = fallbackMessage;
-                        toast.classList.add("show");
+            return speakAfterVoiceReadiness(window.speechSynthesis, () => {
+                const result = speech.speak(Core.extractSpokenText(word.word) || word.word, {
+                    target: window,
+                    speech: window.speechSynthesis,
+                    Utterance: window.SpeechSynthesisUtterance,
+                    requireVoice: true,
+                    rate: 0.85,
+                    onEnd: reset,
+                    onError: () => {
+                        reset();
+                        showSpeechFeedback(fallbackMessage);
                     }
+                }) || { kind: "unavailable" };
+                if (result.kind !== "ok") {
+                    reset();
+                    showSpeechFeedback(result.kind === "no-arabic-voice" ? noVoiceMessage : fallbackMessage);
                 }
+                return result;
             });
-            if (result?.kind !== "ok") {
-                reset();
-                const message = result?.kind === "no-arabic-voice" ? noVoiceMessage : fallbackMessage;
-                const announcer = document.getElementById("audio-announcer");
-                if (announcer) announcer.textContent = message;
-                const toast = document.getElementById("toast");
-                if (toast) {
-                    toast.textContent = message;
-                    toast.classList.add("show");
-                }
-            }
         }
 
         applyFilters();

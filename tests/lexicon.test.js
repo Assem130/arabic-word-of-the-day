@@ -176,7 +176,9 @@ function setupLexiconSandbox(wordsDb = words) {
         "lexicon-empty-state": new MockElement("div"),
         "btn-clear-lexicon-filters": new MockElement("button"),
         "btn-reset-lexicon-empty": new MockElement("button"),
-        "lexicon-dialog": new MockElement("dialog")
+        "lexicon-dialog": new MockElement("dialog"),
+        "toast": new MockElement("div"),
+        "audio-announcer": new MockElement("div")
     };
 
     elements["input-lexicon-search"].id = "input-lexicon-search";
@@ -190,6 +192,8 @@ function setupLexiconSandbox(wordsDb = words) {
     elements["btn-clear-lexicon-filters"].id = "btn-clear-lexicon-filters";
     elements["btn-reset-lexicon-empty"].id = "btn-reset-lexicon-empty";
     elements["lexicon-dialog"].id = "lexicon-dialog";
+    elements["toast"].id = "toast";
+    elements["audio-announcer"].id = "audio-announcer";
 
     const documentMock = {
         getElementById: (id) => elements[id] || null,
@@ -603,6 +607,74 @@ test("6. Lexicon playback uses shared browser speech without constructing Audio"
         assert.equal(sandbox.windowMock._activeUtterance, null, "window._activeUtterance must be cleaned up on onerror");
     } finally {
         global.Audio = originalAudio;
+        global.document = originalDocument;
+        global.window = originalWindow;
+    }
+});
+
+test("Lexicon playback waits for voiceschanged before reporting a missing Arabic voice", async () => {
+    const sandbox = setupLexiconSandbox(words);
+    const originalDocument = global.document;
+    const originalWindow = global.window;
+    const listeners = new Map();
+    let voices = [];
+    sandbox.windowMock.speechSynthesis.getVoices = () => voices;
+    sandbox.windowMock.speechSynthesis.addEventListener = (type, callback) => listeners.set(type, callback);
+    sandbox.windowMock.speechSynthesis.removeEventListener = (type, callback) => {
+        if (listeners.get(type) === callback) listeners.delete(type);
+    };
+    global.document = sandbox.documentMock;
+    global.window = sandbox.windowMock;
+
+    try {
+        WebUI.initLexiconExplorer({ wordsDb: words, gridId: "lexicon-grid" });
+        const audioBtn = sandbox.elements["lexicon-grid"].children[0].querySelector(".lexicon-audio-btn");
+        await audioBtn.emit("click", { target: audioBtn, stopPropagation() {} });
+
+        assert.equal(audioBtn.classList.contains("speaking"), true, "the lexicon button stays active while voices are loading");
+        assert.equal(typeof listeners.get("voiceschanged"), "function", "lexicon playback must listen for voiceschanged");
+
+        voices = [{ name: "Arabic", lang: "ar-SA" }];
+        listeners.get("voiceschanged")();
+        assert.notEqual(sandbox.windowMock._activeUtterance, null, "lexicon speech starts after an Arabic voice becomes ready");
+    } finally {
+        global.document = originalDocument;
+        global.window = originalWindow;
+    }
+});
+
+test("Lexicon speech feedback toast dismisses after a bounded delay", async () => {
+    const sandbox = setupLexiconSandbox(words);
+    const originalDocument = global.document;
+    const originalWindow = global.window;
+    const originalSetTimeout = global.setTimeout;
+    const originalClearTimeout = global.clearTimeout;
+    const timers = [];
+    global.setTimeout = (callback) => {
+        timers.push(callback);
+        return timers.length;
+    };
+    global.clearTimeout = (id) => {
+        if (timers[id - 1]) timers[id - 1] = null;
+    };
+    global.document = sandbox.documentMock;
+    global.window = sandbox.windowMock;
+    sandbox.windowMock.speechSynthesis.getVoices = () => [{ name: "English", lang: "en-US" }];
+
+    try {
+        const explorer = WebUI.initLexiconExplorer({ wordsDb: words, gridId: "lexicon-grid" });
+        const audioBtn = sandbox.elements["lexicon-grid"].children[0].querySelector(".lexicon-audio-btn");
+        await audioBtn.emit("click", { target: audioBtn, stopPropagation() {} });
+
+        const toast = sandbox.elements.toast;
+        assert.equal(toast.classList.contains("show"), true, "speech failure must show feedback toast");
+        assert.equal(timers.length, 1, "speech feedback toast must schedule dismissal");
+        timers[0]();
+        assert.equal(toast.classList.contains("show"), false, "speech feedback toast must hide after the delay");
+        assert.ok(explorer, "lexicon explorer remains available after speech failure");
+    } finally {
+        global.setTimeout = originalSetTimeout;
+        global.clearTimeout = originalClearTimeout;
         global.document = originalDocument;
         global.window = originalWindow;
     }

@@ -33,6 +33,7 @@ function loadServiceWorker({ cacheKeys = [] } = {}) {
     const handlers = {};
     const deleted = [];
     let precached = [];
+    let skipWaitingCalls = 0;
     const cache = {
         addAll: async (assets) => { precached = assets; },
         match: async () => undefined,
@@ -43,7 +44,7 @@ function loadServiceWorker({ cacheKeys = [] } = {}) {
         self: {
             location: { origin: "https://example.test" },
             addEventListener(type, handler) { handlers[type] = handler; },
-            skipWaiting: async () => {},
+            skipWaiting: async () => { skipWaitingCalls += 1; },
             clients: { claim: async () => {} }
         },
         caches: {
@@ -55,7 +56,7 @@ function loadServiceWorker({ cacheKeys = [] } = {}) {
         fetch: async () => ({ ok: true, clone() { return this; } })
     };
     vm.runInNewContext(fs.readFileSync("sw.js", "utf8"), sandbox);
-    return { handlers, deleted, getPrecached: () => precached };
+    return { handlers, deleted, getPrecached: () => precached, getSkipWaitingCalls: () => skipWaitingCalls };
 }
 
 test("same-origin app assets use the current network version", async () => {
@@ -91,6 +92,18 @@ test("the offline shell pre-caches every same-origin page script", () => {
     for (const source of new Set(scriptSources)) {
         assert.ok(staticAssets.includes(source), `${source} must be in STATIC_ASSETS`);
     }
+});
+
+test("install invokes the complete offline precache and activates the worker", async () => {
+    const worker = loadServiceWorker();
+    let install;
+    worker.handlers.install({ waitUntil(promise) { install = promise; } });
+    await install;
+
+    const swSource = fs.readFileSync("sw.js", "utf8");
+    const expectedAssets = [...(swSource.match(/const STATIC_ASSETS\s*=\s*\[([\s\S]*?)\];/)?.[1] || "").matchAll(/["']([^"']+)["']/g)].map((match) => match[1]);
+    assert.deepEqual(Array.from(worker.getPrecached()), expectedAssets, "install must pass the full STATIC_ASSETS list to cache.addAll");
+    assert.equal(worker.getSkipWaitingCalls(), 1, "install must activate the new worker immediately");
 });
 
 test("activation removes only obsolete Kalimat caches", async () => {
