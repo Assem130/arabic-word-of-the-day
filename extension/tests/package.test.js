@@ -4,10 +4,15 @@ const childProcess = require("node:child_process");
 const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
+const zlib = require("node:zlib");
 
 const extensionRoot = path.join(__dirname, "..");
 const distRoot = path.join(extensionRoot, "dist");
 const browsers = ["chrome", "firefox"];
+const archiveNames = {
+  chrome: "kalimat-chrome-0.3.0.zip",
+  firefox: "kalimat-firefox-0.3.0.zip",
+};
 const runtimeFiles = [
   "assets/fonts/Amiri-Bold.woff2",
   "assets/fonts/Amiri-Regular.woff2",
@@ -59,6 +64,39 @@ function manifest(name) {
 
 function packageManifest(browser) {
   return JSON.parse(fs.readFileSync(path.join(distRoot, browser, "manifest.json"), "utf8"));
+}
+
+function archiveEntries(browser) {
+  const bytes = fs.readFileSync(path.join(distRoot, archiveNames[browser]));
+  const eocd = bytes.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+  assert.ok(eocd >= 0, `${browser} archive is missing its end record`);
+  const count = bytes.readUInt16LE(eocd + 10);
+  const centralOffset = bytes.readUInt32LE(eocd + 16);
+  const entries = new Map();
+  let offset = centralOffset;
+  for (let index = 0; index < count; index += 1) {
+    assert.equal(bytes.readUInt32LE(offset), 0x02014b50, `${browser} archive has an invalid central entry`);
+    const method = bytes.readUInt16LE(offset + 10);
+    const compressedSize = bytes.readUInt32LE(offset + 20);
+    const uncompressedSize = bytes.readUInt32LE(offset + 24);
+    const nameLength = bytes.readUInt16LE(offset + 28);
+    const extraLength = bytes.readUInt16LE(offset + 30);
+    const commentLength = bytes.readUInt16LE(offset + 32);
+    const localOffset = bytes.readUInt32LE(offset + 42);
+    const name = bytes.toString("utf8", offset + 46, offset + 46 + nameLength).replaceAll("\\", "/");
+    const localNameLength = bytes.readUInt16LE(localOffset + 26);
+    const localExtraLength = bytes.readUInt16LE(localOffset + 28);
+    const compressed = bytes.subarray(
+      localOffset + 30 + localNameLength + localExtraLength,
+      localOffset + 30 + localNameLength + localExtraLength + compressedSize,
+    );
+    const content = method === 0 ? compressed : method === 8 ? zlib.inflateRawSync(compressed) : null;
+    assert.ok(content, `${browser}/${name} uses an unsupported ZIP method`);
+    assert.equal(content.length, uncompressedSize, `${browser}/${name} has an invalid size`);
+    entries.set(name, content);
+    offset += 46 + nameLength + extraLength + commentLength;
+  }
+  return entries;
 }
 
 function assertSafeManifest(value, browser = "chrome") {
@@ -126,6 +164,7 @@ function assertNoUnsafePayload(browser) {
 test("Chrome manifest uses a MV3 service worker with fixed optional ar.wiktionary.org host permission", () => {
   const chrome = manifest("chrome");
   assertSafeManifest(chrome, "chrome");
+  assert.equal(chrome.version, "0.3.0");
   assert.deepEqual(Object.keys(chrome.background), ["service_worker"]);
   assert.equal(chrome.background.service_worker, "background.js");
 });
@@ -133,6 +172,13 @@ test("Chrome manifest uses a MV3 service worker with fixed optional ar.wiktionar
 test("Firefox manifest uses ordered event-page scripts with no host permissions", () => {
   const firefox = manifest("firefox");
   assertSafeManifest(firefox, "firefox");
+  assert.equal(firefox.version, "0.3.0");
+  assert.deepEqual(firefox.browser_specific_settings, {
+    gecko: {
+      id: "kalimat@assem130.github.io",
+      data_collection_permissions: { required: ["none"] },
+    },
+  });
   assert.deepEqual(Object.keys(firefox.background), ["scripts"]);
   assert.deepEqual(firefox.background.scripts, ["shared/date.js", "shared/vocabulary.js", "shared/review-policy.js", "shared/state.js", "shared/selector.js", "shared/lookup.js", "background.js"]);
 });
@@ -189,9 +235,31 @@ test("both packages contain exactly the runtime allowlist and selected manifest"
     assert.deepEqual(new Set(listFiles(path.join(distRoot, browser))), expectedPackageFiles, `${browser} package drifted from the allowlist`);
     assert.doesNotThrow(() => assertSafeManifest(packageManifest(browser), browser));
     assert.deepEqual(packageManifest(browser), manifest(browser));
-    assert.equal(manifest(browser).version, "0.2.0");
+    assert.equal(manifest(browser).version, "0.3.0");
     assert.equal(packageManifest(browser).background.service_worker ?? undefined, browser === "chrome" ? "background.js" : undefined);
     if (browser === "firefox") assert.deepEqual(packageManifest(browser).background.scripts, manifest("firefox").background.scripts);
+  }
+});
+
+test("ZIP archives have expected flat roots and browser-selected manifests", () => {
+  ensurePackages();
+  for (const browser of browsers) {
+    const archive = path.join(distRoot, archiveNames[browser]);
+    assert.equal(fs.existsSync(archive), true, `${archiveNames[browser]} was not created`);
+    const entries = archiveEntries(browser);
+    assert.deepEqual(new Set(entries.keys()), expectedPackageFiles, `${browser} archive drifted from the runtime allowlist`);
+    assert.deepEqual(JSON.parse(entries.get("manifest.json").toString("utf8")), manifest(browser));
+  }
+});
+
+test("ZIP archive bytes match their selected source files exactly", () => {
+  ensurePackages();
+  for (const browser of browsers) {
+    const entries = archiveEntries(browser);
+    for (const relative of expectedPackageFiles) {
+      const sourceRelative = relative === "manifest.json" ? `manifest.${browser}.json` : relative;
+      assert.deepEqual(entries.get(relative), fs.readFileSync(path.join(extensionRoot, sourceRelative)), `${browser}/${relative} drifted from source`);
+    }
   }
 });
 
