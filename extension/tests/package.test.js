@@ -265,6 +265,26 @@ test("ZIP archive bytes match their selected source files exactly", () => {
   }
 });
 
+test("clean packaging produces byte-identical ZIP archives", () => {
+  const packageScript = path.join(extensionRoot, "tools", "package.ps1");
+  const runPackage = () => childProcess.execFileSync(
+    "powershell",
+    ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", packageScript],
+    { stdio: "pipe" },
+  );
+  const archiveHashes = () => Object.fromEntries(
+    browsers.map((browser) => [
+      browser,
+      crypto.createHash("sha256").update(fs.readFileSync(path.join(distRoot, archiveNames[browser]))).digest("hex"),
+    ]),
+  );
+
+  runPackage();
+  const firstHashes = archiveHashes();
+  runPackage();
+  assert.deepEqual(archiveHashes(), firstHashes);
+});
+
 test("packaged runtime files match source exactly", () => {
   ensurePackages();
   const hash = (file) => crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");

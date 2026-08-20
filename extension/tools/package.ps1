@@ -159,9 +159,11 @@ foreach ($browser in "chrome", "firefox") {
     $archiveStream = [IO.File]::Open($archivePath, [IO.FileMode]::CreateNew)
     try {
         $archive = New-Object IO.Compression.ZipArchive($archiveStream, [IO.Compression.ZipArchiveMode]::Create, $false)
+        $zipTimestamp = [DateTimeOffset]::new(1980, 1, 1, 0, 0, 0, [TimeSpan]::Zero)
         try {
             foreach ($relativePath in @($runtimeFiles + "manifest.json")) {
                 $entry = $archive.CreateEntry($relativePath, [IO.Compression.CompressionLevel]::Optimal)
+                $entry.LastWriteTime = $zipTimestamp
                 $input = [IO.File]::OpenRead((Join-Path $target $relativePath))
                 $output = $entry.Open()
                 try {
