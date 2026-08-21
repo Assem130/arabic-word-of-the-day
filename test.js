@@ -46,7 +46,12 @@ class FakeElement {
     }
 
     click() { this.clickCount += 1; return this.emit("click"); }
-    append(...children) { for (const child of children) { child.parentNode = this; this.children.push(child); } }
+    append(...children) {
+        for (const child of children) {
+            if (typeof child === "string" || typeof child === "number") { this.textContent += String(child); continue; }
+            child.parentNode = this; this.children.push(child);
+        }
+    }
     appendChild(child) { this.append(child); return child; }
     replaceChildren(...children) { this.children.forEach(child => { child.parentNode = null; }); this.children = []; this.append(...children); }
     setAttribute(name, value) { this.attributes.set(name, String(value)); }
@@ -436,6 +441,22 @@ const quoteWord = [{
 const escapedCsv = Core.serializeAnkiCSV(null, quoteWord);
 assert.equal(escapedCsv.includes('""قول""'), true, 'Double quotes must be escaped as double-double quotes in RFC 4180');
 assert.equal(escapedCsv.includes('""speech""'), true);
+
+// Anki CSV formula-injection neutralization: leading =+-@ get a quote prefix
+const formulaWord = [{
+    id: 4,
+    word: '=HYPERLINK("https://evil.example")',
+    root: 'خ ب ء',
+    weight: 'فَعَل',
+    vocalization: 'خَبْءٌ',
+    meaning: 'شر محفوظ',
+    englishMeaning: '@risk of +evil =formulas',
+    example: '=cmd|calc'
+}];
+const formulaCsv = Core.serializeAnkiCSV(null, formulaWord);
+assert.equal(formulaCsv.includes('"\'=HYPERLINK'), true, "Leading '=' must be neutralized with a quote prefix");
+assert.equal(formulaCsv.includes('"\'@risk'), true, "Leading '@' must be neutralized with a quote prefix");
+assert.equal(formulaCsv.includes('"\'=cmd|calc"'), true, "Example cells starting with '=' must be neutralized");
 
 // Alias generateAnkiCsv compatibility
 assert.equal(Core.generateAnkiCsv(testWords), fullAnkiCsv);

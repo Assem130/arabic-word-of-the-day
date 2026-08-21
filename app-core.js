@@ -177,7 +177,12 @@
         }
 
         const headers = ["Word", "Root", "Weight", "Vocalization", "Meaning", "English Meaning", "Example"];
-        const escapeField = val => `"${String(val ?? "").replace(/"/g, '""')}"`;
+        // ponytail: leading '=+-@ get a quote prefix (CSV formula-injection guard);
+        // drop the prefix if exports are only ever opened in plain-text tools.
+        const escapeField = val => {
+            const text = String(val ?? "").replace(/"/g, '""');
+            return `"${/^[=+\-@]/.test(text) ? `'${text}` : text}"`;
+        };
         const rows = [headers.map(escapeField).join(",")];
         for (const w of wordsList) {
             if (!w || typeof w !== "object") continue;
@@ -963,11 +968,10 @@
             }
         }
 
-        // 6. Preserve streak info if present
-        if (raw.streak !== undefined) {
-            state.streak = raw.streak;
-        } else if (raw.streakData !== undefined) {
-            state.streak = raw.streakData;
+        // 6. Preserve streak info if present (type-validated; never trust imported shapes)
+        const rawStreak = raw.streak !== undefined ? raw.streak : raw.streakData;
+        if (Number.isInteger(rawStreak) && rawStreak >= 0) {
+            state.streak = rawStreak;
         }
 
         return state;

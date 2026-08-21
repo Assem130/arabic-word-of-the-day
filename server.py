@@ -13,7 +13,16 @@ class UTF8ServerHandler(http.server.SimpleHTTPRequestHandler):
             if any(ext in value.lower() for ext in ['html', 'javascript', 'css', 'json']):
                 if 'charset' not in value.lower():
                     value = f"{value}; charset=utf-8"
+            super().send_header('X-Content-Type-Options', 'nosniff')
         super().send_header(keyword, value)
+
+    def do_GET(self):
+        # DNS-rebinding guard: only loopback hostnames may talk to this server.
+        host = (self.headers.get('Host') or '').split(':')[0].lower()
+        if host not in ('localhost', '127.0.0.1'):
+            self.send_error(421, 'Misdirected Request', 'Host header not allowed')
+            return
+        super().do_GET()
 
 # Allow port reuse immediately upon restart
 socketserver.ThreadingTCPServer.allow_reuse_address = True

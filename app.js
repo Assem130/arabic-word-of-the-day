@@ -276,7 +276,12 @@ function renderRelatedWords(word) {
         const pill = document.createElement("button");
         pill.type = "button";
         pill.className = "related-word-pill";
-        pill.innerHTML = `<span>${relWord.word}</span> <span class="related-word-badge">(${relation})</span>`;
+        const wordSpan = document.createElement("span");
+        wordSpan.textContent = relWord.word;
+        const badgeSpan = document.createElement("span");
+        badgeSpan.className = "related-word-badge";
+        badgeSpan.textContent = `(${relation})`;
+        pill.append(wordSpan, " ", badgeSpan);
         pill.title = `استعرض «${relWord.word}» (${relWord.meaning})`;
         pill.addEventListener("click", () => {
             if (!appState.history[relWord.id]) {
@@ -310,11 +315,31 @@ function updateAudioControlsUI() {
 function renderExample(word) {
     const cleanWord = word.word.replace(/[\u064B-\u065F]/g, "");
     const pattern = new RegExp(cleanWord.split("").join("[\\u064B-\\u065F]*"), "g");
-    const highlighted = word.example.replace(pattern, match => `<span class="highlight-word">${match}</span>`);
-    const parts = highlighted.split(" — ");
-    elExampleText.innerHTML = parts.length > 1
-        ? `«${parts[0]}» <cite>— ${parts[1]}</cite>`
-        : `«${highlighted}»`;
+    const sepIndex = word.example.indexOf(" — ");
+    const quoteText = sepIndex >= 0 ? word.example.slice(0, sepIndex) : word.example;
+    const citeText = sepIndex >= 0 ? word.example.slice(sepIndex + 3) : null;
+
+    elExampleText.replaceChildren();
+    elExampleText.append("«");
+    let last = 0;
+    quoteText.replace(pattern, (match, offset) => {
+        if (offset > last) elExampleText.append(quoteText.slice(last, offset));
+        const span = document.createElement("span");
+        span.className = "highlight-word";
+        span.textContent = match;
+        elExampleText.append(span);
+        last = offset + match.length;
+        return match;
+    });
+    if (last < quoteText.length) elExampleText.append(quoteText.slice(last));
+    elExampleText.append("»");
+
+    if (citeText !== null) {
+        elExampleText.append(" ");
+        const cite = document.createElement("cite");
+        cite.textContent = `— ${citeText}`;
+        elExampleText.append(cite);
+    }
 }
 
 function updateFavoriteButton(word) {
@@ -2102,15 +2127,27 @@ function renderReviewCompletionSummary() {
 
     const stat1 = document.createElement("div");
     stat1.className = "practice-stat-box";
-    stat1.innerHTML = `<span>تمت مراجعتها</span><strong>${count}</strong>`;
+    const stat1Label = document.createElement("span");
+    stat1Label.textContent = "تمت مراجعتها";
+    const stat1Value = document.createElement("strong");
+    stat1Value.textContent = count;
+    stat1.append(stat1Label, stat1Value);
 
     const stat2 = document.createElement("div");
     stat2.className = "practice-stat-box";
-    stat2.innerHTML = `<span>نسبة الاستذكار</span><strong>${stats ? stats.retentionRate : 100}%</strong>`;
+    const stat2Label = document.createElement("span");
+    stat2Label.textContent = "نسبة الاستذكار";
+    const stat2Value = document.createElement("strong");
+    stat2Value.textContent = `${stats ? stats.retentionRate : 100}%`;
+    stat2.append(stat2Label, stat2Value);
 
     const stat3 = document.createElement("div");
     stat3.className = "practice-stat-box";
-    stat3.innerHTML = `<span>كلمات راسخة</span><strong>${stats ? stats.masteredCount : 0}</strong>`;
+    const stat3Label = document.createElement("span");
+    stat3Label.textContent = "كلمات راسخة";
+    const stat3Value = document.createElement("strong");
+    stat3Value.textContent = stats ? stats.masteredCount : 0;
+    stat3.append(stat3Label, stat3Value);
 
     statsGrid.append(stat1, stat2, stat3);
 
