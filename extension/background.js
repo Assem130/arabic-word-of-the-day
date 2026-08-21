@@ -383,6 +383,8 @@ async function alarmFired(alarm) {
       return;
     }
   }
+  // Date rolled over — recompute the due-count badge.
+  await refreshBadgeNow();
 }
 
 function escapeXml(unsafe) {
@@ -675,6 +677,17 @@ if (typeof ExtApi?.omnibox?.onInputEntered?.addListener === "function") {
 if (ExtApi?.permissions?.onRemoved) ExtApi.permissions.onRemoved.addListener(eventEntry(async (removed) => {
   if (removed?.permissions?.some((permission) => permission === "alarms" || permission === "notifications")) await ensureReminderNow();
 }));
+
+// Keep the due-count badge fresh across restarts and date rollovers.
+async function refreshBadgeNow() {
+  try {
+    const vocabulary = await getVocabulary();
+    const loaded = await loadProfile(vocabulary);
+    await updateBadge(loaded.profile, vocabulary);
+  } catch (_) {}
+}
+if (ExtApi?.runtime?.onStartup?.addListener) ExtApi.runtime.onStartup.addListener(eventEntry(refreshBadgeNow));
+if (ExtApi?.runtime?.onInstalled?.addListener) ExtApi.runtime.onInstalled.addListener(eventEntry(refreshBadgeNow));
 if (ExtApi) eventEntry(ensureReminderNow)();
 
 if (typeof module === "object" && module.exports) module.exports = { handleMessage, ensureReminder, updateBadge, escapeXml, ensureContextMenu };

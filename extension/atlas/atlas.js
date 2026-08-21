@@ -783,8 +783,6 @@
     updateStreakBadge(assignment?.dateKey);
     const assignedWord = assignment?.kind === "assigned" ? wordById(assignment.wordId) : null;
     if (assignment?.kind === "assigned" && !assignedWord) return renderError("الكلمة غير متاحة.");
-    const reviewResult = await loadDueReviews({ force: true });
-    if (reviewResult?.kind === "recovery" || ReviewSession.isRecovery(reviewSession)) return;
     if (assignment?.kind === "assigned") {
       if (dateKey) {
         viewWord(assignedWord);
@@ -792,14 +790,16 @@
       } else {
         mergeAssignment(assignment);
         state.today = { ...assignment, word: assignedWord };
+        // Paint the daily word before waiting on the review queue round-trip.
         renderToday();
+        show("today");
+        const reviewResult = await loadDueReviews({ force: true });
+        if (reviewResult?.kind === "recovery" || ReviewSession.isRecovery(reviewSession)) return;
         if (exploreRequested) {
           elements["atlas-search"].value = requestedQuery;
           search();
           show("explore");
           elements["atlas-search"].focus();
-        } else {
-          show("today");
         }
       }
     } else if (exploreRequested) {

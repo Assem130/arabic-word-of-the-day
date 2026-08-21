@@ -175,9 +175,9 @@ h1, h2, p {
 }
 
 h1 {
-  font: 700 25px/1.15 var(--serif);
+  font: 700 25px/1.35 var(--serif);
   color: var(--text-page);
-  letter-spacing: -0.01em;
+  letter-spacing: normal;
 }
 
 h2 {
