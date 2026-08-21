@@ -1427,6 +1427,37 @@ if (m3App.timers && m3App.timers.length > 0) {
 }
 assert.equal(m3Announcer.textContent, "استماع لنطق كلمة «المجد»");
 
+// Audio probe-and-remember: HEAD-probe once, remember, never re-request absent files
+{
+    const probeStore = new Map();
+    const previousFetch = global.fetch;
+    const previousLocalStorage = global.localStorage;
+    global.localStorage = {
+        getItem: key => (probeStore.has(key) ? probeStore.get(key) : null),
+        setItem: (key, value) => probeStore.set(key, value)
+    };
+    try {
+        let headCalls = 0;
+        global.fetch = async () => { headCalls += 1; return { ok: true }; };
+        assert.equal(Core.isAudioKnownAbsent("assets/audio/words/1.mp3"), false, "unprobed URL is not known absent");
+        await Core.updateAudioProbe("assets/audio/words/1.mp3");
+        assert.equal(headCalls, 1, "first probe performs one HEAD request");
+        assert.equal(Core.isAudioKnownAbsent("assets/audio/words/1.mp3"), false, "present audio must not be flagged absent");
+
+        global.fetch = async () => { headCalls += 1; return { ok: false }; };
+        await Core.updateAudioProbe("assets/audio/words/2.mp3");
+        assert.equal(headCalls, 2, "second URL probed once");
+        assert.equal(Core.isAudioKnownAbsent("assets/audio/words/2.mp3"), true, "absent audio must be remembered as absent");
+        assert.equal(Core.isAudioKnownAbsent("assets/audio/words/2.mp3"), true, "repeat check must stay synchronous and cached");
+        assert.equal(headCalls, 2, "remembered negative must not re-fetch");
+
+        assert.equal(Core.isAudioKnownAbsent(""), false, "empty URL must never be flagged");
+    } finally {
+        if (previousFetch === undefined) delete global.fetch; else global.fetch = previousFetch;
+        if (previousLocalStorage === undefined) delete global.localStorage; else global.localStorage = previousLocalStorage;
+    }
+}
+
 // M3.2 File and CSS Consistency Verification
 const m3WordHtml = fs.readFileSync("word.html", "utf-8");
 const m3Css = fs.readFileSync("style.css", "utf-8");

@@ -806,7 +806,14 @@ async function speakText(text, buttonEl, activeIcon = "i-waveform", idleIcon = "
     if (targetWord && typeof Core.getHumanAudioUrl === "function") {
         const humanUrl = Core.getHumanAudioUrl(targetWord, type);
         if (humanUrl && !audioCandidates.includes(humanUrl)) {
-            audioCandidates.push(humanUrl);
+            // Skip the media request entirely when a probe already knows the file is absent.
+            const knownAbsent = (typeof Core.isAudioKnownAbsent === "function") ? Core.isAudioKnownAbsent(humanUrl) : false;
+            if (!knownAbsent) {
+                audioCandidates.push(humanUrl);
+                if (typeof Core.updateAudioProbe === "function") {
+                    Core.updateAudioProbe(humanUrl).catch(() => {});
+                }
+            }
         }
     }
     // 2. Try HTML5 Audio candidates
