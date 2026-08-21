@@ -413,7 +413,7 @@ test("Word-page utility controls stay inside the disclosure menu", () => {
 
 test("Hidden lexicon clear controls are removed from layout", () => {
     assert.match(
-        revampCss,
+        styleCss,
         /\.lexicon-clear-btn\[hidden\]\s*\{[^}]*display:\s*none\b/s,
         "the clear-filter control must not render while hidden"
     );
