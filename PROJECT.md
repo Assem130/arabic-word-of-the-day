@@ -32,7 +32,7 @@
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
 | M1 | Baseline Integrity | Resolve `tests/corpus_parity.test.js` failure on Word #14 root parity | None | PLANNED |
-| M2 | Visual, Typography & Styling | Polish Arabic typography, fix WCAG contrast, adopt RTL logical properties in `style.css` and `revamp.css` | M1 | PLANNED |
+| M2 | Visual, Typography & Styling | Polish Arabic typography, fix WCAG contrast, adopt RTL logical properties in `style.css` | M1 | PLANNED |
 | M3 | Logic, Accessibility & PWA Hardening | Refine ARIA semantics, mobile tap targets (>=44px), search focus states, CSP tightening | M2 | PLANNED |
 | M4 | Comprehensive E2E & Tier 1-4 Test Suite | Expand unit & integration test coverage across all core functions, verify zero regression | M3 | PLANNED |
 | M5 | Adversarial Audit & Final Gate | Multi-reviewer approval, challenger verification, forensic integrity audit | M4 | PLANNED |
@@ -45,7 +45,7 @@ To prevent file collision and race conditions during parallel implementation:
 
 | Worker | Subsystem | Owned Files | Read-Only Files |
 |--------|-----------|-------------|-----------------|
-| **Worker 1 (Design/Styling)** | Typography, Layout, Themes, RTL, Contrast | `style.css`, `revamp.css` | `index.html`, `word.html`, `test.js` |
+| **Worker 1 (Design/Styling)** | Typography, Layout, Themes, RTL, Contrast | `style.css` | `index.html`, `word.html`, `test.js` |
 | **Worker 2 (Core/Logic/PWA)** | A11y, ARIA, Modals, Word Parity, CSP | `index.html`, `word.html`, `words.js`, `extension/data/vocabulary.json`, `app.js`, `revamp.js`, `app-core.js`, `sw.js` | `style.css`, `revamp.css` |
 | **Worker 3 (Test Suite)** | Integration & Unit Tests (Tiers 1-4) | `test.js`, `tests/*.test.js`, `tests/tier_tests.test.js` | All application files |
 

@@ -443,9 +443,18 @@ function setupOnboarding() {
     if (!dialog || typeof dialog.showModal !== "function") return;
     let seen = false;
     try { seen = Boolean(localStorage.getItem(ONBOARDED_KEY)); } catch {}
-    const hasHistory = appState.history && Object.keys(appState.history).length > 0;
-    if (seen || hasHistory) return;
+    // Genuinely new = no history, or only the auto-added daily word of today.
+    const historyEntries = Object.values(appState.history || {});
+    const isGenuinelyNew = historyEntries.length === 0
+        || (historyEntries.length === 1 && historyEntries[0]?.firstSeen === activeDateKey);
+    if (seen || !isGenuinelyNew) return;
     dialog.addEventListener("close", markOnboarded);
+    const closeBtn = document.getElementById("btn-close-onboarding");
+    if (closeBtn && typeof closeBtn.addEventListener === "function") {
+        closeBtn.addEventListener("click", () => {
+            if (typeof dialog.close === "function") dialog.close();
+        });
+    }
     dialog.showModal();
 }
 

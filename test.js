@@ -1,5 +1,6 @@
 "use strict";
 
+process.on("unhandledRejection", e => console.error("UNHANDLED:", e && e.stack || e));
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const vm = require("node:vm");
@@ -58,7 +59,7 @@ class FakeElement {
     getAttribute(name) { return this.attributes.get(name); }
     contains(target) { return target === this || this.children.some(child => child.contains?.(target)); }
     showModal() { this.open = true; }
-    close() { this.open = false; }
+    close() { this.open = false; this.emit("close"); }
     select() {}
     focus() { this.focused = true; }
     querySelector() { return null; }
@@ -875,7 +876,7 @@ class FakeAudioElement {
     }
 }
 
-function loadBrowserApp({ state, rawStorage, storageFails = false, exportProbe, theme, search = "", audioMock = null, onLine = true } = {}) {
+function loadBrowserApp({ state, rawStorage, extraStorage, storageFails = false, exportProbe, theme, search = "", audioMock = null, onLine = true } = {}) {
     const elementIds = [
         "main-word", "date-display", "word-vocalization", "word-weight", "word-root", "word-category",
         "word-meaning", "word-pronunciation", "word-meaning-en", "word-context-text", "word-context-en", "word-example-text", "countdown-timer",
@@ -887,7 +888,8 @@ function loadBrowserApp({ state, rawStorage, storageFails = false, exportProbe, 
         "btn-reset-storage", "theme-select", "streak-badge", "btn-export-card", "btn-export-anki", "btn-inline-review", "inline-review-count",
         "practice-dialog", "practice-body", "btn-start-practice", "btn-menu-practice", "btn-close-practice",
         "shortcuts-dialog", "btn-menu-shortcuts", "btn-close-shortcuts", "btn-audio-speed", "btn-audio-repeat",
-        "input-search-history", "related-words-container"
+        "input-search-history", "related-words-container",
+        "onboarding-dialog", "btn-close-onboarding", "completion-banner", "btn-review-all", "btn-toggle-reminder", "history-stats-row"
     ];
     const elements = Object.fromEntries(elementIds.map(id => [id, new FakeElement(id === "input-import-history" || id === "input-search-history" ? "input" : id === "theme-select" ? "select" : "div")]));
     elements["storage-warning"].hidden = true;
@@ -919,6 +921,9 @@ function loadBrowserApp({ state, rawStorage, storageFails = false, exportProbe, 
         }
     };
     const values = new Map(rawStorage !== undefined ? [["arabic_words_state", rawStorage]] : state ? [["arabic_words_state", JSON.stringify(state)]] : []);
+    if (extraStorage) {
+        for (const [key, value] of Object.entries(extraStorage)) values.set(key, value);
+    }
     if (theme !== undefined) {
         values.set("kalimat_theme", theme);
     }
@@ -1267,6 +1272,54 @@ const streakTwoApp = loadBrowserApp({
 });
 assert.match(streakTwoApp.elements["streak-badge"].textContent, /يومان متتاليان/, "2 streak badge must render 'يومان متتاليان'");
 assert.equal(streakTwoApp.elements["streak-badge"].getAttribute("aria-label"), "تتابع القراءة: يومان متتاليان");
+
+// ==========================================
+// T8 acceptance: Open Graph / Twitter meta on both pages
+// ==========================================
+for (const [pageName, pageSource] of [["index.html", homePage], ["word.html", wordPage]]) {
+    assert.match(pageSource, /property="og:title"/, `${pageName} must declare og:title`);
+    assert.match(pageSource, /property="og:url" content="https:\/\//, `${pageName} must declare an absolute og:url`);
+    assert.match(pageSource, /property="og:image" content="https:\/\//, `${pageName} must declare an absolute og:image`);
+    assert.match(pageSource, /name="twitter:card" content="summary"/, `${pageName} must declare twitter:card`);
+}
+
+// ==========================================
+// T9 acceptance: onboarding shows once, then never again
+// ==========================================
+const onboardingFresh = loadBrowserApp({ state: { schemaVersion: 1, history: {}, preferences: { showEnglish: true } } });
+assert.equal(onboardingFresh.elements["onboarding-dialog"].open, true, "first visit must show the explainer");
+await onboardingFresh.elements["btn-close-onboarding"].emit("click");
+assert.equal(onboardingFresh.elements["onboarding-dialog"].open, false, "dismissal closes the explainer");
+assert.equal(onboardingFresh.localStorage.value("kalimat_onboarded"), "1", "dismissal must persist the onboarded flag");
+
+const onboardingReturning = loadBrowserApp({
+    state: { schemaVersion: 1, history: {}, preferences: { showEnglish: true } },
+    extraStorage: { kalimat_onboarded: "1" }
+});
+assert.equal(Boolean(onboardingReturning.elements["onboarding-dialog"].open), false, "flagged visitors must not see the explainer again");
+
+const onboardingWithHistory = loadBrowserApp({ state: savedState });
+assert.equal(Boolean(onboardingWithHistory.elements["onboarding-dialog"].open), false, "learners with history skip the explainer");
+
+// T9 acceptance: reminder toggle stays disabled without Notification support
+const reminderApp = loadBrowserApp({ state: savedState });
+assert.equal(reminderApp.elements["btn-toggle-reminder"].getAttribute("aria-pressed"), "false", "reminder starts disabled");
+await reminderApp.elements["btn-toggle-reminder"].emit("click");
+assert.equal(reminderApp.elements["btn-toggle-reminder"].getAttribute("aria-pressed"), "false", "missing Notification API must keep the reminder disabled");
+assert.match(reminderApp.elements.toast.textContent, /لا يدعم/, "unsupported reminders explain themselves");
+
+// ==========================================
+// T10 acceptance: completion banner appears only when the corpus is fully seen
+// ==========================================
+const partialCorpusApp = loadBrowserApp({ state: savedState });
+assert.equal(partialCorpusApp.elements["completion-banner"].hidden, true, "banner stays hidden until every word is seen");
+const fullHistoryState = {
+    schemaVersion: 1,
+    preferences: { showEnglish: true },
+    history: Object.fromEntries(words.map(w => [String(w.id), { firstSeen: "2026-08-01" }]))
+};
+const completeCorpusApp = loadBrowserApp({ state: fullHistoryState });
+assert.equal(completeCorpusApp.elements["completion-banner"].hidden, false, "completing the corpus reveals the banner");
 
 // ==========================================
 // R3.2 Canvas 1080x1080 Social Card Export

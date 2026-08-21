@@ -58,15 +58,8 @@ html[data-theme="paper"] {
     --serif: "Amiri", "Readex Pro", "Scheherazade New", "Traditional Arabic", "Noto Naskh Arabic", serif;
     --sans: "Outfit", "Readex Pro", "Segoe UI", system-ui, sans-serif;
 
-    /* Surface roles: statement panels, their text, and accent-fill contrast */
-    --surface: var(--ink);
-    --surface-soft: var(--ink-soft);
-    --surface-text: var(--paper-light);
-    --surface-muted: rgb(243 239 229 / 85%);
-    --surface-bright: var(--paper-light);
-    --surface-bright-text: var(--ink);
-    --on-accent: var(--ink);
-    --heading-accent: var(--paper);
+    /* ponytail: surface-role tokens were removed as dead weight; reintroduce
+       them (and migrate base rules off hardcoded rgba) if a fourth theme lands. */
 
     /* Elevation */
     --shadow-card: 0 24px 70px rgb(20 33 27 / 16%);

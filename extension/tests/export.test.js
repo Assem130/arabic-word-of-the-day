@@ -429,3 +429,20 @@ test("KalimatExport exports to globalThis in browser environment", () => {
   assert.equal(typeof globalThis.KalimatExport.renderSocialCard, "function");
   assert.equal(typeof globalThis.KalimatExport.wrapText, "function");
 });
+
+test("CSV export neutralizes formula-injection prefixes", () => {
+  const hostile = [
+    {
+      id: 999,
+      word: "=HYPERLINK(\"https://evil.example\")",
+      root: "خ ب ء",
+      weight: "فَعَل",
+      vocalization: "خَبْءٌ",
+      meaningAr: "شرّ محفوظ",
+      meaningEn: "@risk of +evil =formulas",
+    },
+  ];
+  const csv = serializeAnkiCSV(null, hostile);
+  assert.equal(csv.includes("\"'=HYPERLINK"), true, "leading '=' must be neutralized with a quote prefix");
+  assert.equal(csv.includes("\"'@risk"), true, "leading '@' must be neutralized with a quote prefix");
+});
