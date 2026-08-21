@@ -2272,9 +2272,15 @@ function copyToClipboard(text) {
 function startCountdown() {
     updateTimer();
     setInterval(updateTimer, 1000);
+    if (typeof document !== "undefined" && typeof document.addEventListener === "function") {
+        document.addEventListener("visibilitychange", () => {
+            if (!document.hidden) updateTimer();
+        });
+    }
 }
 
 function updateTimer() {
+    if (typeof document !== "undefined" && document.hidden) return;
     const now = new Date();
     const dateKey = Core.getLocalDateKey(now);
     if (dateKey !== activeDateKey) {

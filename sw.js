@@ -11,10 +11,14 @@ const STATIC_ASSETS = [
     "./revamp.js",
     "./words.js",
     "./app.js",
+    "./extension/shared/review-policy.js",
+    "./extension/shared/speech.js",
     "./manifest.webmanifest",
     "./assets/icons/icon-192.png",
     "./assets/icons/icon-512.png"
 ];
+const AUDIO_CACHE_MAX_ENTRIES = 60;
+const CANONICAL_PAGES = new Set(["/", "/index.html", "/word.html"]);
 
 function isAudioRequest(request, url) {
     const pathname = url.pathname || "";
@@ -25,9 +29,21 @@ function isAudioRequest(request, url) {
         /\.(mp3|ogg|aac|wav|m4a)($|\?)/i.test(href) ||
         pathname.includes("/assets/audio/") ||
         href.includes("/assets/audio/") ||
-        href.includes("upload.wikimedia.org") ||
         accept.includes("audio/")
     );
+}
+
+async function trimAudioCache(cache) {
+    const keys = await cache.keys();
+    while (keys.length > AUDIO_CACHE_MAX_ENTRIES) {
+        const oldest = keys.shift();
+        await cache.delete(oldest);
+    }
+}
+
+// Cache key without query string, so deep links map onto canonical pages.
+function canonicalUrlFor(url) {
+    return url.origin + url.pathname;
 }
 
 self.addEventListener("install", event => {
@@ -68,6 +84,7 @@ self.addEventListener("fetch", event => {
                         if (networkResponse && (networkResponse.ok || networkResponse.type === "opaque")) {
                             const clone = networkResponse.clone();
                             cache.put(request, clone);
+                            event.waitUntil(trimAudioCache(cache));
                         }
                         return networkResponse;
                     });
@@ -77,34 +94,43 @@ self.addEventListener("fetch", event => {
         return;
     }
 
-    // HTML Navigation: Network-first with fallback to cache
+    // HTML Navigation: Network-first with fallback to cache.
+    // Only canonical pages are cached so ?id/?date deep links don't pile up entries.
     if (request.mode === "navigate" || request.headers.get("accept")?.includes("text/html")) {
+        const isCanonical = CANONICAL_PAGES.has(url.pathname);
         event.respondWith(
             fetch(request).then(networkResponse => {
-                if (networkResponse && networkResponse.ok) {
+                if (networkResponse && networkResponse.ok && isCanonical) {
                     const clone = networkResponse.clone();
-                    caches.open(STATIC_CACHE_NAME).then(cache => cache.put(request, clone));
+                    caches.open(STATIC_CACHE_NAME).then(cache => cache.put(new Request(canonicalUrlFor(url)), clone));
                 }
                 return networkResponse;
             }).catch(() => {
-                return caches.match(request).then(cached => {
-                    return cached || caches.match("./word.html") || caches.match("./index.html");
-                });
+                return caches.match(request)
+                    .then(cached => cached || caches.match(canonicalUrlFor(url)))
+                    .then(cached => cached || caches.match("./word.html"))
+                    .then(cached => cached || caches.match("./index.html"));
             })
         );
         return;
     }
 
-    // App shell: prefer the deployed version so HTML, CSS, and JS cannot drift apart.
+    // App shell: Stale-While-Revalidate. Cache serves instantly; the network
+    // response refreshes it in the background. Cache versioning (bumped with
+    // every deploy) keeps HTML/CSS/JS from drifting apart.
     if (url.origin === self.location.origin) {
         event.respondWith(
-            fetch(request).then(networkResponse => {
-                if (networkResponse && networkResponse.ok) {
-                    const clone = networkResponse.clone();
-                    caches.open(STATIC_CACHE_NAME).then(cache => cache.put(request, clone));
-                }
-                return networkResponse;
-            }).catch(() => caches.match(request))
+            caches.open(STATIC_CACHE_NAME).then(cache => {
+                return cache.match(request).then(cachedResponse => {
+                    const networkFetch = fetch(request).then(networkResponse => {
+                        if (networkResponse && networkResponse.ok) {
+                            cache.put(request, networkResponse.clone());
+                        }
+                        return networkResponse;
+                    }).catch(() => cachedResponse);
+                    return cachedResponse || networkFetch;
+                });
+            })
         );
         return;
     }

@@ -1986,4 +1986,3 @@ body:has(.history-dialog[open]), body:has(.practice-dialog[open]), body:has(.sho
     .home-menu-dropdown,
     .word-menu-dropdown { inset-inline: 14px; width: auto; min-width: 0; }
 }
-
