@@ -1968,6 +1968,7 @@ html[data-theme="midnight"] #theme-select option {
 
 
 html[data-theme="midnight"] .primary-button,
+html[data-theme="midnight"] .secondary-button,
 html[data-theme="midnight"] .speak-button,
 html[data-theme="midnight"] .skip-link,
 html[data-theme="midnight"] .example-action-btn.speaking,
