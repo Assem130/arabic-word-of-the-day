@@ -2,7 +2,7 @@
 
 كلمة عربية فصيحة واحدة كل يوم: اسمعها، افهم معناها، وراجعها حتى تثبت.
 
-Kalimat is a calm, local-first Arabic learning experience for intermediate-and-advanced learners. It is currently a public beta (`0.3.0`, planned tag `v0.3.0-beta.1`).
+Kalimat is a calm, local-first Arabic learning experience for intermediate-and-advanced learners. It is currently a public beta (`0.3.0`), published as the [GitHub release `v0.3.0-beta.1`](https://github.com/Assem130/arabic-word-of-the-day/releases/tag/v0.3.0-beta.1).
 
 - **Live site:** <https://assem130.github.io/arabic-word-of-the-day/>
 - **Privacy:** <https://assem130.github.io/arabic-word-of-the-day/privacy.html>
@@ -19,7 +19,7 @@ Assignments, reviews, and stores do not sync between the website and extension. 
 
 ## الخصوصية / Privacy
 
-Learning data remains on the device until you delete it. Both surfaces provide JSON export and deletion controls. The website may request Google Fonts; system fonts are the offline fallback. Chrome can make an explicit, read-only Arabic Wiktionary lookup when you submit a search, sending only the normalized term. Firefox remains local-only. Read the full [privacy policy](https://assem130.github.io/arabic-word-of-the-day/privacy.html).
+Learning data remains on the device until you delete it. Both surfaces provide JSON export and deletion controls. The website uses self-hosted local WOFF2 fonts and makes no external font request. Its reminder is an opt-in browser `Notification` that fires only while a Kalimat tab is open; website clear-data removes learning state, onboarding, and reminder settings while preserving `kalimat_theme`. The extension reminder remains its own MV3 `alarms`/`notifications` setting. Chrome can make an explicit, read-only Arabic Wiktionary lookup when you submit a search, sending only the normalized term. Firefox remains local-only. Read the full [privacy policy](https://assem130.github.io/arabic-word-of-the-day/privacy.html).
 
 ## Try the website
 
@@ -35,13 +35,13 @@ Then open <http://localhost:8000/>. Python 3 is the only development runtime req
 
 ## Extension beta installation
 
-If the planned GitHub release `v0.3.0-beta.1` has been published, download its assets:
+Download the assets from the published GitHub release [`v0.3.0-beta.1`](https://github.com/Assem130/arabic-word-of-the-day/releases/tag/v0.3.0-beta.1):
 
 - Download the matching `kalimat-chrome-0.3.0.zip` or `kalimat-firefox-0.3.0.zip`, then extract the ZIP.
 - **Chrome:** open `chrome://extensions`, enable Developer mode, choose **Load unpacked**, and select the extracted Chrome folder (the folder containing `manifest.json`).
 - **Firefox:** open `about:debugging#/runtime/this-firefox`, choose **Load Temporary Add-on**, and select the extracted Firefox `manifest.json` file.
 
-Until that release is published, build locally with the packaging command below and load the unpacked `extension/dist/chrome` or `extension/dist/firefox` directory in the relevant browser. Store listing links are intentionally omitted until the stores approve a public submission.
+For local packaging or testing, use the verification command below and load the unpacked `extension/dist/chrome` or `extension/dist/firefox` directory in the relevant browser. Store listing links remain intentionally omitted while store submissions are pending.
 
 ## Verification
 

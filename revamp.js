@@ -6,6 +6,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     const themeFn = window.KalimatWebUI?.setupThemeController;
     if (typeof themeFn === "function") themeFn();
+    const installFn = window.KalimatWebUI?.setupInstallPrompt;
+    if (typeof installFn === "function") installFn();
 
     const Core = window.KalimatCore;
     const today = Core ? Core.getLocalDateKey(new Date()) : "";

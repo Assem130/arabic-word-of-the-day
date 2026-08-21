@@ -4,7 +4,7 @@
 
 - Product: **Kalimat — Arabic Word of the Day / كَلِمات — كلمة عربية كل يوم**
 - Beta label: **Public beta · 0.3.0**
-- Planned release tag: `v0.3.0-beta.1`
+- Published GitHub release: [`v0.3.0-beta.1`](https://github.com/Assem130/arabic-word-of-the-day/releases/tag/v0.3.0-beta.1)
 - Archive names: `kalimat-chrome-0.3.0.zip`, `kalimat-firefox-0.3.0.zip`
 - Audience: self-identified intermediate-and-advanced Arabic learners
 
@@ -32,7 +32,7 @@
 
 Kalimat is a local-first experience for intermediate-and-advanced Modern Standard Arabic learners. Open the daily word, read its meaning and live context, hear browser speech, and review encountered words according to recall.
 
-The extension is an optional companion with challenge level, interests, daily reminders, and Atlas exploration. Website and extension are separate local experiences: no account, sync, analytics, advertising, or backend. Kalimat is not a beginner course and makes no unsupported learning-outcome claim.
+The extension is an optional companion with challenge level, interests, a daily reminder through its own MV3 alarms/notifications setting, and Atlas exploration. Website and extension are separate local experiences: no account, sync, analytics, advertising, or backend. Kalimat is not a beginner course and makes no unsupported learning-outcome claim.
 
 ## Permissions and why they are needed
 
@@ -56,7 +56,8 @@ The extension is an optional companion with challenge level, interests, daily re
 - Website data is in browser `localStorage`; extension data is in `storage.local`. The stores, assignments, and reviews are separate.
 - Data remains on the device until the learner deletes it. JSON export and deletion controls are available on the website and in Atlas settings.
 - No account, sync, backend, analytics, telemetry, advertising, cookies, or background collection is used by Kalimat.
-- The website may request Google Fonts; system fonts are the offline fallback.
+- The website uses self-hosted local WOFF2 fonts and makes no external font request.
+- The website reminder is an opt-in browser `Notification` that fires only while a Kalimat tab is open. Website clear-data removes learning state, onboarding, and reminder settings while preserving `kalimat_theme`; the extension reminder remains a separate MV3 `alarms`/`notifications` setting.
 - Chrome’s optional dictionary path sends only an explicitly submitted normalized term to Arabic Wiktionary. Results are visibly unreviewed and are not stored in the learner profile. Firefox is local-only.
 
 ## Public links

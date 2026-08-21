@@ -12,6 +12,7 @@ const CORE_PATH = path.resolve("./app-core.js");
 const REVIEW_POLICY_PATH = path.resolve("./extension/shared/review-policy.js");
 const SPEECH_PATH = path.resolve("./extension/shared/speech.js");
 const APP_PATH = path.resolve("./app.js");
+const WEB_UI_PATH = path.resolve("./web-ui.js");
 const INDEX_HTML_PATH = path.resolve("./index.html");
 const WORD_HTML_PATH = path.resolve("./word.html");
 const STYLE_CSS_PATH = path.resolve("./style.css");
@@ -21,6 +22,7 @@ const coreCode = fs.readFileSync(CORE_PATH, "utf8");
 const reviewPolicyCode = fs.readFileSync(REVIEW_POLICY_PATH, "utf8");
 const speechCode = fs.readFileSync(SPEECH_PATH, "utf8");
 const appCode = fs.readFileSync(APP_PATH, "utf8");
+const webUiCode = fs.readFileSync(WEB_UI_PATH, "utf8");
 const indexHtml = fs.readFileSync(INDEX_HTML_PATH, "utf8");
 const wordHtml = fs.readFileSync(WORD_HTML_PATH, "utf8");
 const styleCss = fs.readFileSync(STYLE_CSS_PATH, "utf8");
@@ -221,6 +223,12 @@ class FakeElement {
         this.open = false;
         this.dispatchEvent({ type: "close" });
     }
+
+    remove() {
+        if (!this.parentNode) return;
+        this.parentNode.children = this.parentNode.children.filter(child => child !== this);
+        this.parentNode = null;
+    }
 }
 
 function createDOMEnvironment(initialState = null) {
@@ -359,6 +367,51 @@ function createDOMEnvironment(initialState = null) {
     return { sandbox, doc, localStorage, elementsById };
 }
 
+function createInstallPromptEnvironment() {
+    const elementsById = new Map();
+    const navActions = new FakeElement("div");
+    const listeners = new Map();
+    const doc = {
+        registerId: (id, element) => elementsById.set(id, element),
+        querySelector: (selector) => selector === ".nav-actions" ? navActions : null,
+        getElementById: (id) => elementsById.get(id) || null,
+        createElement: (tagName) => {
+            const element = new FakeElement(tagName);
+            element.ownerDocument = doc;
+            return element;
+        }
+    };
+    const windowMock = {
+        addEventListener: (type, callback) => listeners.set(type, callback)
+    };
+    const sandbox = { window: windowMock, document: doc, globalThis: null };
+    sandbox.globalThis = sandbox;
+    vm.runInNewContext(webUiCode, sandbox);
+    windowMock.KalimatWebUI = sandbox.KalimatWebUI;
+    windowMock.KalimatWebUI.setupInstallPrompt();
+    return { doc, navActions, listeners };
+}
+
+test("Shared install prompt helper renders and consumes the PWA prompt", async () => {
+    const env = createInstallPromptEnvironment();
+    let prevented = false;
+    let prompted = 0;
+    const promptEvent = {
+        preventDefault: () => { prevented = true; },
+        prompt: () => { prompted += 1; },
+        userChoice: Promise.resolve({ outcome: "accepted" })
+    };
+
+    env.listeners.get("beforeinstallprompt")(promptEvent);
+    const button = env.doc.getElementById("btn-install");
+    assert.equal(prevented, true, "the install event must be deferred");
+    assert.notEqual(button, null, "the shared helper must add an install button");
+    assert.equal(button.textContent, "تثبيت");
+    await button.listeners.get("click")[0]();
+    assert.equal(prompted, 1, "clicking the button must invoke the deferred prompt");
+    assert.equal(env.navActions.children.includes(button), false, "the button must be removed after the prompt resolves");
+});
+
 // -----------------------------------------------------------------------------
 // Test 1: HTML Semantic & Accessibility Invariants for Spaced Repetition Review
 // -----------------------------------------------------------------------------
@@ -383,6 +436,8 @@ test("1. HTML Markup & Accessibility Attributes (index.html & word.html)", () =>
     assert.match(wordHtml, /<dialog\s+class="practice-dialog"\s+id="practice-dialog"/, "word.html must define <dialog id='practice-dialog'>");
     assert.match(wordHtml, /role="dialog"/, "word.html practice-dialog must have role='dialog'");
     assert.match(wordHtml, /aria-modal="true"/, "word.html practice-dialog must have aria-modal='true'");
+    assert.doesNotMatch(wordHtml, /<label[^>]+for="reminder-time"/, "website reminder toggle must not label a missing time input");
+    assert.match(wordHtml, /<div class="word-menu-theme" role="group" aria-labelledby="reminder-label">[\s\S]*<span id="reminder-label">التذكير اليومي<\/span>[\s\S]*id="btn-toggle-reminder"/, "website reminder toggle must have an accessible group label");
 });
 
 test("History dialog stays closed and history rows use the paper surface", () => {
@@ -441,6 +496,8 @@ test("Confirmed learning-data deletion removes only learning state and reloads",
     const storedState = env.localStorage.getItem("arabic_words_state");
     let reloadCount = 0;
     env.localStorage.setItem("kalimat_theme", "midnight");
+    env.localStorage.setItem("kalimat_reminder", JSON.stringify({ enabled: true, time: "20:00" }));
+    env.localStorage.setItem("kalimat_onboarded", "1");
     env.sandbox.window.confirm = () => true;
     env.sandbox.window.location.reload = () => { reloadCount += 1; };
 
@@ -448,6 +505,8 @@ test("Confirmed learning-data deletion removes only learning state and reloads",
 
     assert.notEqual(storedState, null, "the fixture must start with learning state");
     assert.equal(env.localStorage.getItem("arabic_words_state"), null);
+    assert.equal(env.localStorage.getItem("kalimat_reminder"), null);
+    assert.equal(env.localStorage.getItem("kalimat_onboarded"), null);
     assert.equal(env.localStorage.getItem("kalimat_theme"), "midnight");
     assert.equal(reloadCount, 1, "confirmed deletion must reload once");
 });

@@ -7,6 +7,7 @@ let currentWord = null;
 let activeDateKey = "";
 let activeArchiveDateKey = "";
 let persistenceBlocked = false;
+let stateNeedsPersistence = false;
 const MAX_BACKUP_BYTES = 1024 * 1024;
 
 const elMainWord = document.getElementById("main-word");
@@ -79,6 +80,7 @@ let shortcutsDialogInvoker = null;
 let activeReviewQueue = [];
 let activeReviewIndex = 0;
 let isFlashcardFlipped = false;
+let activeReviewMode = "due";
 let activeReviewDueCount = 0;
 let activeReviewRemainingCount = 0;
 let sessionReviewStats = { totalReviewed: 0, ratings: { again: 0, hard: 0, good: 0, easy: 0 } };
@@ -169,10 +171,11 @@ function loadState() {
         appState = stored.state;
         persistenceBlocked = !stored.canPersist;
         if (persistenceBlocked) document.getElementById("storage-warning").hidden = false;
-        else if (JSON.stringify(appState) !== raw) saveState();
+        else stateNeedsPersistence = raw === null || JSON.stringify(appState) !== raw;
     } catch {
         appState = (Core && typeof Core.createDefaultState === "function") ? Core.createDefaultState() : { version: 2, schemaVersion: 2, srs: {}, history: {}, favorites: {}, preferences: {} };
         persistenceBlocked = true;
+        stateNeedsPersistence = false;
         document.getElementById("storage-warning").hidden = false;
     }
 }
@@ -218,7 +221,7 @@ function determineTodayWord(now = new Date()) {
         appState.srs[word.id] = Core.createDefaultSrsItem(word.id, dateKey);
         changed = true;
     }
-    if (changed) saveState();
+    if ((changed || stateNeedsPersistence) && saveState()) stateNeedsPersistence = false;
     return word;
 }
 
@@ -449,27 +452,8 @@ function setupOnboarding() {
 }
 
 function setupInstallPrompt() {
-    if (typeof window === "undefined" || typeof window.addEventListener !== "function") return;
-    window.addEventListener("beforeinstallprompt", (event) => {
-        if (event && typeof event.preventDefault === "function") event.preventDefault();
-        const navActions = document.querySelector(".nav-actions");
-        if (!navActions || document.getElementById("btn-install")) return;
-        const btn = document.createElement("button");
-        btn.id = "btn-install";
-        btn.type = "button";
-        btn.className = "icon-button install-button";
-        btn.textContent = "تثبيت";
-        btn.setAttribute("aria-label", "تثبيت التطبيق على هذا الجهاز");
-        btn.addEventListener("click", async () => {
-            if (!deferredInstallEvent) return;
-            deferredInstallEvent.prompt();
-            try { await deferredInstallEvent.userChoice; } catch {}
-            deferredInstallEvent = null;
-            btn.remove();
-        });
-        navActions.appendChild(btn);
-        deferredInstallEvent = event;
-    });
+    const setup = window.KalimatWebUI?.setupInstallPrompt;
+    if (typeof setup === "function") setup();
 }
 
 function readReminder() {
@@ -540,8 +524,6 @@ function setupDailyReminder() {
         }
     }, 30000);
 }
-
-let deferredInstallEvent = null;
 
 function streakPhrase(count) {
     if (count <= 0) return "لا يوجد تتابع بعد";
@@ -1434,7 +1416,7 @@ function setupEventListeners() {
 
     if (btnReviewAll) {
         btnReviewAll.addEventListener("click", () => {
-            startSpacedRepetitionReview(WORDS_DB.length);
+            startSpacedRepetitionReview(WORDS_DB.length, "all");
         });
     }
 
@@ -1585,12 +1567,13 @@ function updateDueReviewBadge() {
     }
 }
 
-function startSpacedRepetitionReview(limitOverride = null) {
+function startSpacedRepetitionReview(limitOverride = null, mode = "due") {
     stopSpeech();
     if (!practiceDialog || !practiceBody) return;
 
     practiceDialogInvoker = document.activeElement;
     const todayKey = activeDateKey || (Core ? Core.getLocalDateKey(new Date()) : "");
+    activeReviewMode = mode === "all" ? "all" : "due";
     const stats = getCachedReviewStats();
     const configuredLimit = Number.isInteger(limitOverride) && limitOverride >= 1
         ? limitOverride
@@ -1599,13 +1582,31 @@ function startSpacedRepetitionReview(limitOverride = null) {
             && appState.preferences.dailyReviewLimit <= 100
             ? appState.preferences.dailyReviewLimit
             : 20;
-    const dueItems = (Core && typeof Core.getDueReviewWords === "function")
-        ? Core.getDueReviewWords(appState, WORDS_DB, todayKey, configuredLimit)
-        : [];
+    const dueItems = activeReviewMode === "all"
+        ? WORDS_DB
+            .filter(word => appState.history && appState.history[word.id])
+            .map(word => {
+                const srs = appState.srs?.[word.id] || (Core ? Core.createDefaultSrsItem(word.id, todayKey) : null);
+                return {
+                    word,
+                    srs,
+                    reviewOptions: Core && typeof Core.getReviewOptions === "function" ? Core.getReviewOptions(srs, todayKey) : {},
+                    isOverdue: false,
+                    daysOverdue: 0
+                };
+            })
+            .slice(0, configuredLimit)
+        : (Core && typeof Core.getDueReviewWords === "function")
+            ? Core.getDueReviewWords(appState, WORDS_DB, todayKey, configuredLimit)
+            : [];
 
     activeReviewQueue = Array.isArray(dueItems) ? dueItems : [];
-    activeReviewDueCount = Number.isInteger(stats?.dueCount) ? stats.dueCount : activeReviewQueue.length;
-    activeReviewRemainingCount = Math.max(0, activeReviewDueCount - activeReviewQueue.length);
+    activeReviewDueCount = activeReviewMode === "all"
+        ? activeReviewQueue.length
+        : Number.isInteger(stats?.dueCount) ? stats.dueCount : activeReviewQueue.length;
+    activeReviewRemainingCount = activeReviewMode === "all"
+        ? 0
+        : Math.max(0, activeReviewDueCount - activeReviewQueue.length);
 
     activeReviewIndex = 0;
     sessionReviewStats = { totalReviewed: 0, ratings: { again: 0, hard: 0, good: 0, easy: 0 } };
@@ -1702,7 +1703,7 @@ function renderFlashcardStep() {
     const dueTag = document.createElement("span");
     dueTag.className = "practice-due-pill";
     dueTag.id = "practice-card-due-tag";
-    dueTag.textContent = currentItem.isOverdue ? "متأخرة" : "مستحقة اليوم";
+    dueTag.textContent = activeReviewMode === "all" ? "مراجعة كاملة" : currentItem.isOverdue ? "متأخرة" : "مستحقة اليوم";
 
     progressInfo.append(progressText, dueTag);
     headerStatus.append(progressWrap, progressInfo);
@@ -2198,6 +2199,8 @@ function clearLearningData() {
     }
     try {
         localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(REMINDER_KEY);
+        localStorage.removeItem(ONBOARDED_KEY);
     } catch {}
     if (window.location && typeof window.location.reload === "function") window.location.reload();
 }
