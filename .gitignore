@@ -10,3 +10,5 @@ docs/superpowers/
 .worktrees/
 .review-release/
 extension/dist/
+agents doc/
+agent-docs/

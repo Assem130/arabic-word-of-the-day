@@ -1,6 +1,5 @@
 "use strict";
 
-process.on("unhandledRejection", e => console.error("UNHANDLED:", e && e.stack || e));
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const vm = require("node:vm");
@@ -615,9 +614,13 @@ const homeRevampIndex = homePage.indexOf('<script src="revamp.js"');
 assert.equal(homeCoreIndex >= 0 && homeCoreIndex < homeWebUiIndex && homeWebUiIndex < homeRevampIndex, true, "index.html must load the core before its browser adapter");
 
 assert.equal(typeof WebUI.setupThemeController, "function", "KalimatWebUI must export setupThemeController");
+assert.equal(typeof WebUI.setupInstallPrompt, "function", "KalimatWebUI must export setupInstallPrompt");
 assert.equal(typeof Core.setupThemeController, "undefined", "KalimatCore must remain headless");
 assert.doesNotMatch(appSource, /function\s+setupThemeController\s*\(/, "app.js must not contain duplicate setupThemeController definition");
 assert.doesNotMatch(revamp, /function\s+setupThemeController\s*\(/, "revamp.js must not contain duplicate setupThemeController definition");
+assert.match(revamp, /setupInstallPrompt/, "revamp.js must use the shared install-prompt helper");
+assert.doesNotMatch(wordPage, /<label[^>]+for="reminder-time"/, "website reminder toggle must not use a label for a missing control");
+assert.match(wordPage, /role="group" aria-labelledby="reminder-label"[\s\S]*id="btn-toggle-reminder"/, "website reminder toggle must expose a labelled group");
 assert.doesNotMatch(appSource, /\bnew\s+(?:window\.)?Audio\s*\(/, "website app.js must not construct HTML Audio");
 assert.doesNotMatch(webUiSource, /\bnew\s+(?:window\.)?Audio\s*\(/, "website web-ui.js must not construct HTML Audio");
 assert.doesNotMatch(appCoreSource, /assets\/audio\//, "core must not synthesize packaged MP3 paths");
@@ -873,7 +876,7 @@ function loadBrowserApp({ state, rawStorage, extraStorage, storageFails = false,
         "word-meaning", "word-pronunciation", "word-meaning-en", "word-context-text", "word-context-en", "word-example-text", "countdown-timer",
         "btn-speak", "btn-speak-example", "btn-copy-quote", "btn-favorite", "btn-share", "btn-copy-link",
         "btn-toggle-history", "btn-close-history", "btn-toggle-menu", "btn-toggle-english", "btn-export-history",
-        "btn-import-history", "input-import-history", "history-dialog", "history-list", "history-count",
+        "btn-import-history", "btn-clear-learning-data", "input-import-history", "history-dialog", "history-list", "history-count",
         "count-history-all", "count-history-favs", "tab-history-all", "tab-history-favs", "drawer-empty-msg",
         "app-menu-dropdown", "storage-warning", "toast", "audio-announcer", "archive-preview-note", "btn-return-today",
         "btn-reset-storage", "theme-select", "streak-badge", "btn-export-card", "btn-export-anki", "btn-inline-review", "inline-review-count",
@@ -918,10 +921,13 @@ function loadBrowserApp({ state, rawStorage, extraStorage, storageFails = false,
     if (theme !== undefined) {
         values.set("kalimat_theme", theme);
     }
+    let writeCount = 0;
     const localStorage = {
         getItem(key) { if (storageFails) throw new Error("storage unavailable"); return values.get(key) || null; },
-        setItem(key, value) { if (storageFails) throw new Error("storage unavailable"); values.set(key, value); },
-        value: key => values.get(key)
+        setItem(key, value) { if (storageFails) throw new Error("storage unavailable"); writeCount += 1; values.set(key, value); },
+        removeItem(key) { if (storageFails) throw new Error("storage unavailable"); values.delete(key); },
+        value: key => values.get(key),
+        writeCount: () => writeCount
     };
     const timers = [];
     const urlApi = exportProbe ? {
@@ -1290,12 +1296,52 @@ assert.equal(Boolean(onboardingReturning.elements["onboarding-dialog"].open), fa
 const onboardingWithHistory = loadBrowserApp({ state: savedState });
 assert.equal(Boolean(onboardingWithHistory.elements["onboarding-dialog"].open), false, "learners with history skip the explainer");
 
+const freshProfile = loadBrowserApp();
+assert.equal(freshProfile.localStorage.writeCount(), 1, "a fresh profile should persist only after today's word is enrolled");
+const freshStoredState = JSON.parse(freshProfile.localStorage.value("arabic_words_state"));
+assert.equal(Object.keys(freshStoredState.history).length, 1, "fresh persistence must include today's enrolled word");
+
+const migrationToday = Core.getLocalDateKey(new Date());
+const migrationTodayId = Core.getDailyWordIndex(migrationToday, words.length) + 1;
+const migrationOtherId = migrationTodayId === 1 ? 2 : 1;
+const migratedProfile = loadBrowserApp({
+    rawStorage: JSON.stringify({
+        schemaVersion: 1,
+        history: { [migrationOtherId]: { firstSeen: migrationToday } },
+        preferences: { showEnglish: true }
+    })
+});
+assert.equal(migratedProfile.localStorage.writeCount(), 1, "migration and today's enrollment must persist together in one write");
+assert.equal(JSON.parse(migratedProfile.localStorage.value("arabic_words_state")).schemaVersion, 2, "migration must persist the current schema");
+assert.equal(Object.keys(JSON.parse(migratedProfile.localStorage.value("arabic_words_state")).history).length, 2, "migration persistence must include today's enrolled word");
+
+const corruptProfile = loadBrowserApp({ rawStorage: "{not-json" });
+assert.equal(corruptProfile.localStorage.writeCount(), 0, "corrupted state must never be overwritten automatically");
+
 // T9 acceptance: reminder toggle stays disabled without Notification support
 const reminderApp = loadBrowserApp({ state: savedState });
 assert.equal(reminderApp.elements["btn-toggle-reminder"].getAttribute("aria-pressed"), "false", "reminder starts disabled");
 await reminderApp.elements["btn-toggle-reminder"].emit("click");
 assert.equal(reminderApp.elements["btn-toggle-reminder"].getAttribute("aria-pressed"), "false", "missing Notification API must keep the reminder disabled");
 assert.match(reminderApp.elements.toast.textContent, /لا يدعم/, "unsupported reminders explain themselves");
+
+const clearedLearningData = loadBrowserApp({
+    state: savedState,
+    extraStorage: {
+        kalimat_reminder: JSON.stringify({ enabled: true, time: "20:00", lastFired: "" }),
+        kalimat_onboarded: "1",
+        kalimat_theme: "midnight"
+    }
+});
+let clearReloads = 0;
+clearedLearningData.context.window.confirm = () => true;
+clearedLearningData.context.window.location.reload = () => { clearReloads += 1; };
+await clearedLearningData.elements["btn-clear-learning-data"].emit("click");
+assert.equal(clearedLearningData.localStorage.value("arabic_words_state"), undefined, "clearing learning data must remove the saved state");
+assert.equal(clearedLearningData.localStorage.value("kalimat_reminder"), undefined, "clearing learning data must remove reminders");
+assert.equal(clearedLearningData.localStorage.value("kalimat_onboarded"), undefined, "clearing learning data must reset onboarding");
+assert.equal(clearedLearningData.localStorage.value("kalimat_theme"), "midnight", "clearing learning data must preserve theme");
+assert.equal(clearReloads, 1, "clearing learning data must reload once");
 
 // ==========================================
 // T10 acceptance: completion banner appears only when the corpus is fully seen
@@ -1309,6 +1355,17 @@ const fullHistoryState = {
 };
 const completeCorpusApp = loadBrowserApp({ state: fullHistoryState });
 assert.equal(completeCorpusApp.elements["completion-banner"].hidden, false, "completing the corpus reveals the banner");
+const fullNotDueState = {
+    version: 2,
+    schemaVersion: 2,
+    history: Object.fromEntries(words.map(word => [String(word.id), { firstSeen: "2026-08-01" }])),
+    srs: Object.fromEntries(words.map(word => [String(word.id), Core.createDefaultSrsItem(word.id, "2099-01-01")])),
+    favorites: {},
+    preferences: { showEnglish: true, speechRate: 0.85, speechRepeat: 1, dailyReviewLimit: 20 }
+};
+const fullReviewApp = loadBrowserApp({ state: fullNotDueState });
+await fullReviewApp.elements["btn-review-all"].emit("click");
+assert.equal(fullReviewApp.context.window.KalimatApp.getActiveReviewQueue().length, words.length, "the completion CTA must queue the full corpus even when no cards are due");
 
 // ==========================================
 // R3.2 Canvas 1080x1080 Social Card Export

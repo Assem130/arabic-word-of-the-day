@@ -49,12 +49,13 @@
 
       <h3>طلبات الشبكة الاختيارية</h3>
       <ul>
-        <li>قد يطلب الموقع خطوط Google Fonts عند الاتصال بالإنترنت. عند تعذر الاتصال، يستخدم خطوط النظام؛ لا تُرسل بيانات التعلّم إلى Google Fonts.</li>
+        <li>يستخدم الموقع خطوط WOFF2 محلية مضمّنة ولا يطلب خطوطاً خارجية.</li>
+        <li>التذكير في الموقع اختياري ويستخدم إشعار المتصفح، ولا يعمل إلا مع بقاء علامة تبويب كَلِمات مفتوحة. تذكير الامتداد منفصل ويستخدم إعداد منبّهات وإشعارات MV3 الخاص به.</li>
         <li>في Chrome فقط، وعند ضغطك صراحةً على «بحث خارجي في القاموس»، يُرسل مصطلح البحث المنقح إلى <a href="https://ar.wiktionary.org/">Wiktionary العربية</a>. لا تُرسل التعيينات أو السجل أو الصفحات التي تزورها، ولا يُحفظ سجل البحث في ملفك. Firefox محلي فقط.</li>
       </ul>
 
       <h3>الحذف والدعم</h3>
-      <p>التصدير والحذف متاحان من عناصر التحكم المخصصة. حذف بيانات الموقع يزيل <code>arabic_words_state</code> فقط ويحافظ على تفضيل المظهر <code>kalimat_theme</code>. يمكنك طلب المساعدة عبر صفحة <a href="https://github.com/Assem130/arabic-word-of-the-day/issues">الدعم والمشكلات</a>.</p>
+      <p>التصدير والحذف متاحان من عناصر التحكم المخصصة. مسح بيانات الموقع يزيل حالة التعلّم <code>arabic_words_state</code> وحالة التعريف الأولي <code>kalimat_onboarded</code> وإعداد التذكير <code>kalimat_reminder</code>، ويحافظ على تفضيل المظهر <code>kalimat_theme</code>. يمكنك طلب المساعدة عبر صفحة <a href="https://github.com/Assem130/arabic-word-of-the-day/issues">الدعم والمشكلات</a>.</p>
 
       <section class="english" lang="en" dir="ltr">
         <h2>English summary</h2>
@@ -67,11 +68,12 @@
         </ul>
         <h3>Optional network requests</h3>
         <ul>
-          <li>The website may request Google Fonts; system fonts remain the offline fallback.</li>
+          <li>The website uses bundled local WOFF2 fonts and makes no external font request.</li>
+          <li>The website reminder is an opt-in browser <code>Notification</code> that fires only while a Kalimat tab is open. The extension reminder remains a separate MV3 <code>alarms</code>/<code>notifications</code> setting.</li>
           <li>On Chrome only, an explicit external-dictionary search sends only the normalized search term to <a href="https://ar.wiktionary.org/">Arabic Wiktionary</a>. No profile, history, visited-page data, cookies, or background requests are sent, and lookup history is not retained. Firefox remains local-only.</li>
         </ul>
         <h3>Deletion and support</h3>
-        <p>Use the website or Atlas controls to export or delete data. Website deletion removes <code>arabic_words_state</code> and preserves the separate <code>kalimat_theme</code> preference. Contact support through the <a href="https://github.com/Assem130/arabic-word-of-the-day/issues">GitHub issues page</a>.</p>
+        <p>Use the website or Atlas controls to export or delete data. Website clear-data removes learning state <code>arabic_words_state</code>, onboarding <code>kalimat_onboarded</code>, and reminder settings <code>kalimat_reminder</code> while preserving the separate <code>kalimat_theme</code> preference. Contact support through the <a href="https://github.com/Assem130/arabic-word-of-the-day/issues">GitHub issues page</a>.</p>
       </section>
 
       <nav class="links" aria-label="روابط السياسة">

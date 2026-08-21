@@ -47,6 +47,36 @@
         }
     }
 
+    function setupInstallPrompt() {
+        if (typeof window === "undefined" || typeof window.addEventListener !== "function") return;
+        let deferredInstallEvent = null;
+        window.addEventListener("beforeinstallprompt", (event) => {
+            if (event && typeof event.preventDefault === "function") event.preventDefault();
+            deferredInstallEvent = event;
+            const navActions = typeof document !== "undefined" && typeof document.querySelector === "function"
+                ? document.querySelector(".nav-actions")
+                : null;
+            if (!navActions || typeof document.createElement !== "function" || document.getElementById("btn-install")) return;
+
+            const button = document.createElement("button");
+            button.id = "btn-install";
+            button.type = "button";
+            button.className = "icon-button install-button";
+            button.textContent = "تثبيت";
+            button.setAttribute("aria-label", "تثبيت التطبيق على هذا الجهاز");
+            button.addEventListener("click", async () => {
+                if (!deferredInstallEvent) return;
+                try {
+                    deferredInstallEvent.prompt?.();
+                    await deferredInstallEvent.userChoice;
+                } catch {}
+                deferredInstallEvent = null;
+                button.remove?.();
+            });
+            navActions.appendChild(button);
+        });
+    }
+
     function initLexiconExplorer(options = {}) {
         if (typeof document === "undefined") return null;
         const {
@@ -614,5 +644,5 @@
         };
     }
 
-    return { setupThemeController, initLexiconExplorer };
+    return { setupThemeController, setupInstallPrompt, initLexiconExplorer };
 });
