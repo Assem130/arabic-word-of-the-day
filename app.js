@@ -170,12 +170,12 @@ document.addEventListener("DOMContentLoaded", () => {
 function loadState() {
     const fallbackDate = Core ? Core.getLocalDateKey(new Date()) : "";
     try {
-        const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-        const stored = Core.inspectStoredState(raw, VALID_WORD_IDS, fallbackDate);
+        const raw = localStorage.getItem(STORAGE_KEY);
+        const stored = Core.inspectStoredState(JSON.parse(raw || "null"), VALID_WORD_IDS, fallbackDate);
         appState = stored.state;
         persistenceBlocked = !stored.canPersist;
         if (persistenceBlocked) document.getElementById("storage-warning").hidden = false;
-        else saveState();
+        else if (JSON.stringify(appState) !== raw) saveState();
     } catch {
         appState = (Core && typeof Core.createDefaultState === "function") ? Core.createDefaultState() : { version: 2, schemaVersion: 2, srs: {}, history: {}, favorites: {}, preferences: {} };
         persistenceBlocked = true;
@@ -187,6 +187,7 @@ function saveState() {
     if (persistenceBlocked) return false;
     try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+        reviewStatsCache = null;
         return true;
     } catch {
         document.getElementById("storage-warning").hidden = false;
@@ -194,16 +195,36 @@ function saveState() {
     }
 }
 
+// getReviewStats deep-validates the whole state; memoize per state identity so
+// repeated badge/menu renders between mutations don't re-migrate. appState is
+// replaced (or the cache dropped in saveState) on every real mutation.
+let reviewStatsCache = null;
+function getCachedReviewStats() {
+    if (!Core || typeof Core.getReviewStats !== "function") return null;
+    const dateKey = activeDateKey || Core.getLocalDateKey(new Date());
+    if (reviewStatsCache && reviewStatsCache.state === appState && reviewStatsCache.dateKey === dateKey) {
+        return reviewStatsCache.stats;
+    }
+    const stats = Core.getReviewStats(appState, dateKey, WORDS_DB);
+    reviewStatsCache = { state: appState, dateKey, stats };
+    return stats;
+}
+
 function determineTodayWord(now = new Date()) {
     const dateKey = Core.getLocalDateKey(now);
     const word = WORDS_DB[Core.getDailyWordIndex(dateKey, WORDS_DB.length)];
+    let changed = false;
     if (!appState.history) appState.history = {};
-    if (!appState.history[word.id]) appState.history[word.id] = { firstSeen: dateKey };
+    if (!appState.history[word.id]) {
+        appState.history[word.id] = { firstSeen: dateKey };
+        changed = true;
+    }
     if (!appState.srs) appState.srs = {};
     if (!appState.srs[word.id] && Core && typeof Core.createDefaultSrsItem === "function") {
         appState.srs[word.id] = Core.createDefaultSrsItem(word.id, dateKey);
+        changed = true;
     }
-    saveState();
+    if (changed) saveState();
     return word;
 }
 
@@ -953,7 +974,17 @@ function setButtonSpeakingState(buttonEl, isSpeaking, activeIcon = "i-waveform",
     return setButtonPlaybackState(buttonEl, isSpeaking ? "speaking" : "idle", activeIcon, idleIcon);
 }
 
-function updateHistoryUI() {
+let historyUIStale = true;
+function updateHistoryUI(force = false) {
+    // After the initial build, skip full rebuilds while the dialog is hidden;
+    // keep the always-visible count fresh and rebuild on next open.
+    if (!force && !historyUIStale && !(historyDialog && historyDialog.open)) {
+        historyUIStale = true;
+        const historyCount = Object.keys(appState.history || {}).length;
+        if (countHistoryBadge) countHistoryBadge.textContent = String(historyCount);
+        return;
+    }
+    historyUIStale = false;
     const allHistory = getSortedHistoryItems()
         .map(item => ({
             ...item,
@@ -1373,6 +1404,7 @@ function setupEventListeners() {
         setMenuOpen(false);
         historyDialogInvoker = document.activeElement || btnToggleHistory;
         historyDialog.showModal();
+        updateHistoryUI(true);
         if (typeof btnCloseHistory.focus === "function") btnCloseHistory.focus();
     });
     btnCloseHistory.addEventListener("click", () => {
@@ -1485,9 +1517,14 @@ function setupEventListeners() {
     }
 
     if (inputSearchHistory) {
+        let historySearchTimer = null;
         inputSearchHistory.addEventListener("input", () => {
             searchHistoryQuery = inputSearchHistory.value || "";
-            updateHistoryUI();
+            if (historySearchTimer) clearTimeout(historySearchTimer);
+            historySearchTimer = setTimeout(() => {
+                historySearchTimer = null;
+                updateHistoryUI();
+            }, 150);
         });
     }
 
@@ -1648,8 +1685,8 @@ function updateDueReviewBadge() {
     if (!badge && !countEl && !btnInlineReview && !inlineReviewCount) return;
     if (!Core || typeof Core.getReviewStats !== "function") return;
 
-    const stats = Core.getReviewStats(appState, activeDateKey || Core.getLocalDateKey(new Date()), WORDS_DB);
-    const dueCount = stats.dueToday || 0;
+    const stats = getCachedReviewStats();
+    const dueCount = stats ? (stats.dueToday || 0) : 0;
 
     if (countEl) {
         countEl.textContent = String(dueCount);
@@ -1674,10 +1711,7 @@ function startSpacedRepetitionReview() {
     if (!practiceDialog || !practiceBody) return;
 
     practiceDialogInvoker = document.activeElement;
-    const todayKey = activeDateKey || (Core ? Core.getLocalDateKey(new Date()) : "");
-    const stats = (Core && typeof Core.getReviewStats === "function")
-        ? Core.getReviewStats(appState, todayKey, WORDS_DB)
-        : null;
+    const stats = getCachedReviewStats();
     const configuredLimit = Number.isInteger(appState.preferences?.dailyReviewLimit)
         && appState.preferences.dailyReviewLimit >= 1
         && appState.preferences.dailyReviewLimit <= 100
@@ -2215,6 +2249,7 @@ function setupKeyboardShortcuts() {
             if (historyDialog) {
                 historyDialogInvoker = document.activeElement || btnToggleHistory;
                 historyDialog.showModal();
+                updateHistoryUI(true);
                 if (btnCloseHistory && typeof btnCloseHistory.focus === "function") btnCloseHistory.focus();
             }
         } else if (event.key === "q" || event.key === "Q" || event.key === "ض") {
