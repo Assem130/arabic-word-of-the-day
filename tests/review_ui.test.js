@@ -15,7 +15,6 @@ const APP_PATH = path.resolve("./app.js");
 const INDEX_HTML_PATH = path.resolve("./index.html");
 const WORD_HTML_PATH = path.resolve("./word.html");
 const STYLE_CSS_PATH = path.resolve("./style.css");
-const REVAMP_CSS_PATH = path.resolve("./revamp.css");
 
 const wordsCode = fs.readFileSync(WORDS_PATH, "utf8");
 const coreCode = fs.readFileSync(CORE_PATH, "utf8");
@@ -25,7 +24,6 @@ const appCode = fs.readFileSync(APP_PATH, "utf8");
 const indexHtml = fs.readFileSync(INDEX_HTML_PATH, "utf8");
 const wordHtml = fs.readFileSync(WORD_HTML_PATH, "utf8");
 const styleCss = fs.readFileSync(STYLE_CSS_PATH, "utf8");
-const revampCss = fs.readFileSync(REVAMP_CSS_PATH, "utf8");
 
 // Minimal DOM Mocking Engine for UI testing
 class FakeElement {
@@ -413,7 +411,7 @@ test("Word-page utility controls stay inside the disclosure menu", () => {
 // Test 2: CSS 3D Flip Card, Rating Buttons & Pulse Animations
 // -----------------------------------------------------------------------------
 test("2. CSS Stylesheet Review Component Rules & Animations", () => {
-    for (const [filename, css] of [["style.css", styleCss], ["revamp.css", revampCss]]) {
+    for (const [filename, css] of [["style.css", styleCss]]) {
         assert.match(css, /\.due-review-badge/, `${filename} must style .due-review-badge`);
         assert.match(css, /\.due-review-badge\.has-due/, `${filename} must style .due-review-badge.has-due`);
         assert.match(css, /\.due-review-badge\.pulse/, `${filename} must define pulse animation for due badge`);

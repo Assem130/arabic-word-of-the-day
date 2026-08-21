@@ -482,7 +482,7 @@ assert.equal(browser.globalThis.WORDS_DB.length, 365);
 assert.deepEqual(Array.from(browser.globalThis.WORDS_DB, word => word.id), Array.from({ length: 365 }, (_, index) => index + 1));
 const wordPage = fs.readFileSync("word.html", "utf8");
 const homePage = fs.readFileSync("index.html", "utf8");
-const css = fs.readFileSync("revamp.css", "utf8");
+const css = fs.readFileSync("style.css", "utf8");
 const popupCss = fs.readFileSync("extension/popup/popup.css", "utf8");
 const revamp = fs.readFileSync("revamp.js", "utf8");
 const appSource = fs.readFileSync("app.js", "utf8");
@@ -512,9 +512,9 @@ for (const page of [wordPage, homePage]) {
     assert.match(page, /<option value="midnight">واحة الليل<\/option>/, "theme select midnight option");
 }
 
-assert.match(css, /html\[data-theme="paper"\]/, "revamp.css must define paper theme");
-assert.match(css, /html\[data-theme="emerald"\]/, "revamp.css must define emerald theme");
-assert.match(css, /html\[data-theme="midnight"\]/, "revamp.css must define midnight theme");
+assert.match(css, /html\[data-theme="paper"\]/, "style.css must define paper theme");
+assert.match(css, /html\[data-theme="emerald"\]/, "style.css must define emerald theme");
+assert.match(css, /html\[data-theme="midnight"\]/, "style.css must define midnight theme");
 
 assert.match(css, /--ink:\s*#14211b/, "paper theme ink color");
 assert.match(css, /--ink-soft:\s*#24332b/, "paper theme ink-soft color");
@@ -588,13 +588,13 @@ assert.match(css, /--line-light:\s*rgba\(241,\s*245,\s*249,\s*0\.15\)/, "midnigh
 assert.match(css, /--nav-bg:\s*rgba\(7,\s*13,\s*28,\s*0\.94\)/, "midnight theme nav-bg color");
 
 assert.match(css, /\.nav\s*\{[^}]*background:\s*var\(--nav-bg\)/, ".nav background must use var(--nav-bg)");
-assert.match(css, /\.theme-select\s*\{/, "revamp.css must style .theme-select");
-assert.match(css, /\.theme-select\s+option\s*\{/, "revamp.css must style .theme-select option");
+assert.match(css, /\.theme-select\s*\{/, "style.css must style .theme-select");
+assert.match(css, /\.theme-select\s+option\s*\{/, "style.css must style .theme-select option");
 
 assert.match(popupCss, /html,\s*body\s*\{[^}]*width:\s*380px;[^}]*min-width:\s*380px;[^}]*max-width:\s*380px;/s, "popup html/body layout must stay fixed at the extension viewport width");
 assert.match(popupCss, /main\s*\{[^}]*width:\s*380px;/s, "popup main layout must match the extension viewport width");
 
-assert.match(css, /@media\s+print\s*\{/, "revamp.css must contain @media print block");
+assert.match(css, /@media\s+print\s*\{/, "style.css must contain @media print block");
 assert.match(css, /background:\s*white\s*!important;\s*color:\s*black\s*!important;/, "@media print body reset");
 assert.match(css, /\.skip-link,\s*\.nav-wrap,\s*\.nav,\s*\.footer,\s*\.back-link,\s*#btn-speak,\s*\.reading-sidebar,\s*\.app-menu-dropdown,\s*#history-dialog,\s*#storage-warning,\s*\.toast,\s*button,\s*svg\.svg-sprite/, "@media print chrome hiding selectors");
 assert.match(css, /\.word-experience,\s*\n?\s*\.word-card,\s*\n?\s*\.word-reading/, "@media print word experience selectors including .word-reading");
@@ -1408,7 +1408,7 @@ assert.equal(m3Announcer.textContent, "استماع لنطق كلمة «المج
 
 // M3.2 File and CSS Consistency Verification
 const m3WordHtml = fs.readFileSync("word.html", "utf-8");
-const m3RevampCss = fs.readFileSync("revamp.css", "utf-8");
+const m3RevampCss = fs.readFileSync("style.css", "utf-8");
 assert.ok(m3WordHtml.includes('id="audio-announcer"'));
 assert.ok(m3WordHtml.includes('aria-busy="false"'));
 assert.ok(m3RevampCss.includes(".sr-only"));

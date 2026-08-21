@@ -6,7 +6,6 @@ const STATIC_ASSETS = [
     "./index.html",
     "./word.html",
     "./style.css",
-    "./revamp.css",
     "./app-core.js",
     "./web-ui.js",
     "./revamp.js",
