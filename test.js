@@ -650,7 +650,10 @@ const revampContext = {
     document: {
         documentElement: revampDocumentElement,
         addEventListener(type, listener) { revampListeners.set(type, listener); },
-        querySelectorAll(selector) { assert.equal(selector, ".horizontal-accordion details"); return touchPanels; },
+        querySelectorAll(selector) {
+            if (selector !== ".horizontal-accordion details") return [];
+            return touchPanels;
+        },
         getElementById(id) { return id === "theme-select" ? themeSelectEl : null; }
     },
     matchMedia(query) { return { matches: query === "(hover: none)" }; },

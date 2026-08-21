@@ -14,35 +14,72 @@ document.addEventListener("DOMContentLoaded", () => {
         rawState = JSON.parse(localStorage.getItem("arabic_words_state") || "null");
     } catch {}
 
-    const streakBadge = document.getElementById("streak-badge");
-    if (streakBadge && Core && rawState && rawState.history) {
+    const qsa = (typeof document.querySelectorAll === "function") ? document.querySelectorAll.bind(document) : () => [];
+    const streakBadges = qsa(".streak-badge");
+    if (streakBadges.length > 0 && Core && rawState && rawState.history) {
         try {
             const streak = Core.calculateStreak(rawState.history, today);
             const count = streak.currentStreak;
             if (count > 0) {
-                streakBadge.textContent = `🔥 ${Core.formatStreakText(count)}`;
+                streakBadges.forEach(badge => {
+                    badge.replaceChildren();
+                    const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+                    icon.setAttribute("class", "icon");
+                    icon.setAttribute("aria-hidden", "true");
+                    const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+                    use.setAttribute("href", "#i-flame");
+                    icon.appendChild(use);
+                    badge.append(icon, ` ${Core.formatStreakText(count)}`);
+                });
             }
         } catch {}
     }
 
-    const dueBadge = document.getElementById("due-review-badge");
-    const dueCountEl = document.getElementById("due-count");
-    if (dueBadge && Core) {
+    const dueBadges = qsa(".due-review-badge");
+    if (dueBadges.length > 0 && Core) {
         try {
             const wordsList = (typeof WORDS_DB !== "undefined" && Array.isArray(WORDS_DB)) ? WORDS_DB : (typeof WORDS !== "undefined" && Array.isArray(WORDS) ? WORDS : null);
             const stats = Core.getReviewStats(rawState || {}, today, wordsList);
             const dueCount = stats.dueToday || 0;
-            if (dueCountEl) dueCountEl.textContent = String(dueCount);
-            dueBadge.setAttribute("aria-label", `المراجعات المستحقة اليوم: ${dueCount} كلمات`);
-            if (dueCount > 0) {
-                dueBadge.classList.add("has-due", "pulse");
-            } else {
-                dueBadge.classList.remove("has-due", "pulse");
-            }
-            dueBadge.addEventListener("click", () => {
-                window.location.href = "word.html?action=practice";
+            dueBadges.forEach(badge => {
+                const countEl = badge.querySelector(".due-count");
+                if (countEl) countEl.textContent = String(dueCount);
+                badge.setAttribute("aria-label", `المراجعات المستحقة اليوم: ${dueCount} كلمات`);
+                if (dueCount > 0) {
+                    badge.classList.add("has-due", "pulse");
+                } else {
+                    badge.classList.remove("has-due", "pulse");
+                }
+            });
+            dueBadges.forEach(badge => {
+                badge.addEventListener("click", () => {
+                    window.location.href = "word.html?action=practice";
+                });
             });
         } catch {}
+    }
+
+    // Hero countdown to tomorrow's word
+    const heroCountdown = document.getElementById("hero-countdown");
+    if (heroCountdown && Core) {
+        const updateHeroTimer = () => {
+            if (typeof document !== "undefined" && document.hidden) return;
+            const now = new Date();
+            const tomorrow = new Date(now);
+            tomorrow.setHours(24, 0, 0, 0);
+            const diffMs = tomorrow - now;
+            const hours = String(Math.floor(diffMs / 3600000)).padStart(2, "0");
+            const minutes = String(Math.floor((diffMs % 3600000) / 60000)).padStart(2, "0");
+            const seconds = String(Math.floor((diffMs % 60000) / 1000)).padStart(2, "0");
+            heroCountdown.textContent = `${hours}:${minutes}:${seconds}`;
+        };
+        updateHeroTimer();
+        setInterval(updateHeroTimer, 1000);
+        if (typeof document.addEventListener === "function") {
+            document.addEventListener("visibilitychange", () => {
+                if (!document.hidden) updateHeroTimer();
+            });
+        }
     }
 
     const menuButton = document.getElementById("btn-toggle-menu");
