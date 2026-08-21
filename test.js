@@ -1247,7 +1247,7 @@ assert.equal(themeSwitchApp.document.documentElement.getAttribute("data-theme"),
 // R3.1 Streak Badge Browser UI Verification
 // ==========================================
 const streakOneApp = loadBrowserApp({ state: { schemaVersion: 1, history: {}, preferences: { showEnglish: true } } });
-assert.equal(streakOneApp.elements["streak-badge"].textContent, "🔥 يوم واحد", "Initial day visit streak badge must render '🔥 يوم واحد'");
+assert.match(streakOneApp.elements["streak-badge"].textContent, /يوم واحد/, "Initial day visit streak badge must render 'يوم واحد'");
 assert.equal(streakOneApp.elements["streak-badge"].getAttribute("aria-label"), "تتابع القراءة: يوم واحد");
 
 const todayStr = Core.getLocalDateKey(new Date());
@@ -1265,7 +1265,7 @@ const streakTwoApp = loadBrowserApp({
         preferences: { showEnglish: true }
     }
 });
-assert.equal(streakTwoApp.elements["streak-badge"].textContent, "🔥 يومان متتاليان", "2 streak badge must render '🔥 يومان متتاليان'");
+assert.match(streakTwoApp.elements["streak-badge"].textContent, /يومان متتاليان/, "2 streak badge must render 'يومان متتاليان'");
 assert.equal(streakTwoApp.elements["streak-badge"].getAttribute("aria-label"), "تتابع القراءة: يومان متتاليان");
 
 // ==========================================

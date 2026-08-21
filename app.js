@@ -68,6 +68,7 @@ const dueReviewBadge = document.getElementById("due-review-badge");
 const dueCountEl = document.getElementById("due-count");
 const btnInlineReview = document.getElementById("btn-inline-review");
 const inlineReviewCount = document.getElementById("inline-review-count");
+const btnReviewAll = document.getElementById("btn-review-all");
 const btnExportCard = document.getElementById("btn-export-card");
 const btnExportAnki = document.getElementById("btn-export-anki");
 const practiceDialog = document.getElementById("practice-dialog");
@@ -270,9 +271,17 @@ function renderWord(word, archiveDateKey) {
     archivePreviewNote.hidden = !isArchivePreview;
     if (isArchivePreview) archivePreviewNote.textContent = `أنت تستعرض كلمة من مخزونك بتاريخ ${displayDate}، وليست كلمة اليوم.`;
     btnReturnToday.hidden = !isArchivePreview;
+    updateCompletionBanner();
     updateHistoryUI();
     updateStreakUI();
     updateDueReviewBadge();
+}
+
+function updateCompletionBanner() {
+    const banner = document.getElementById("completion-banner");
+    if (!banner) return;
+    const seenCount = Object.keys(appState.history || {}).length;
+    banner.hidden = !(WORDS_DB && seenCount >= WORDS_DB.length);
 }
 
 function renderRelatedWords(word) {
@@ -535,27 +544,40 @@ function setupDailyReminder() {
 
 let deferredInstallEvent = null;
 
-function updateStreakUI() {    const badge = streakBadge || (typeof document !== "undefined" && document.getElementById ? document.getElementById("streak-badge") : null);
+function streakPhrase(count) {
+    if (count <= 0) return "لا يوجد تتابع بعد";
+    if (count === 1) return "يوم واحد";
+    if (count === 2) return "يومان متتاليان";
+    if (count <= 10) return `${count} أيام متتالية`;
+    return `${count} يوماً متتالياً`;
+}
+
+function setBadgeContent(badge, phrase) {
+    if (typeof document === "undefined" || typeof document.createElementNS !== "function") {
+        badge.textContent = `🔥 ${phrase}`;
+        return;
+    }
+    badge.replaceChildren();
+    const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    icon.setAttribute("class", "icon");
+    icon.setAttribute("aria-hidden", "true");
+    const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+    use.setAttribute("href", "#i-flame");
+    icon.appendChild(use);
+    badge.append(icon, ` ${phrase}`);
+}
+
+function updateStreakUI() {
+    const badge = streakBadge || (typeof document !== "undefined" && document.getElementById ? document.getElementById("streak-badge") : null);
     if (!badge || !Core) return;
     const today = activeDateKey || (Core.getLocalDateKey ? Core.getLocalDateKey(new Date()) : "");
     const streakResult = Core.calculateStreak(appState.history || {}, today);
     const count = typeof streakResult === "object" ? streakResult.currentStreak : Number(streakResult);
-    if (count <= 0) {
-        badge.textContent = "🔥 لا يوجد تتابع بعد";
-        badge.setAttribute("aria-label", "تتابع القراءة: لا يوجد تتابع بعد");
-    } else if (count === 1) {
-        badge.textContent = "🔥 يوم واحد";
-        badge.setAttribute("aria-label", "تتابع القراءة: يوم واحد");
-    } else if (count === 2) {
-        badge.textContent = "🔥 يومان متتاليان";
-        badge.setAttribute("aria-label", "تتابع القراءة: يومان متتاليان");
-    } else if (count >= 3 && count <= 10) {
-        badge.textContent = `🔥 ${count} أيام متتالية`;
-        badge.setAttribute("aria-label", `تتابع القراءة: ${count} أيام متتالية`);
-    } else {
-        badge.textContent = `🔥 ${count} يوماً متتالياً`;
-        badge.setAttribute("aria-label", `تتابع القراءة: ${count} يوماً متتالياً`);
-    }
+    const maxCount = typeof streakResult === "object" && Number.isInteger(streakResult.maxStreak) ? streakResult.maxStreak : count;
+    let phrase = streakPhrase(count);
+    if (count > 0 && maxCount > count) phrase += ` (الأفضل: ${streakPhrase(maxCount).replace(" متتاليان", "").replace(" متتالية", "").replace(" متتالياً", "")})`;
+    setBadgeContent(badge, phrase);
+    badge.setAttribute("aria-label", `تتابع القراءة: ${phrase}`);
     badge.title = "تتابع القراءة اليومي";
 }
 
@@ -1112,6 +1134,17 @@ function updateHistoryUI(force = false) {
     if (countHistoryAll) countHistoryAll.textContent = String(allHistory.length);
     if (countHistoryFavs) countHistoryFavs.textContent = String(favoritesList.length);
 
+    const statsRow = document.getElementById("history-stats-row");
+    if (statsRow) {
+        const stats = getCachedReviewStats();
+        if (stats && typeof stats === "object") {
+            const reviewedCount = Object.keys(appState.history || {}).length;
+            statsRow.textContent = `راجعتَ ${toArabicDigits(reviewedCount)} — نسبة الاستذكار ${toArabicDigits(stats.retentionRate ?? 100)}٪ — كلمات راسخة ${toArabicDigits(stats.masteredCount ?? 0)}`;
+        } else {
+            statsRow.textContent = "";
+        }
+    }
+
     let displayList = currentHistoryFilter === "favorites" ? favoritesList : allHistory;
 
     // Apply Live Search Filter
@@ -1652,28 +1685,41 @@ function setupEventListeners() {
     }
 
     if (tabHistoryAll && tabHistoryFavs) {
-        tabHistoryAll.addEventListener("click", () => {
-            currentHistoryFilter = "all";
-            tabHistoryAll.classList.add("active");
-            tabHistoryAll.setAttribute("aria-selected", "true");
-            tabHistoryFavs.classList.remove("active");
-            tabHistoryFavs.setAttribute("aria-selected", "false");
+        const selectHistoryTab = (which) => {
+            currentHistoryFilter = which === "favorites" ? "favorites" : "all";
+            const activeTab = which === "favorites" ? tabHistoryFavs : tabHistoryAll;
+            const inactiveTab = which === "favorites" ? tabHistoryAll : tabHistoryFavs;
+            activeTab.classList.add("active");
+            activeTab.setAttribute("aria-selected", "true");
+            activeTab.setAttribute("tabindex", "0");
+            inactiveTab.classList.remove("active");
+            inactiveTab.setAttribute("aria-selected", "false");
+            inactiveTab.setAttribute("tabindex", "-1");
             updateHistoryUI();
-        });
-        tabHistoryFavs.addEventListener("click", () => {
-            currentHistoryFilter = "favorites";
-            tabHistoryFavs.classList.add("active");
-            tabHistoryFavs.setAttribute("aria-selected", "true");
-            tabHistoryAll.classList.remove("active");
-            tabHistoryAll.setAttribute("aria-selected", "false");
-            updateHistoryUI();
-        });
+        };
+        tabHistoryAll.addEventListener("click", () => selectHistoryTab("all"));
+        tabHistoryFavs.addEventListener("click", () => selectHistoryTab("favorites"));
+        for (const tab of [tabHistoryAll, tabHistoryFavs]) {
+            tab.addEventListener("keydown", (event) => {
+                if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+                event.preventDefault();
+                const next = event.target === tabHistoryAll ? tabHistoryFavs : tabHistoryAll;
+                selectHistoryTab(next === tabHistoryFavs ? "favorites" : "all");
+                if (typeof next.focus === "function") next.focus();
+            });
+        }
     }
 
     if (btnStartPractice) {
         btnStartPractice.addEventListener("click", () => {
             if (historyDialog && historyDialog.open) historyDialog.close();
             startSpacedRepetitionReview();
+        });
+    }
+
+    if (btnReviewAll) {
+        btnReviewAll.addEventListener("click", () => {
+            startSpacedRepetitionReview(WORDS_DB.length);
         });
     }
 
@@ -1821,18 +1867,20 @@ function updateDueReviewBadge() {
     }
 }
 
-function startSpacedRepetitionReview() {
+function startSpacedRepetitionReview(limitOverride = null) {
     stopSpeech();
     if (!practiceDialog || !practiceBody) return;
 
     practiceDialogInvoker = document.activeElement;
     const todayKey = activeDateKey || (Core ? Core.getLocalDateKey(new Date()) : "");
     const stats = getCachedReviewStats();
-    const configuredLimit = Number.isInteger(appState.preferences?.dailyReviewLimit)
-        && appState.preferences.dailyReviewLimit >= 1
-        && appState.preferences.dailyReviewLimit <= 100
-        ? appState.preferences.dailyReviewLimit
-        : 20;
+    const configuredLimit = Number.isInteger(limitOverride) && limitOverride >= 1
+        ? limitOverride
+        : Number.isInteger(appState.preferences?.dailyReviewLimit)
+            && appState.preferences.dailyReviewLimit >= 1
+            && appState.preferences.dailyReviewLimit <= 100
+            ? appState.preferences.dailyReviewLimit
+            : 20;
     const dueItems = (Core && typeof Core.getDueReviewWords === "function")
         ? Core.getDueReviewWords(appState, WORDS_DB, todayKey, configuredLimit)
         : [];
