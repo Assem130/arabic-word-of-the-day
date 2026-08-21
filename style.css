@@ -6,11 +6,6 @@
 
 @charset "UTF-8";
 
-/* ==========================================================================
-   Kalimat (كَلِمات) — Design System & Stylesheet
-   Milestone 3: Accessible Interactive Review UI, Theming & WCAG 2.1 AA
-   ========================================================================== */
-
 :root,
 html[data-theme="paper"] {
     --ink: #14211b;
@@ -360,7 +355,7 @@ html[data-theme="midnight"] .due-review-badge.pulse {
 
 .word-page { background: var(--paper-light); }
 
-.word-experience { width: var(--content); margin: 112px auto 40px; overflow: clip; box-shadow: 0 24px 70px rgb(20 33 27 / 16%); }
+.word-experience { width: var(--content); margin: 112px auto 40px; overflow: clip; box-shadow: var(--shadow-card); }
 
 .word-identity { padding: clamp(24px, 4vw, 56px); background: var(--ink); color: var(--paper-light); border-bottom: 4px solid var(--lime); }
 
@@ -456,7 +451,7 @@ html[data-theme="midnight"] .due-review-badge.pulse {
    History Dialog & Actions
    ========================================================================== */
 
-.history-dialog { width: min(560px, calc(100% - 32px)); max-height: min(760px, calc(100dvh - 32px)); padding: clamp(22px, 4vw, 44px); border: 0; background: var(--paper-light); color: var(--ink); box-shadow: 0 24px 70px rgb(20 33 27 / 32%); display: flex; flex-direction: column; overflow: hidden; }
+.history-dialog { width: min(560px, calc(100% - 32px)); max-height: min(760px, calc(100dvh - 32px)); padding: clamp(22px, 4vw, 44px); border: 0; background: var(--paper-light); color: var(--ink); box-shadow: var(--shadow-dialog); display: flex; flex-direction: column; overflow: hidden; }
 
 .history-dialog:not([open]) { display: none; }
 
@@ -568,7 +563,7 @@ html[data-theme="midnight"] .due-review-badge.pulse {
     border: 0;
     background: var(--paper-light);
     color: var(--ink);
-    box-shadow: 0 24px 70px rgb(20 33 27 / 32%);
+    box-shadow: var(--shadow-dialog);
     border-radius: 16px;
 }
 
@@ -1717,7 +1712,7 @@ kbd { display: inline-block; padding: 3px 8px; font: 600 .75rem var(--sans); bac
 
 .toast { position: fixed; z-index: 40; inset-inline: 0; bottom: 22px; margin-inline: auto; max-width: calc(100% - 32px); width: fit-content; transform: translateY(130px); padding: 12px 16px; background: var(--ink); color: var(--paper-light); font-family: var(--sans); transition: transform .25s ease; }
 
-.toast.show { transform: translate(50%, 0); }
+.toast.show { transform: translateY(0); }
 
 
 /* ==========================================================================
@@ -1841,52 +1836,6 @@ kbd { display: inline-block; padding: 3px 8px; font: 600 .75rem var(--sans); bac
         background: white !important;
         color: black !important;
     }
-}
-
-
-
-@charset "UTF-8";
-
-/* ==========================================================================
-   Kalimat (كَلِمات) — Design System & Stylesheet (revamp.css)
-   Milestone 3: Accessible Interactive Review UI, Theming & WCAG 2.1 AA
-   ========================================================================== */
-
-:root,
-html[data-theme="paper"] {
-    --ink: #14211b;
-    --ink-soft: #24332b;
-    --paper: #d8cfbf;
-    --paper-light: #f3efe5;
-    --lime: #d9ff76;
-    --accent-border: #15803d;
-    --line-dark: rgba(20, 33, 27, 0.34);
-    --line-light: rgba(243, 239, 229, 0.40);
-    --nav-bg: rgba(20, 33, 27, 0.94);
-    --content: min(1180px, calc(100% - 40px));
-    --serif: "Amiri", "Readex Pro", "Scheherazade New", "Traditional Arabic", "Noto Naskh Arabic", serif;
-    --sans: "Outfit", "Readex Pro", "Segoe UI", system-ui, sans-serif;
-
-    /* Rating Button Tokens - Paper Theme (All >= 4.5:1 contrast) */
-    --rating-again-bg: #fee2e2;
-    --rating-again-text: #991b1b;
-    --rating-again-border: #fca5a5;
-
-    --rating-hard-bg: #fef3c7;
-    --rating-hard-text: #92400e;
-    --rating-hard-border: #fcd34d;
-
-    --rating-good-bg: #dcfce7;
-    --rating-good-text: #166534;
-    --rating-good-border: #86efac;
-
-    --rating-easy-bg: #e0f2fe;
-    --rating-easy-text: #075985;
-    --rating-easy-border: #7dd3fc;
-
-    --due-badge-bg: var(--lime);
-    --due-badge-text: var(--ink);
-    --due-badge-border: var(--lime);
 }
 
 
@@ -2037,3 +1986,4 @@ body:has(.history-dialog[open]), body:has(.practice-dialog[open]), body:has(.sho
     .home-menu-dropdown,
     .word-menu-dropdown { inset-inline: 14px; width: auto; min-width: 0; }
 }
+

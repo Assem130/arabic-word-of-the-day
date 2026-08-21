@@ -1408,15 +1408,15 @@ assert.equal(m3Announcer.textContent, "استماع لنطق كلمة «المج
 
 // M3.2 File and CSS Consistency Verification
 const m3WordHtml = fs.readFileSync("word.html", "utf-8");
-const m3RevampCss = fs.readFileSync("style.css", "utf-8");
+const m3Css = fs.readFileSync("style.css", "utf-8");
 assert.ok(m3WordHtml.includes('id="audio-announcer"'));
 assert.ok(m3WordHtml.includes('aria-busy="false"'));
-assert.ok(m3RevampCss.includes(".sr-only"));
-assert.ok(m3RevampCss.includes(".speak-button.loading"));
-assert.ok(m3RevampCss.includes(".speak-button.buffering"));
-assert.ok(m3RevampCss.includes('@keyframes pulse-buffering'));
-assert.ok(m3RevampCss.includes('html[data-theme="midnight"] .example-action-btn.speaking'));
-assert.ok(m3RevampCss.includes('html[data-theme="midnight"] .audio-option-btn.active'));
+assert.ok(m3Css.includes(".sr-only"));
+assert.ok(m3Css.includes(".speak-button.loading"));
+assert.ok(m3Css.includes(".speak-button.buffering"));
+assert.ok(m3Css.includes('@keyframes pulse-buffering'));
+assert.ok(m3Css.includes('html[data-theme="midnight"] .example-action-btn.speaking'));
+assert.ok(m3Css.includes('html[data-theme="midnight"] .audio-option-btn.active'));
 
 }
 

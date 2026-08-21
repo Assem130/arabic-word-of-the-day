@@ -7,7 +7,7 @@
   2. **View Controllers**:
      - `revamp.js`: Primary SPA view controller for `index.html` (Hero daily word, reading accordion, root lexicon explorer, SM-2 review modal, history modal, keyboard shortcuts, theme switching).
      - `app.js`: Dedicated word permalink view controller for `word.html` (Deep-link rendering, copy/share, audio playback, menu navigation).
-  3. **Styling System (`style.css` & `revamp.css`)**: Maintained in seamless lockstep, fully responsive with logical RTL properties, WCAG 2.1 AA/AAA contrast, and authentic Arabic typography hierarchy.
+  3. **Styling System (`style.css`)**: Single merged stylesheet, fully responsive with logical RTL properties, WCAG 2.1 AA/AAA contrast, and authentic Arabic typography hierarchy.
   4. **PWA Service Worker (`sw.js`) & Manifest (`manifest.webmanifest`)**: Cache-first for audio/fonts, network-first for HTML, stale-while-revalidate for CSS/JS.
   5. **Verification Harness (`test.js`, `tests/*.test.js`)**: Comprehensive unit and integration test runner validating corpus integrity, SM-2 math, state migrations, lexicon filters, and DOM contracts.
 
