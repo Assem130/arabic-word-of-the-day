@@ -173,22 +173,8 @@ assert.equal(Core.extractSpokenText("أعينيّ جودا ولا تجمدا ...
 assert.equal(Core.extractSpokenText(null), "");
 assert.equal(Core.extractSpokenText("[سورة البقرة: 255]"), "");
 
-// Test human audio URL resolution (Core.getHumanAudioUrl)
-assert.equal(typeof Core.getHumanAudioUrl, "function", "Core.getHumanAudioUrl must be exported");
-assert.equal(Core.getHumanAudioUrl({ id: 1 }), "assets/audio/words/1.mp3");
-assert.equal(Core.getHumanAudioUrl({ id: 5 }, "word"), "assets/audio/words/5.mp3");
-assert.equal(Core.getHumanAudioUrl({ id: 12 }, "example"), "assets/audio/examples/12.mp3");
-assert.equal(Core.getHumanAudioUrl({ id: 2, audioUrl: "https://cdn.example.com/audio/2.mp3" }), "https://cdn.example.com/audio/2.mp3");
-assert.equal(Core.getHumanAudioUrl({ id: 3, audio: "custom/audio/3.mp3" }), "custom/audio/3.mp3");
-assert.equal(Core.getHumanAudioUrl({ id: 4, exampleAudioUrl: "https://cdn.example.com/ex4.mp3" }, "example"), "https://cdn.example.com/ex4.mp3");
-assert.equal(Core.getHumanAudioUrl({ id: 4, exampleAudio: "custom/ex4.mp3" }, "example"), "custom/ex4.mp3");
-assert.equal(Core.getHumanAudioUrl(7), "assets/audio/words/7.mp3");
-assert.equal(Core.getHumanAudioUrl("7"), "assets/audio/words/7.mp3");
-assert.equal(Core.getHumanAudioUrl(7, "example"), "assets/audio/examples/7.mp3");
-assert.equal(Core.getHumanAudioUrl(null), "");
-assert.equal(Core.getHumanAudioUrl(undefined), "");
-assert.equal(Core.getHumanAudioUrl({}), "");
-assert.equal(Core.getHumanAudioUrl("invalid"), "");
+// Website playback is browser speech only; no synthetic packaged MP3 URLs remain.
+assert.equal(typeof Core.getHumanAudioUrl, "undefined", "Core must not synthesize packaged MP3 URLs");
 
 // Test word citation formatting
 const mockWord = {
@@ -508,6 +494,8 @@ const css = fs.readFileSync("style.css", "utf8");
 const popupCss = fs.readFileSync("extension/popup/popup.css", "utf8");
 const revamp = fs.readFileSync("revamp.js", "utf8");
 const appSource = fs.readFileSync("app.js", "utf8");
+const appCoreSource = fs.readFileSync("app-core.js", "utf8");
+const webUiSource = fs.readFileSync("web-ui.js", "utf8");
 const wordsScript = wordPage.indexOf('<script src="words.js"');
 const coreScript = wordPage.indexOf('<script src="app-core.js"');
 const webUiScript = wordPage.indexOf('<script src="web-ui.js"');
@@ -630,6 +618,9 @@ assert.equal(typeof WebUI.setupThemeController, "function", "KalimatWebUI must e
 assert.equal(typeof Core.setupThemeController, "undefined", "KalimatCore must remain headless");
 assert.doesNotMatch(appSource, /function\s+setupThemeController\s*\(/, "app.js must not contain duplicate setupThemeController definition");
 assert.doesNotMatch(revamp, /function\s+setupThemeController\s*\(/, "revamp.js must not contain duplicate setupThemeController definition");
+assert.doesNotMatch(appSource, /\bnew\s+(?:window\.)?Audio\s*\(/, "website app.js must not construct HTML Audio");
+assert.doesNotMatch(webUiSource, /\bnew\s+(?:window\.)?Audio\s*\(/, "website web-ui.js must not construct HTML Audio");
+assert.doesNotMatch(appCoreSource, /assets\/audio\//, "core must not synthesize packaged MP3 paths");
 
 assert.match(css, /@media \(hover: none\)/, "touch users must be able to read accordion details");
 assert.match(css, /button:focus-visible, a:focus-visible, summary:focus-visible, \[tabindex\]:focus-visible \{ outline: 3px solid var\(--ink\)/, "focus must remain visible on light surfaces");
@@ -973,6 +964,9 @@ const storageFailure = loadBrowserApp({ storageFails: true });
 assert.equal(storageFailure.initialWarningHidden, true, "storage warning must start hidden before initialization");
 assert.equal(storageFailure.elements["storage-warning"].hidden, false, "storage failures must reveal the warning");
 assert.equal(storageFailure.elements["btn-speak"].disabled, true, "missing speech APIs must disable speech");
+storageFailure.timers.splice(0).forEach((callback) => callback());
+assert.match(storageFailure.elements["audio-announcer"].textContent, /النطق غير متاح/, "missing speech APIs must announce visible guidance");
+assert.match(storageFailure.elements.toast.textContent, /النطق غير متاح/, "missing speech APIs must show visible guidance");
 
 const savedState = { schemaVersion: 1, history: { 1: { firstSeen: "2099-01-01" } }, preferences: { showEnglish: true } };
 const archive = loadBrowserApp({ state: savedState });
@@ -1069,7 +1063,6 @@ assert.equal(fs.readFileSync("app.js", "utf8").includes("btnSpeak.innerHTML"), f
 const speechTest = loadBrowserApp({ state: savedState });
 let spokenUtterance = null;
 let canceled = false;
-let voiceschangedHandler = null;
 
 speechTest.context.window.SpeechSynthesisUtterance = class FakeSpeechSynthesisUtterance {
     constructor(text) {
@@ -1091,16 +1084,12 @@ speechTest.context.window.speechSynthesis = {
             { name: "English Voice", lang: "en-US" }
         ];
     },
-    addEventListener(type, listener) {
-        if (type === "voiceschanged") voiceschangedHandler = listener;
-    },
     speak(utt) {
         spokenUtterance = utt;
     }
 };
 
 speechTest.context.setupSpeech();
-assert.equal(typeof voiceschangedHandler, "function", "voiceschanged listener must be registered when addEventListener is supported");
 
 await speechTest.elements["btn-speak"].emit("click");
 
@@ -1225,7 +1214,7 @@ assert.equal(exportProbe.link.parentNode, null, "history export link must be rem
 assert.equal(exportProbe.revoked, undefined, "object URL cleanup must be deferred");
 assert.equal(exporter.elements["app-menu-dropdown"].hidden, true, "history export must close the menu before feedback");
 assert.equal(exporter.elements.toast.textContent, "تم تصدير المخزون.", "history export must show success feedback");
-exporter.timers[0]();
+exporter.timers.splice(0).forEach((callback) => callback());
 assert.equal(exportProbe.revoked, "blob:kalimat-test", "deferred cleanup must revoke the object URL");
 
 const defaultApp = loadBrowserApp();
@@ -1335,7 +1324,7 @@ assert.equal(cardProbe.link.clickCount, 1, "Card export link must be clicked");
 assert.match(cardProbe.link.download, /^kalimat-word-\d+\.png$/, "Card export filename must follow kalimat-word-{id}.png pattern");
 assert.equal(cardProbe.link.parentNode, null, "Card export link must be removed from DOM");
 assert.equal(cardApp.elements["app-menu-dropdown"].hidden, true, "Menu must be closed after exporting card");
-cardApp.timers[0]();
+cardApp.timers.splice(0).forEach((callback) => callback());
 assert.equal(cardProbe.revoked, "blob:kalimat-test", "Object URL must be revoked after card export");
 
 // ==========================================
@@ -1349,7 +1338,7 @@ assert.equal(ankiProbe.link.clickCount, 1, "Anki export link must be clicked");
 assert.equal(ankiProbe.link.download, "kalimat-anki-deck.csv", "Anki deck export filename must be kalimat-anki-deck.csv");
 assert.equal(ankiProbe.link.parentNode, null, "Anki export link must be removed from DOM");
 assert.equal(ankiApp.elements.toast.textContent, "تم تصدير بطاقات Anki بنجاح!", "Toast must confirm Anki export");
-ankiApp.timers[0]();
+ankiApp.timers.splice(0).forEach((callback) => callback());
 assert.equal(ankiProbe.revoked, "blob:kalimat-test", "Object URL must be revoked after Anki export");
 
 // ==========================================
@@ -1387,16 +1376,22 @@ const generatedShareText = shareApp.context.getShareText(shareWord);
 assert.match(generatedShareText, /kalimaat\.app\/word\.html\?id=1/, "Share text must include deep link URL with word ID");
 
 // ==========================================
-// Milestone M2: Dual-Engine Audio & Cascading Fallback Integration Checks
+// Browser speech integration checks
 // ==========================================
 // M2.1 window.KalimatApp global export contract
 assert.ok(shareApp.context.window.KalimatApp, "window.KalimatApp must be exported");
 assert.equal(typeof shareApp.context.window.KalimatApp.speakText, "function", "KalimatApp.speakText must be a function");
 assert.equal(typeof shareApp.context.window.KalimatApp.stopSpeech, "function", "KalimatApp.stopSpeech must be a function");
 
-// M2.2 Pre-recorded Audio Playback Success (Tier 1)
-FakeAudioElement.reset();
-const m2AudioApp = loadBrowserApp({ state: savedState, audioMock: FakeAudioElement });
+// M2.2 Website playback must use shared browser speech and never construct Audio.
+let unexpectedAudioConstructions = 0;
+class UnexpectedWebsiteAudio {
+    constructor() {
+        unexpectedAudioConstructions += 1;
+        throw new Error("website Audio construction is forbidden");
+    }
+}
+const m2AudioApp = loadBrowserApp({ state: savedState, audioMock: UnexpectedWebsiteAudio });
 let m2TtsCalls = [];
 m2AudioApp.context.window.SpeechSynthesisUtterance = class FakeSpeechSynthesisUtterance {
     constructor(text) { this.text = text; this.lang = ""; }
@@ -1409,45 +1404,16 @@ m2AudioApp.context.window.speechSynthesis = {
 m2AudioApp.context.setupSpeech();
 
 const m2SpeakPromise = m2AudioApp.elements["btn-speak"].emit("click");
-assert.equal(FakeAudioElement.playCalls.length, 1, "FakeAudioElement play() called on click");
-assert.ok(FakeAudioElement.playCalls[0].src.includes("assets/audio/words/"), "Target is assets/audio/words/");
+assert.equal(unexpectedAudioConstructions, 0, "website playback must not construct HTML Audio");
 assert.equal(m2AudioApp.elements["btn-speak"].classList.values.has("speaking"), true);
 
 await m2SpeakPromise;
 await new Promise(r => setTimeout(r, 25));
 
-assert.equal(m2TtsCalls.length, 0, "speechSynthesis must NOT be called when audio succeeds");
+assert.equal(m2TtsCalls.length, 1, "shared browser speech must be called once");
+m2TtsCalls[0].onend();
 assert.equal(m2AudioApp.elements["btn-speak"].classList.values.has("speaking"), false);
 assert.equal(m2AudioApp.elements["btn-speak"].getAttribute("aria-pressed"), "false");
-
-// M2.3 Audio Failure Cascading Fallback to Web Speech API (Tier 2)
-FakeAudioElement.reset();
-FakeAudioElement.defaultBehavior = "network-error";
-const m2FallbackApp = loadBrowserApp({ state: savedState, audioMock: FakeAudioElement });
-let m2FallbackTts = [];
-m2FallbackApp.context.window.SpeechSynthesisUtterance = class FakeSpeechSynthesisUtterance {
-    constructor(text) {
-        this.text = text;
-        this.lang = "";
-        this.voice = null;
-        this.rate = 1;
-        this.pitch = 1;
-        this.onend = null;
-        this.onerror = null;
-    }
-};
-m2FallbackApp.context.window.speechSynthesis = {
-    cancel() {},
-    getVoices() { return [{ name: "Naayf", lang: "ar-SA" }]; },
-    speak(u) { m2FallbackTts.push(u); }
-};
-m2FallbackApp.context.setupSpeech();
-
-await m2FallbackApp.elements["btn-speak"].emit("click");
-assert.ok(FakeAudioElement.playCalls.length >= 1, "Audio element attempted first");
-assert.equal(m2FallbackTts.length, 1, "Web Speech API fallback seamlessly invoked on audio error");
-assert.equal(m2FallbackTts[0].voice?.name, "Naayf");
-assert.equal(m2FallbackApp.elements.toast.classList.values.has("show"), false, "Toast not shown when fallback succeeds");
 
 // M3.1 Accessible Multi-State Audio UI Controls & Live Region Tests
 const m3App = loadBrowserApp({ state: savedState });
@@ -1478,41 +1444,8 @@ assert.equal(m3Btn.getAttribute("aria-pressed"), "false");
 
 // Test announceAudioStatus polite screen reader dispatches
 m3App.context.window.KalimatApp.announceAudioStatus("استماع لنطق كلمة «المجد»");
-if (m3App.timers && m3App.timers.length > 0) {
-    m3App.timers.shift()();
-}
+m3App.timers.splice(0).forEach((callback) => callback());
 assert.equal(m3Announcer.textContent, "استماع لنطق كلمة «المجد»");
-
-// Audio probe-and-remember: HEAD-probe once, remember, never re-request absent files
-{
-    const probeStore = new Map();
-    const previousFetch = global.fetch;
-    const previousLocalStorage = global.localStorage;
-    global.localStorage = {
-        getItem: key => (probeStore.has(key) ? probeStore.get(key) : null),
-        setItem: (key, value) => probeStore.set(key, value)
-    };
-    try {
-        let headCalls = 0;
-        global.fetch = async () => { headCalls += 1; return { ok: true }; };
-        assert.equal(Core.isAudioKnownAbsent("assets/audio/words/1.mp3"), false, "unprobed URL is not known absent");
-        await Core.updateAudioProbe("assets/audio/words/1.mp3");
-        assert.equal(headCalls, 1, "first probe performs one HEAD request");
-        assert.equal(Core.isAudioKnownAbsent("assets/audio/words/1.mp3"), false, "present audio must not be flagged absent");
-
-        global.fetch = async () => { headCalls += 1; return { ok: false }; };
-        await Core.updateAudioProbe("assets/audio/words/2.mp3");
-        assert.equal(headCalls, 2, "second URL probed once");
-        assert.equal(Core.isAudioKnownAbsent("assets/audio/words/2.mp3"), true, "absent audio must be remembered as absent");
-        assert.equal(Core.isAudioKnownAbsent("assets/audio/words/2.mp3"), true, "repeat check must stay synchronous and cached");
-        assert.equal(headCalls, 2, "remembered negative must not re-fetch");
-
-        assert.equal(Core.isAudioKnownAbsent(""), false, "empty URL must never be flagged");
-    } finally {
-        if (previousFetch === undefined) delete global.fetch; else global.fetch = previousFetch;
-        if (previousLocalStorage === undefined) delete global.localStorage; else global.localStorage = previousLocalStorage;
-    }
-}
 
 // M3.2 File and CSS Consistency Verification
 const m3WordHtml = fs.readFileSync("word.html", "utf-8");

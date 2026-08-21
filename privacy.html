@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="سياسة خصوصية كَلِمات: بيانات تعلّم محلية بلا حسابات أو تحليلات.">
+  <title>كَلِمات | سياسة الخصوصية</title>
+  <style>
+    :root { color-scheme: light; --ink: #14211b; --paper: #f3efe5; --panel: #fffdf7; --line: #c9c0af; --accent: #166534; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: var(--paper); color: var(--ink); font-family: "Amiri", "Traditional Arabic", Georgia, serif; }
+    .policy { width: min(860px, calc(100% - 32px)); margin: 0 auto; padding: 32px 0 64px; }
+    .masthead { display: flex; align-items: baseline; justify-content: space-between; gap: 24px; border-bottom: 1px solid var(--line); padding-bottom: 16px; }
+    .brand { color: inherit; font-size: 1.5rem; font-weight: 700; text-decoration: none; }
+    .masthead p, .updated { margin: 0; font-family: system-ui, sans-serif; font-size: .85rem; }
+    article { margin-top: 42px; background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: clamp(24px, 5vw, 56px); box-shadow: 0 18px 42px rgb(20 33 27 / 8%); }
+    h1 { margin: 0 0 8px; font-size: clamp(2.5rem, 7vw, 4.8rem); font-weight: 400; line-height: 1.1; }
+    h2 { margin: 2.2em 0 .65em; font-size: clamp(1.45rem, 4vw, 2.15rem); }
+    h3 { margin: 1.7em 0 .45em; font-size: 1.3rem; }
+    p, li { font-size: 1.08rem; line-height: 1.85; }
+    ul { padding-inline-start: 1.4em; }
+    a { color: var(--accent); }
+    .english { direction: ltr; text-align: left; font-family: system-ui, sans-serif; }
+    .english p, .english li { font-size: .98rem; line-height: 1.7; }
+    .links { display: flex; flex-wrap: wrap; gap: 16px 24px; margin-top: 38px; padding-top: 18px; border-top: 1px solid var(--line); font-family: system-ui, sans-serif; }
+    code { direction: ltr; unicode-bidi: embed; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: .9em; }
+    @media (max-width: 560px) { .masthead { display: block; } .masthead p { margin-top: 8px; } article { padding: 22px 18px; } }
+  </style>
+</head>
+<body>
+  <main class="policy">
+    <header class="masthead">
+      <a class="brand" href="https://assem130.github.io/arabic-word-of-the-day/">كَلِمات</a>
+      <p>تجربة عربية محلية أولاً</p>
+    </header>
+    <article>
+      <h1>سياسة الخصوصية</h1>
+      <p class="updated">آخر تحديث: ٢٠ أغسطس ٢٠٢٦</p>
+
+      <h2>بالعربية</h2>
+      <p>صُممت كَلِمات لتعمل محلياً. لا نطلب حساباً، ولا نشغّل تحليلات أو إعلانات، ولا نملك خادماً أو مزامنة تجمع بياناتك.</p>
+
+      <h3>ما الذي يُحفظ على جهازك؟</h3>
+      <ul>
+        <li>يحفظ الموقع سجل الكلمات والتفضيلات في <code>localStorage</code> داخل متصفحك. تبقى تعيينات الموقع ومراجعاته منفصلة عن الامتداد.</li>
+        <li>يحفظ امتداد Chrome أو Firefox ملف المتعلّم في <code>storage.local</code> داخل المتصفح: المستوى، الاهتمامات، التعيينات، المراجعات، الكلمات المحفوظة، وإعدادات التذكير.</li>
+        <li>يُحتفظ بهذه البيانات حتى تحذفها أنت. يمكنك تصدير نسخة JSON، أو استخدام أدوات مسح البيانات في الموقع أو أطلس الامتداد لحذفها.</li>
+      </ul>
+
+      <h3>طلبات الشبكة الاختيارية</h3>
+      <ul>
+        <li>قد يطلب الموقع خطوط Google Fonts عند الاتصال بالإنترنت. عند تعذر الاتصال، يستخدم خطوط النظام؛ لا تُرسل بيانات التعلّم إلى Google Fonts.</li>
+        <li>في Chrome فقط، وعند ضغطك صراحةً على «بحث خارجي في القاموس»، يُرسل مصطلح البحث المنقح إلى <a href="https://ar.wiktionary.org/">Wiktionary العربية</a>. لا تُرسل التعيينات أو السجل أو الصفحات التي تزورها، ولا يُحفظ سجل البحث في ملفك. Firefox محلي فقط.</li>
+      </ul>
+
+      <h3>الحذف والدعم</h3>
+      <p>التصدير والحذف متاحان من عناصر التحكم المخصصة. حذف بيانات الموقع يزيل <code>arabic_words_state</code> فقط ويحافظ على تفضيل المظهر <code>kalimat_theme</code>. يمكنك طلب المساعدة عبر صفحة <a href="https://github.com/Assem130/arabic-word-of-the-day/issues">الدعم والمشكلات</a>.</p>
+
+      <section class="english" lang="en" dir="ltr">
+        <h2>English summary</h2>
+        <p>Kalimat is local-first. It has no account, analytics, advertising, backend, telemetry, or sync service.</p>
+        <h3>Local data</h3>
+        <ul>
+          <li>The website keeps reading history and preferences in browser <code>localStorage</code>.</li>
+          <li>The Chrome and Firefox extensions keep the learner profile in <code>storage.local</code>. Website and extension stores, assignments, and reviews remain separate.</li>
+          <li>Data is retained until you delete it. JSON export and clear-data controls are provided on the website and in the Atlas settings.</li>
+        </ul>
+        <h3>Optional network requests</h3>
+        <ul>
+          <li>The website may request Google Fonts; system fonts remain the offline fallback.</li>
+          <li>On Chrome only, an explicit external-dictionary search sends only the normalized search term to <a href="https://ar.wiktionary.org/">Arabic Wiktionary</a>. No profile, history, visited-page data, cookies, or background requests are sent, and lookup history is not retained. Firefox remains local-only.</li>
+        </ul>
+        <h3>Deletion and support</h3>
+        <p>Use the website or Atlas controls to export or delete data. Website deletion removes <code>arabic_words_state</code> and preserves the separate <code>kalimat_theme</code> preference. Contact support through the <a href="https://github.com/Assem130/arabic-word-of-the-day/issues">GitHub issues page</a>.</p>
+      </section>
+
+      <nav class="links" aria-label="روابط السياسة">
+        <a href="https://assem130.github.io/arabic-word-of-the-day/">العودة إلى كَلِمات</a>
+        <a href="https://github.com/Assem130/arabic-word-of-the-day/issues">الدعم / Support</a>
+      </nav>
+    </article>
+  </main>
+</body>
+</html>

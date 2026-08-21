@@ -1,29 +1,30 @@
-# Kalimat 21-Day Broad Learner Beta
+# Kalimat 21-Day Public Beta Protocol
 
 ## Purpose
 
-Test whether the reworked 365-word corpus is useful enough for broad Standard Arabic learners to return to it during normal study. This is a manual, privacy-preserving beta; Kalimat does not collect telemetry or require accounts.
+Test whether Kalimat’s focused 365-word set helps self-identified intermediate-and-advanced Standard Arabic learners return to a useful word, context, and review flow during normal study. This is a manual, privacy-preserving beta: Kalimat does not collect telemetry, require accounts, or make a beginner-course claim.
 
-## Cohort
+## Approved cohort
 
-- Recruit 12–18 learners.
-- Balance participants across beginner, intermediate, and advanced content bands.
-- Record self-reported Arabic exposure and primary interest at enrollment; do not infer proficiency from usage alone.
-- Tell participants that the corpus is a focused 365-word mastery set, not an unlimited vocabulary course.
+- Recruit 12–18 learners who self-identify as intermediate or advanced.
+- Record each participant’s self-reported Arabic exposure and primary interest at enrollment; never infer proficiency from usage data.
+- Explain that Kalimat is a focused mastery set, not an unlimited vocabulary course. Website and extension data remain separate local stores.
 
 ## Check-ins
 
-- Day 0: record baseline level, Arabic exposure, and a short unseen-sentence comprehension check.
-- Days 7 and 14: participant exports existing Kalimat data and reports days used, context usefulness, and difficulty fit.
-- Day 21: repeat the parallel comprehension check, usefulness survey, and installation/retention intention.
+- **Day 0:** record baseline exposure and a short unseen-sentence comprehension check.
+- **Days 7 and 14:** ask participants to export their existing Kalimat data and report days used, context usefulness, and difficulty fit.
+- **Day 21:** repeat the parallel comprehension check, usefulness survey, and installation/retention intention.
+
+Do not add analytics or background collection to fill gaps between check-ins. Participation notes are collected directly from learners.
 
 ## Beta gate
 
-Pass only when all four conditions hold:
+Promote to 1.0 only when all four conditions hold:
 
 1. At least 50% of participants report using Kalimat on 12 or more of 21 days.
-2. Each content band has at least two consistent users.
+2. Each learner band has at least two consistent users.
 3. Median practical-context usefulness is at least 4/5.
-4. Day-21 unseen-sentence comprehension reaches at least 70%; compare with Day 0 before making any learning claim.
+4. Day-21 unseen-sentence comprehension reaches at least 70%.
 
-If the gate fails, revise content or positioning before adding words, browser surfaces, telemetry, or spaced review. If it passes, design a separate review lane whose evidence cannot alter the adaptive level directly.
+If the gate fails, revise content or positioning before adding words, browser surfaces, telemetry, or spaced-review behavior. If it passes, document a separate review lane whose evidence cannot alter adaptive level directly.

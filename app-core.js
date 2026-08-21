@@ -676,93 +676,6 @@
         return sorted.length > 0 ? sorted[0] : null;
     }
 
-    function getHumanAudioUrl(item, type = "word") {
-        if (!item) return "";
-        const isExample = type === "example";
-        if (typeof item === "object" && item !== null) {
-            if (isExample) {
-                if (typeof item.exampleAudioUrl === "string" && item.exampleAudioUrl.trim()) {
-                    return item.exampleAudioUrl.trim();
-                }
-                if (typeof item.exampleAudio === "string" && item.exampleAudio.trim()) {
-                    return item.exampleAudio.trim();
-                }
-                if (Number.isInteger(item.id) && item.id >= 1) {
-                    return `assets/audio/examples/${item.id}.mp3`;
-                }
-            } else {
-                if (typeof item.audioUrl === "string" && item.audioUrl.trim()) {
-                    return item.audioUrl.trim();
-                }
-                if (typeof item.audio === "string" && item.audio.trim()) {
-                    return item.audio.trim();
-                }
-                if (Number.isInteger(item.id) && item.id >= 1) {
-                    return `assets/audio/words/${item.id}.mp3`;
-                }
-            }
-        } else if (Number.isInteger(Number(item)) && Number(item) >= 1) {
-            const numId = Number(item);
-            return isExample ? `assets/audio/examples/${numId}.mp3` : `assets/audio/words/${numId}.mp3`;
-        }
-        return "";
-    }
-
-    function getNaturalAudioUrl(text) {
-        // Local-first policy: remote TTS is intentionally disabled.
-        return "";
-    }
-
-    // ponytail: probe results are remembered in localStorage so playback never
-    // repeats a doomed request for absent audio files. Negative results expire
-    // after 7 days so newly shipped audio gets discovered again.
-    const AUDIO_PROBE_KEY = "kalimat_audio_probe";
-    const AUDIO_PROBE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-
-    function readAudioProbeMap() {
-        if (typeof localStorage === "undefined") return { checkedAt: 0, results: {} };
-        try {
-            const parsed = JSON.parse(localStorage.getItem(AUDIO_PROBE_KEY) || "{}");
-            if (parsed && typeof parsed === "object" && parsed.results && typeof parsed.results === "object") {
-                return parsed;
-            }
-        } catch {}
-        return { checkedAt: 0, results: {} };
-    }
-
-    function writeAudioProbeMap(map) {
-        if (typeof localStorage === "undefined") return;
-        try {
-            localStorage.setItem(AUDIO_PROBE_KEY, JSON.stringify(map));
-        } catch {}
-    }
-
-    // Synchronous: true only when a fresh probe already proved the file absent.
-    function isAudioKnownAbsent(url) {
-        if (!url) return false;
-        const map = readAudioProbeMap();
-        return map.results[url] === false && typeof map.checkedAt === "number"
-            && (Date.now() - map.checkedAt) < AUDIO_PROBE_TTL_MS;
-    }
-
-    // Fire-and-forget HEAD probe; records the result for future sessions.
-    async function updateAudioProbe(url) {
-        if (!url || typeof fetch !== "function") return;
-        let exists = false;
-        try {
-            const controller = (typeof AbortController === "function") ? new AbortController() : null;
-            const timer = controller ? setTimeout(() => controller.abort(), 2500) : null;
-            const response = await fetch(url, { method: "HEAD", signal: controller ? controller.signal : undefined });
-            if (timer !== null) clearTimeout(timer);
-            exists = Boolean(response && response.ok);
-        } catch {
-            exists = false;
-        }
-        const map = readAudioProbeMap();
-        map.checkedAt = Date.now();
-        map.results[url] = exists;
-        writeAudioProbeMap(map);
-    }
     function addDaysToDateKey(dateKey, days) {
         if (!isDateKey(dateKey)) {
             dateKey = getLocalDateKey(new Date());
@@ -1304,9 +1217,6 @@
         parseBackup,
         serializeBackup,
         extractSpokenText,
-        getHumanAudioUrl,
-        isAudioKnownAbsent,
-        updateAudioProbe,
         formatWordCitation,
         generateQuizQuestions,
         normalizeArabicText,

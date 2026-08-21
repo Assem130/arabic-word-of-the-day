@@ -1,8 +1,8 @@
 (function (root, factory) {
-    const api = factory(root.KalimatCore);
+    const api = factory(root.KalimatCore, root.KalimatSpeech);
     if (typeof module === "object" && module.exports) module.exports = api;
     root.KalimatWebUI = api;
-})(typeof globalThis === "object" ? globalThis : this, function (Core) {
+})(typeof globalThis === "object" ? globalThis : this, function (Core, Speech) {
     "use strict";
     function setupThemeController() {
         const THEME_KEY = "kalimat_theme";
@@ -499,120 +499,107 @@
             resetEmptyBtn.addEventListener("click", clearAllFilters);
         }
 
-        // Audio Playback with V8 GC Anchoring
-        let currentExplorerAudio = null;
-        let explorerSessionId = 0;
+        let speechReadinessCancel = null;
+        let speechToastTimer = null;
+
+        function getSpeechVoices(speech) {
+            if (typeof speech?.getVoices !== "function") return [];
+            try {
+                const voices = speech.getVoices();
+                return voices == null ? null : Array.from(voices);
+            } catch { return null; }
+        }
+
+        function showSpeechFeedback(message) {
+            const announcer = document.getElementById("audio-announcer");
+            if (announcer) announcer.textContent = message;
+            const toast = document.getElementById("toast");
+            if (!toast) return;
+            if (speechToastTimer !== null && typeof clearTimeout === "function") clearTimeout(speechToastTimer);
+            toast.textContent = message;
+            toast.classList.add("show");
+            if (typeof setTimeout === "function") {
+                speechToastTimer = setTimeout(() => {
+                    toast.classList.remove("show");
+                    speechToastTimer = null;
+                }, 2500);
+            }
+        }
+
+        function speakAfterVoiceReadiness(speech, callback) {
+            const voices = getSpeechVoices(speech);
+            if (!speech?.speak || voices === null || typeof speech.getVoices !== "function" || voices.length > 0) {
+                return callback();
+            }
+
+            let settled = false;
+            let timerId = null;
+            const cleanup = () => {
+                speech.removeEventListener?.("voiceschanged", onVoicesChanged);
+                if (timerId !== null && typeof clearTimeout === "function") clearTimeout(timerId);
+                if (speechReadinessCancel === cancel) speechReadinessCancel = null;
+            };
+            const cancel = () => {
+                if (settled) return;
+                settled = true;
+                cleanup();
+            };
+            const onVoicesChanged = () => {
+                const voices = getSpeechVoices(speech);
+                if (settled || !voices || voices.length === 0) return;
+                settled = true;
+                cleanup();
+                callback();
+            };
+
+            speechReadinessCancel = cancel;
+            speech.addEventListener?.("voiceschanged", onVoicesChanged);
+            if (typeof setTimeout === "function") {
+                timerId = setTimeout(() => {
+                    if (settled) return;
+                    settled = true;
+                    cleanup();
+                    callback();
+                }, 250);
+            }
+            return { kind: "pending" };
+        }
 
         function playWordAudio(word, buttonEl) {
             if (!word) return;
-            explorerSessionId++;
-            const sessionId = explorerSessionId;
+            const speech = Speech || globalThis.KalimatSpeech || window.KalimatSpeech;
+            const fallbackMessage = "النطق غير متاح على هذا الجهاز. يُرجى استخدام متصفح يدعم النطق الصوتي.";
+            const noVoiceMessage = "لم يتم العثور على صوت عربي على هذا الجهاز. يُرجى تفعيل أو تثبيت حزمة الصوت العربي من إعدادات النظام للاستماع للنطق.";
+            const reset = () => buttonEl?.classList.remove("speaking");
+            document.querySelectorAll(".lexicon-audio-btn.speaking").forEach((button) => button.classList.remove("speaking"));
+            if (!speech?.speak || !window.speechSynthesis || typeof window.SpeechSynthesisUtterance !== "function") {
+                reset();
+                showSpeechFeedback(fallbackMessage);
+                return;
+            }
 
-            document.querySelectorAll(".lexicon-audio-btn.speaking").forEach(b => {
-                b.classList.remove("speaking");
+            buttonEl?.classList.add("speaking");
+            speechReadinessCancel?.();
+            speech.cancel?.(window.speechSynthesis);
+            return speakAfterVoiceReadiness(window.speechSynthesis, () => {
+                const result = speech.speak(Core.extractSpokenText(word.word) || word.word, {
+                    target: window,
+                    speech: window.speechSynthesis,
+                    Utterance: window.SpeechSynthesisUtterance,
+                    requireVoice: true,
+                    rate: 0.85,
+                    onEnd: reset,
+                    onError: () => {
+                        reset();
+                        showSpeechFeedback(fallbackMessage);
+                    }
+                }) || { kind: "unavailable" };
+                if (result.kind !== "ok") {
+                    reset();
+                    showSpeechFeedback(result.kind === "no-arabic-voice" ? noVoiceMessage : fallbackMessage);
+                }
+                return result;
             });
-
-            if (currentExplorerAudio) {
-                try {
-                    currentExplorerAudio.pause();
-                    currentExplorerAudio.src = "";
-                    currentExplorerAudio = null;
-                } catch {}
-            }
-            if (typeof window !== "undefined" && window.speechSynthesis && typeof window.speechSynthesis.cancel === "function") {
-                try { window.speechSynthesis.cancel(); } catch {}
-            }
-            if (typeof window !== "undefined") {
-                window._activeUtterance = null;
-            }
-
-            if (buttonEl) buttonEl.classList.add("speaking");
-
-            const resetBtn = () => {
-                if (buttonEl && sessionId === explorerSessionId) {
-                    buttonEl.classList.remove("speaking");
-                }
-            };
-
-            const humanUrl = Core.getHumanAudioUrl(word, "word");
-            if (humanUrl && typeof Audio !== "undefined") {
-                try {
-                    const audio = new Audio(humanUrl);
-                    currentExplorerAudio = audio;
-                    audio.onended = () => {
-                        currentExplorerAudio = null;
-                        resetBtn();
-                    };
-                    audio.onerror = () => {
-                        currentExplorerAudio = null;
-                        fallbackToSpeech(word, buttonEl, sessionId, resetBtn);
-                    };
-                    const playPromise = audio.play();
-                    if (playPromise && typeof playPromise.catch === "function") {
-                        playPromise.catch(() => {
-                            currentExplorerAudio = null;
-                            fallbackToSpeech(word, buttonEl, sessionId, resetBtn);
-                        });
-                    }
-                    return;
-                } catch {
-                    currentExplorerAudio = null;
-                }
-            }
-
-            fallbackToSpeech(word, buttonEl, sessionId, resetBtn);
-        }
-
-        function fallbackToSpeech(word, buttonEl, sessionId, resetBtn) {
-            if (typeof window === "undefined" || !window.speechSynthesis) {
-                resetBtn();
-                return;
-            }
-
-            const cleanWord = Core.extractSpokenText(word.word) || word.word;
-            let voices = [];
-            try {
-                voices = Array.from(window.speechSynthesis.getVoices() || []);
-            } catch {}
-
-            const arVoice = Core.findBestArabicVoice ? Core.findBestArabicVoice(voices) : null;
-            const UtteranceClass = window.SpeechSynthesisUtterance || (typeof SpeechSynthesisUtterance !== "undefined" ? SpeechSynthesisUtterance : null);
-            const fallbackMessage = "لم يتم العثور على صوت عربي على هذا الجهاز. يُرجى تفعيل أو تثبيت حزمة الصوت العربي من إعدادات النظام للاستماع للنطق.";
-            if (!arVoice || !UtteranceClass) {
-                resetBtn();
-                const toast = document.getElementById("toast");
-                if (toast) {
-                    toast.textContent = fallbackMessage;
-                    toast.classList.add("show");
-                    setTimeout(() => toast.classList.remove("show"), 2500);
-                }
-                const announcer = document.getElementById("audio-announcer");
-                if (announcer) announcer.textContent = fallbackMessage;
-                return;
-            }
-
-            try {
-                const utterance = new UtteranceClass(cleanWord);
-                utterance.voice = arVoice;
-                utterance.lang = arVoice.lang || "ar-SA";
-                utterance.rate = 0.85;
-
-                window._activeUtterance = utterance;
-
-                utterance.onend = utterance.onerror = () => {
-                    if (window._activeUtterance === utterance) {
-                        window._activeUtterance = null;
-                    }
-                    resetBtn();
-                };
-
-                window.speechSynthesis.speak(utterance);
-            } catch {
-                if (window._activeUtterance) {
-                    window._activeUtterance = null;
-                }
-                resetBtn();
-            }
         }
 
         applyFilters();

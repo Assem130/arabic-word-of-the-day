@@ -8,17 +8,6 @@ let activeDateKey = "";
 let activeArchiveDateKey = "";
 let persistenceBlocked = false;
 const MAX_BACKUP_BYTES = 1024 * 1024;
-let voices = [];
-
-function populateVoices() {
-    if (window.speechSynthesis && typeof window.speechSynthesis.getVoices === "function") {
-        try {
-            voices = Array.from(window.speechSynthesis.getVoices() || []);
-        } catch {
-            voices = [];
-        }
-    }
-}
 
 const elMainWord = document.getElementById("main-word");
 const elDateDisplay = document.getElementById("date-display");
@@ -46,6 +35,7 @@ const btnToggleMenu = document.getElementById("btn-toggle-menu");
 const btnToggleEnglish = document.getElementById("btn-toggle-english");
 const btnExportHistory = document.getElementById("btn-export-history");
 const btnImportHistory = document.getElementById("btn-import-history");
+const btnClearLearningData = document.getElementById("btn-clear-learning-data");
 const inputImportHistory = document.getElementById("input-import-history");
 const inputSearchHistory = document.getElementById("input-search-history");
 const relatedWordsSection = document.getElementById("related-words-section");
@@ -82,7 +72,6 @@ const btnCloseShortcuts = document.getElementById("btn-close-shortcuts");
 
 let currentHistoryFilter = "all";
 let searchHistoryQuery = "";
-let activePlaybackSessionId = 0;
 
 let practiceDialogInvoker = null;
 let historyDialogInvoker = null;
@@ -93,6 +82,7 @@ let isFlashcardFlipped = false;
 let activeReviewDueCount = 0;
 let activeReviewRemainingCount = 0;
 let sessionReviewStats = { totalReviewed: 0, ratings: { again: 0, hard: 0, good: 0, easy: 0 } };
+let speechReadinessCancel = null;
 
 function toArabicDigits(value) {
     return String(value ?? "").replace(/[0-9]/g, (digit) => "٠١٢٣٤٥٦٧٨٩"[digit]);
@@ -590,196 +580,85 @@ function updateStreakUI() {
     badge.title = "تتابع القراءة اليومي";
 }
 
-let currentAudio = null;
-
 function stopSpeech() {
-    activePlaybackSessionId++;
-    if (currentAudio) {
-        try {
-            const oldAudio = currentAudio;
-            currentAudio = null;
-            oldAudio.pause();
-            oldAudio.currentTime = 0;
-            oldAudio.onended = null;
-            oldAudio.onerror = null;
-            oldAudio.onabort = null;
-            oldAudio.onpause = null;
-            oldAudio.src = "";
-            if (typeof oldAudio.removeAttribute === "function") {
-                oldAudio.removeAttribute("src");
-            }
-            if (typeof oldAudio.load === "function") {
-                oldAudio.load();
-            }
-        } catch {}
+    speechReadinessCancel?.();
+    const speech = globalThis.KalimatSpeech;
+    if (speech && typeof speech.cancel === "function") {
+        try { speech.cancel(window.speechSynthesis); } catch {}
     }
-    if (window.speechSynthesis && typeof window.speechSynthesis.cancel === "function") {
-        try {
-            window.speechSynthesis.cancel();
-        } catch {}
-    }
-    window._activeUtterance = null;
     resetAllSpeakButtons();
 }
 
-function playAudioSource(url, rate, sessionId, buttonEl = null, activeIcon = "i-waveform", idleIcon = "i-volume-high") {
-    return new Promise((resolve, reject) => {
-        const AudioCtor = (typeof window !== "undefined" && typeof window.Audio === "function")
-            ? window.Audio
-            : (typeof Audio === "function" ? Audio : null);
-        if (!AudioCtor) {
-            return reject(new Error("AudioConstructorUnavailable"));
-        }
-        if (activePlaybackSessionId !== sessionId) {
-            return reject(new Error("PlaybackSessionAborted"));
-        }
+const SPEECH_UNAVAILABLE_MSG = "النطق غير متاح على هذا الجهاز. يُرجى استخدام متصفح يدعم النطق الصوتي.";
+const NO_ARABIC_VOICE_MSG = "لم يتم العثور على صوت عربي على هذا الجهاز. يُرجى تفعيل أو تثبيت حزمة الصوت العربي من إعدادات النظام للاستماع للنطق.";
 
-        let audio = null;
-        let isCleanedUp = false;
-        let timeoutId = null;
-
-        const cleanup = () => {
-            if (isCleanedUp) return;
-            isCleanedUp = true;
-            if (timeoutId && typeof clearTimeout === "function") {
-                clearTimeout(timeoutId);
-                timeoutId = null;
-            }
-            if (audio) {
-                audio.onended = null;
-                audio.onerror = null;
-                audio.onabort = null;
-                audio.onpause = null;
-                audio.onplay = null;
-                audio.onplaying = null;
-                audio.onwaiting = null;
-                audio.oncanplay = null;
-            }
-            if (currentAudio === audio) {
-                currentAudio = null;
-            }
-        };
-
-        try {
-            audio = new AudioCtor(url);
-            if (typeof audio.playbackRate !== "undefined") {
-                audio.playbackRate = rate;
-            }
-            currentAudio = audio;
-
-            if (typeof setTimeout === "function") {
-                timeoutId = setTimeout(() => {
-                    cleanup();
-                    try {
-                        if (audio) {
-                            audio.pause();
-                            audio.src = "";
-                        }
-                    } catch {}
-                    reject(new Error("AudioTimeout"));
-                }, 8000);
-            }
-
-            audio.onplay = audio.onplaying = () => {
-                if (activePlaybackSessionId === sessionId && buttonEl) {
-                    setButtonPlaybackState(buttonEl, "speaking", activeIcon, idleIcon);
-                }
-            };
-
-            audio.onwaiting = () => {
-                if (activePlaybackSessionId === sessionId && buttonEl) {
-                    setButtonPlaybackState(buttonEl, "buffering", activeIcon, idleIcon);
-                }
-            };
-
-            audio.oncanplay = () => {
-                if (activePlaybackSessionId === sessionId && buttonEl && !audio.paused) {
-                    setButtonPlaybackState(buttonEl, "speaking", activeIcon, idleIcon);
-                }
-            };
-
-            audio.onended = () => {
-                cleanup();
-                resolve();
-            };
-
-            audio.onerror = (err) => {
-                cleanup();
-                reject(err || new Error("AudioError"));
-            };
-
-            audio.onabort = () => {
-                cleanup();
-                reject(new Error("AudioAborted"));
-            };
-
-            audio.onpause = () => {
-                if (activePlaybackSessionId !== sessionId) {
-                    cleanup();
-                    reject(new Error("PlaybackSessionAborted"));
-                }
-            };
-
-            const playPromise = audio.play();
-            if (activePlaybackSessionId === sessionId && buttonEl) {
-                setButtonPlaybackState(buttonEl, "speaking", activeIcon, idleIcon);
-            }
-            if (playPromise && typeof playPromise.catch === "function") {
-                playPromise.catch((err) => {
-                    cleanup();
-                    reject(err);
-                });
-            }
-        } catch (err) {
-            cleanup();
-            reject(err);
-        }
-    });
+function getSpeechVoices(speech) {
+    if (typeof speech?.getVoices !== "function") return [];
+    try {
+        const voices = speech.getVoices();
+        return voices == null ? null : Array.from(voices);
+    } catch { return null; }
 }
 
-async function attemptAudioPlayback(url, targetRate, repeatCount, sessionId, buttonEl, activeIcon, idleIcon) {
-    if (activePlaybackSessionId !== sessionId) return false;
-
-    for (let i = 0; i < repeatCount; i++) {
-        if (activePlaybackSessionId !== sessionId) return false;
-        await playAudioSource(url, targetRate, sessionId, buttonEl, activeIcon, idleIcon);
-        if (activePlaybackSessionId !== sessionId) return false;
-
-        if (i < repeatCount - 1 && activePlaybackSessionId === sessionId) {
-            await new Promise(r => setTimeout(r, 450));
-            if (activePlaybackSessionId !== sessionId) return false;
-        }
+function speakAfterVoiceReadiness(speech, callback) {
+    const voices = getSpeechVoices(speech);
+    if (!speech?.speak || voices === null || typeof speech.getVoices !== "function" || voices.length > 0) {
+        return callback();
     }
-    return activePlaybackSessionId === sessionId;
+
+    let settled = false;
+    let timerId = null;
+    const cleanup = () => {
+        speech.removeEventListener?.("voiceschanged", onVoicesChanged);
+        if (timerId !== null && typeof clearTimeout === "function") clearTimeout(timerId);
+        if (speechReadinessCancel === cancel) speechReadinessCancel = null;
+    };
+    const cancel = () => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+    };
+    const onVoicesChanged = () => {
+        const voices = getSpeechVoices(speech);
+        if (settled || !voices || voices.length === 0) return;
+        settled = true;
+        cleanup();
+        callback();
+    };
+
+    speechReadinessCancel = cancel;
+    speech.addEventListener?.("voiceschanged", onVoicesChanged);
+    if (typeof setTimeout === "function") {
+        timerId = setTimeout(() => {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            callback();
+        }, 250);
+    }
+    return { kind: "pending" };
 }
 
 function setupSpeech() {
-    if (!window.speechSynthesis || typeof window.SpeechSynthesisUtterance !== "function" || typeof window.speechSynthesis.speak !== "function") {
+    if (!globalThis.KalimatSpeech?.speak || !window.speechSynthesis || typeof window.SpeechSynthesisUtterance !== "function" || typeof window.speechSynthesis.speak !== "function") {
         if (btnSpeak) {
             btnSpeak.disabled = true;
-            btnSpeak.setAttribute("aria-label", "النطق غير متاح على هذا الجهاز");
-            btnSpeak.setAttribute("title", "النطق غير متاح على هذا الجهاز");
+            btnSpeak.setAttribute("aria-label", SPEECH_UNAVAILABLE_MSG);
+            btnSpeak.setAttribute("title", SPEECH_UNAVAILABLE_MSG);
             btnSpeak.setAttribute("aria-pressed", "false");
             btnSpeak.setAttribute("aria-busy", "false");
         }
         if (btnSpeakExample) {
             btnSpeakExample.disabled = true;
-            btnSpeakExample.setAttribute("aria-label", "النطق غير متاح على هذا الجهاز");
-            btnSpeakExample.setAttribute("title", "النطق غير متاح على هذا الجهاز");
+            btnSpeakExample.setAttribute("aria-label", SPEECH_UNAVAILABLE_MSG);
+            btnSpeakExample.setAttribute("title", SPEECH_UNAVAILABLE_MSG);
             btnSpeakExample.setAttribute("aria-pressed", "false");
             btnSpeakExample.setAttribute("aria-busy", "false");
         }
+        announceAudioStatus(SPEECH_UNAVAILABLE_MSG);
+        showToast(SPEECH_UNAVAILABLE_MSG);
         return;
     }
-
-    populateVoices();
-    try {
-        if (typeof window.speechSynthesis.addEventListener === "function") {
-            window.speechSynthesis.addEventListener("voiceschanged", populateVoices);
-        } else if ("onvoiceschanged" in window.speechSynthesis) {
-            window.speechSynthesis.onvoiceschanged = populateVoices;
-        }
-    } catch {}
 
     if (btnSpeak) {
         btnSpeak.disabled = false;
@@ -827,87 +706,18 @@ function setupSpeech() {
     }
 }
 
-const NO_ARABIC_VOICE_MSG = "لم يتم العثور على صوت عربي على هذا الجهاز. يُرجى تفعيل أو تثبيت حزمة الصوت العربي من إعدادات النظام للاستماع للنطق.";
-
 function resetAllSpeakButtons() {
     if (btnSpeak) setButtonPlaybackState(btnSpeak, "idle", "i-waveform", "i-volume-high");
     if (btnSpeakExample) setButtonPlaybackState(btnSpeakExample, "idle", "i-waveform", "i-volume-high");
+    document.querySelectorAll?.(".flashcard-audio-btn").forEach((button) => {
+        if (button.classList?.contains?.("speaking")) setButtonPlaybackState(button, "idle", "i-waveform", "i-volume-high");
+    });
 }
 
-async function getOrFetchVoices() {
-    let list = (voices && voices.length > 0) ? voices : [];
-    if (list.length === 0 && window.speechSynthesis && typeof window.speechSynthesis.getVoices === "function") {
-        try {
-            const raw = Array.from(window.speechSynthesis.getVoices() || []);
-            if (raw.length > 0) {
-                voices = raw;
-                list = raw;
-            }
-        } catch {
-            list = [];
-        }
-    }
-    if (list.length === 0 && window.speechSynthesis && (typeof window.speechSynthesis.addEventListener === "function" || "onvoiceschanged" in window.speechSynthesis)) {
-        await new Promise(resolve => {
-            let timer = null;
-            let resolved = false;
-            const cleanup = () => {
-                if (resolved) return;
-                resolved = true;
-                if (timer && typeof clearTimeout === "function") clearTimeout(timer);
-                if (typeof window.speechSynthesis.removeEventListener === "function") {
-                    try {
-                        window.speechSynthesis.removeEventListener("voiceschanged", onVoices);
-                    } catch {}
-                }
-                resolve();
-            };
-            const onVoices = () => {
-                populateVoices();
-                cleanup();
-            };
-            try {
-                if (typeof window.speechSynthesis.addEventListener === "function") {
-                    window.speechSynthesis.addEventListener("voiceschanged", onVoices);
-                } else if ("onvoiceschanged" in window.speechSynthesis) {
-                    const prev = window.speechSynthesis.onvoiceschanged;
-                    window.speechSynthesis.onvoiceschanged = () => {
-                        if (typeof prev === "function") prev();
-                        onVoices();
-                    };
-                }
-                if (typeof setTimeout === "function") {
-                    timer = setTimeout(cleanup, 250);
-                } else {
-                    resolve();
-                }
-            } catch {
-                cleanup();
-            }
-        });
-        if (voices && voices.length > 0) {
-            list = voices;
-        } else if (window.speechSynthesis && typeof window.speechSynthesis.getVoices === "function") {
-            try {
-                const raw = Array.from(window.speechSynthesis.getVoices() || []);
-                if (raw.length > 0) {
-                    voices = raw;
-                    list = raw;
-                }
-            } catch {
-                list = [];
-            }
-        }
-    }
-    return list;
-}
-
-async function speakText(text, buttonEl, activeIcon = "i-waveform", idleIcon = "i-volume-high", optionsOrWord = null) {
+function speakText(text, buttonEl, activeIcon = "i-waveform", idleIcon = "i-volume-high", optionsOrWord = null) {
     if (!text) return;
 
     stopSpeech();
-    const sessionId = activePlaybackSessionId;
-
     const cleanSpeechText = (typeof text === "string")
         ? text.replace(/[\u200B-\u200F\uFEFF\u0640]/g, "").replace(/\s*\.{2,}\s*|\s*…\s*/g, "، ").trim()
         : text;
@@ -921,150 +731,46 @@ async function speakText(text, buttonEl, activeIcon = "i-waveform", idleIcon = "
         ? appState.preferences.speechRate
         : 0.85;
 
-    // Resolve target word / audio candidates
-    let targetWord = null;
-    let type = "word";
-    let audioOverride = null;
-
-    if (optionsOrWord && typeof optionsOrWord === "object") {
-        if (Number.isInteger(optionsOrWord.id) && optionsOrWord.id >= 1) {
-            targetWord = optionsOrWord;
-            type = optionsOrWord.type || "word";
-            audioOverride = optionsOrWord.audioUrl || optionsOrWord.audio || null;
-        } else {
-            if (optionsOrWord.word && typeof optionsOrWord.word === "object") {
-                targetWord = optionsOrWord.word;
-            } else if (optionsOrWord.wordId && typeof WORDS_DB !== "undefined" && Array.isArray(WORDS_DB)) {
-                targetWord = WORDS_DB.find(w => w.id === optionsOrWord.wordId) || null;
-            }
-            type = optionsOrWord.type || "word";
-            audioOverride = optionsOrWord.audioUrl || optionsOrWord.audio || null;
-        }
-    }
-
-    if (!targetWord && currentWord) {
-        if (text === currentWord.word || text === currentWord.vocalization || (typeof Core.normalizeArabicText === "function" && Core.normalizeArabicText(text) === Core.normalizeArabicText(currentWord.word))) {
-            targetWord = currentWord;
-            type = "word";
-        } else if (text === currentWord.example || (typeof Core.extractSpokenText === "function" && text === Core.extractSpokenText(currentWord.example))) {
-            targetWord = currentWord;
-            type = "example";
-        }
-    }
-
-    // Polite live announcement on playback start
+    const type = optionsOrWord && typeof optionsOrWord === "object" ? optionsOrWord.type : "word";
     if (type === "example") {
         announceAudioStatus("استماع للشاهد الأدبي");
     } else {
-        const spokenWordName = targetWord ? targetWord.word : cleanSpeechText;
-        announceAudioStatus(`استماع لنطق كلمة «${spokenWordName}»`);
+        announceAudioStatus(`استماع لنطق كلمة «${cleanSpeechText}»`);
     }
 
-    // Set initial loading state on triggering button
-    setButtonPlaybackState(buttonEl, "loading", activeIcon, idleIcon);
-
-    const AudioCtor = (typeof window !== "undefined" && typeof window.Audio === "function") ? window.Audio : (typeof Audio === "function" ? Audio : null);
-
-    // 1. Build the ordered local candidate list (human audio before Web Speech fallback).
-    const audioCandidates = [];
-    if (audioOverride) {
-        audioCandidates.push(audioOverride);
-    }
-    if (targetWord && typeof Core.getHumanAudioUrl === "function") {
-        const humanUrl = Core.getHumanAudioUrl(targetWord, type);
-        if (humanUrl && !audioCandidates.includes(humanUrl)) {
-            // Skip the media request entirely when a probe already knows the file is absent.
-            const knownAbsent = (typeof Core.isAudioKnownAbsent === "function") ? Core.isAudioKnownAbsent(humanUrl) : false;
-            if (!knownAbsent) {
-                audioCandidates.push(humanUrl);
-                if (typeof Core.updateAudioProbe === "function") {
-                    Core.updateAudioProbe(humanUrl).catch(() => {});
-                }
+    const speech = globalThis.KalimatSpeech;
+    setButtonPlaybackState(buttonEl, "speaking", activeIcon, idleIcon);
+    return speakAfterVoiceReadiness(window.speechSynthesis, () => {
+        const result = speech?.speak(cleanSpeechText, {
+            target: window,
+            speech: window.speechSynthesis,
+            Utterance: window.SpeechSynthesisUtterance,
+            requireVoice: true,
+            rate: targetRate,
+            repeat: repeatCount,
+            gapMs: 500,
+            onStart: () => setButtonPlaybackState(buttonEl, "speaking", activeIcon, idleIcon),
+            onEnd: () => setButtonPlaybackState(buttonEl, "idle", activeIcon, idleIcon),
+            onError: () => {
+                setButtonPlaybackState(buttonEl, "idle", activeIcon, idleIcon);
+                announceAudioStatus(SPEECH_UNAVAILABLE_MSG);
+                showToast(SPEECH_UNAVAILABLE_MSG);
             }
-        }
-    }
-    // 2. Try HTML5 Audio candidates
-    if (AudioCtor && audioCandidates.length > 0) {
-        for (const candUrl of audioCandidates) {
-            if (activePlaybackSessionId !== sessionId) return;
-            try {
-                const success = await attemptAudioPlayback(candUrl, targetRate, repeatCount, sessionId, buttonEl, activeIcon, idleIcon);
-                if (success && activePlaybackSessionId === sessionId) {
-                    setButtonPlaybackState(buttonEl, "idle", activeIcon, idleIcon);
-                    return;
-                }
-            } catch {
-                if (activePlaybackSessionId !== sessionId) return;
-                // Move to next candidate or fallback to Web Speech
-            }
-        }
-    }
+        }) || { kind: "unavailable" };
 
-    if (activePlaybackSessionId !== sessionId) return;
-
-    // 3. Web Speech API Fallback (Tier 2)
-    if (!window.speechSynthesis || typeof window.speechSynthesis.speak !== "function") {
-        if (activePlaybackSessionId === sessionId) {
+        if (result.kind === "no-arabic-voice") {
             resetAllSpeakButtons();
             announceAudioStatus(NO_ARABIC_VOICE_MSG);
             showToast(NO_ARABIC_VOICE_MSG);
-            if (buttonEl) {
-                buttonEl.setAttribute("title", NO_ARABIC_VOICE_MSG);
-            }
+            if (buttonEl) buttonEl.setAttribute("title", NO_ARABIC_VOICE_MSG);
+        } else if (result.kind !== "ok") {
+            resetAllSpeakButtons();
+            announceAudioStatus(SPEECH_UNAVAILABLE_MSG);
+            showToast(SPEECH_UNAVAILABLE_MSG);
+            if (buttonEl) buttonEl.setAttribute("title", SPEECH_UNAVAILABLE_MSG);
         }
-        return;
-    }
-
-    let availableVoices = [];
-    try {
-        availableVoices = await getOrFetchVoices();
-    } catch {
-        availableVoices = [];
-    }
-    if (activePlaybackSessionId !== sessionId) return;
-
-    let arVoice = null;
-    try {
-        arVoice = Core.findBestArabicVoice ? Core.findBestArabicVoice(availableVoices) : null;
-    } catch {
-        arVoice = null;
-    }
-
-    if (!arVoice) {
-        resetAllSpeakButtons();
-        announceAudioStatus(NO_ARABIC_VOICE_MSG);
-        showToast(NO_ARABIC_VOICE_MSG);
-        if (buttonEl) {
-            buttonEl.setAttribute("title", NO_ARABIC_VOICE_MSG);
-        }
-        return;
-    }
-
-    const UtteranceClass = window.SpeechSynthesisUtterance || (typeof SpeechSynthesisUtterance !== "undefined" ? SpeechSynthesisUtterance : null);
-    if (!UtteranceClass) {
-        setButtonPlaybackState(buttonEl, "idle", activeIcon, idleIcon);
-        return;
-    }
-    setButtonPlaybackState(buttonEl, "speaking", activeIcon, idleIcon);
-    const result = globalThis.KalimatSpeech?.speak(cleanSpeechText, {
-        speech: window.speechSynthesis,
-        Utterance: UtteranceClass,
-        selectVoice: () => arVoice,
-        requireVoice: true,
-        rate: targetRate,
-        repeat: repeatCount,
-        gapMs: 500,
-        onStart: () => {
-            if (activePlaybackSessionId === sessionId) setButtonPlaybackState(buttonEl, "speaking", activeIcon, idleIcon);
-        },
-        onEnd: () => {
-            if (activePlaybackSessionId === sessionId) setButtonPlaybackState(buttonEl, "idle", activeIcon, idleIcon);
-        },
-        onError: () => {
-            if (activePlaybackSessionId === sessionId) setButtonPlaybackState(buttonEl, "idle", activeIcon, idleIcon);
-        },
+        return result;
     });
-    if (result?.kind !== "ok") setButtonPlaybackState(buttonEl, "idle", activeIcon, idleIcon);
 }
 
 function setButtonPlaybackState(buttonEl, state, activeIcon = "i-waveform", idleIcon = "i-volume-high") {
@@ -1811,6 +1517,9 @@ function setupEventListeners() {
         if (file) await importHistory(file);
         inputImportHistory.value = "";
     });
+    if (btnClearLearningData) {
+        btnClearLearningData.addEventListener("click", clearLearningData);
+    }
     btnCopyLink.addEventListener("click", () => {
         if (currentWord) copyToClipboard(getShareText(currentWord));
         setMenuOpen(false);
@@ -2078,8 +1787,8 @@ function renderFlashcardStep() {
     });
 
     const frontHint = document.createElement("p");
-    frontHint.className = "flashcard-hint-text";
-    frontHint.textContent = "استخدم زر «اقلب البطاقة» لكشف المعنى";
+    frontHint.className = "flashcard-hint-text review-helper";
+    frontHint.textContent = "اقلب البطاقة، ثم اختر مدى تذكّرك؛ سنحدد موعد عودتها.";
 
     frontBottom.append(frontAudioBtn, frontHint);
     front.append(frontMeta, frontCenter, frontBottom);
@@ -2462,8 +2171,35 @@ function setMenuOpen(isOpen) {
     const restoreFocus = wasOpen && dropdownMenu.contains(document.activeElement);
     dropdownMenu.hidden = !isOpen;
     btnToggleMenu.setAttribute("aria-expanded", String(isOpen));
-    if (isOpen) dropdownMenu.querySelector("button")?.focus();
+    if (isOpen) {
+        const controls = [];
+        const collectVisibleControls = (parent, parentHidden = false) => {
+            for (const child of parent.children || []) {
+                const hidden = parentHidden || child.hidden;
+                if (!hidden && ["A", "BUTTON", "SELECT"].includes(child.tagName) && child.getAttribute("aria-hidden") !== "true") {
+                    controls.push(child);
+                }
+                collectVisibleControls(child, hidden);
+            }
+        };
+        collectVisibleControls(dropdownMenu);
+        controls[0]?.focus();
+    }
     else if (restoreFocus && typeof btnToggleMenu.focus === "function") btnToggleMenu.focus();
+}
+
+function clearLearningData() {
+    if (!btnClearLearningData) return;
+    const confirmed = typeof window.confirm === "function"
+        && window.confirm("هل تريد مسح مخزونك اللغوي من هذا الجهاز؟");
+    if (!confirmed) {
+        btnClearLearningData.focus();
+        return;
+    }
+    try {
+        localStorage.removeItem(STORAGE_KEY);
+    } catch {}
+    if (window.location && typeof window.location.reload === "function") window.location.reload();
 }
 
 function getShareTitle(word, archiveDateKey = activeArchiveDateKey) {
@@ -2553,7 +2289,6 @@ if (typeof window !== "undefined") {
         speakText,
         stopSpeech,
         setupSpeech,
-        getOrFetchVoices,
         setButtonSpeakingState,
         setButtonPlaybackState,
         announceAudioStatus,
@@ -2565,6 +2300,7 @@ if (typeof window !== "undefined") {
         copyToClipboard,
         exportHistory,
         exportAnkiDeck,
+        clearLearningData,
         renderSocialCard,
         startSpacedRepetitionReview,
         startPracticeQuiz: startSpacedRepetitionReview,

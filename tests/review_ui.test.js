@@ -53,6 +53,7 @@ class FakeElement {
             }
         };
         this.attributes = new Map();
+        this.dataset = {};
         this.children = [];
         this.parentNode = null;
         this.textContent = "";
@@ -366,6 +367,9 @@ test("1. HTML Markup & Accessibility Attributes (index.html & word.html)", () =>
     assert.match(indexHtml, /id="due-review-badge"/, "index.html must include #due-review-badge");
     assert.match(indexHtml, /id="due-count"/, "index.html must include #due-count");
     assert.match(indexHtml, /class="due-icon badge-icon"/, "index.html must style badge icon");
+    assert.match(indexHtml, /<section class="hero"[\s\S]*?<p class="local-data-note">لا حسابات؛ تبقى بيانات تعلّمك على هذا الجهاز\.<\/p>/, "local-data note must be in the hero viewport");
+    assert.equal((indexHtml.match(/class="local-data-note"/g) || []).length, 1, "homepage must show one local-data note");
+    assert.match(indexHtml, /<section class="manifesto"[\s\S]*?<p class="channel-boundary">الموقع والامتداد تجربتان محليتان منفصلتان/, "channel boundary must remain explicit");
 
     // Check #practice-dialog modal attributes in index.html
     assert.match(indexHtml, /<dialog\s+class="practice-dialog"\s+id="practice-dialog"/, "index.html must define <dialog id='practice-dialog'>");
@@ -405,6 +409,59 @@ test("Word-page utility controls stay inside the disclosure menu", () => {
     for (const id of ["due-review-badge", "streak-badge", "theme-select", "btn-toggle-history"]) {
         assert.match(menu, new RegExp(`id="${id}"`), `${id} must remain available in the word-page disclosure menu`);
     }
+});
+
+test("Hidden lexicon clear controls are removed from layout", () => {
+    assert.match(
+        revampCss,
+        /\.lexicon-clear-btn\[hidden\]\s*\{[^}]*display:\s*none\b/s,
+        "the clear-filter control must not render while hidden"
+    );
+});
+
+test("Word menu opens on its first visible link and Escape restores the trigger", () => {
+    const env = createDOMEnvironment();
+    const menu = env.doc.getElementById("app-menu-dropdown");
+    const trigger = env.doc.getElementById("btn-toggle-menu");
+    const link = env.doc.createElement("a");
+    const button = env.doc.createElement("button");
+    menu.hidden = true;
+    menu.append(link, button);
+
+    trigger.dispatchEvent({ type: "click", stopPropagation() {} });
+    assert.equal(env.doc.activeElement, link, "opening the menu must focus its first visible link");
+
+    env.doc.dispatchEvent({ type: "keydown", key: "Escape" });
+    assert.equal(env.doc.activeElement, trigger, "Escape must restore focus to the menu trigger");
+});
+
+test("Confirmed learning-data deletion removes only learning state and reloads", () => {
+    const env = createDOMEnvironment();
+    const clearButton = env.doc.getElementById("btn-clear-learning-data");
+    const storedState = env.localStorage.getItem("arabic_words_state");
+    let reloadCount = 0;
+    env.localStorage.setItem("kalimat_theme", "midnight");
+    env.sandbox.window.confirm = () => true;
+    env.sandbox.window.location.reload = () => { reloadCount += 1; };
+
+    clearButton.dispatchEvent({ type: "click" });
+
+    assert.notEqual(storedState, null, "the fixture must start with learning state");
+    assert.equal(env.localStorage.getItem("arabic_words_state"), null);
+    assert.equal(env.localStorage.getItem("kalimat_theme"), "midnight");
+    assert.equal(reloadCount, 1, "confirmed deletion must reload once");
+});
+
+test("Cancelled learning-data deletion preserves state and focus", () => {
+    const env = createDOMEnvironment();
+    const clearButton = env.doc.getElementById("btn-clear-learning-data");
+    const storedState = env.localStorage.getItem("arabic_words_state");
+    env.sandbox.window.confirm = () => false;
+    clearButton.focus();
+    clearButton.dispatchEvent({ type: "click" });
+
+    assert.equal(env.localStorage.getItem("arabic_words_state"), storedState);
+    assert.equal(env.doc.activeElement, clearButton);
 });
 
 // -----------------------------------------------------------------------------
@@ -608,6 +665,10 @@ test("4. Interactive Spaced Repetition Review Lifecycle (Queue, 3D Flip, SM-2 Ra
     assert.match(frontEase.textContent, /عامل السهولة:\s*2\.5/, "front displays initial Easiness Factor");
     assert.equal(ratingSection.hidden, true, "rating section must be hidden before card is flipped");
     assert.equal(ratingPrompt.parentNode, ratingSection, "rating prompt must sit with the rating controls, outside the card overflow");
+    assert.equal(
+        practiceBody.querySelector(".review-helper").textContent,
+        "اقلب البطاقة، ثم اختر مدى تذكّرك؛ سنحدد موعد عودتها."
+    );
     assert.equal(ratingBar.hidden, true, "rating bar must be hidden before card is flipped");
     assert.equal(KalimatApp.isFlashcardFlipped(), false, "isFlashcardFlipped is initially false");
     const firstReviewOptions = KalimatApp.getActiveReviewQueue()[0].reviewOptions;
@@ -699,6 +760,96 @@ test("4. Interactive Spaced Repetition Review Lifecycle (Queue, 3D Flip, SM-2 Ra
     // Close Dialog
     closeBtn.dispatchEvent({ type: "click" });
     assert.equal(practiceDialog.open, false, "close button closes practice dialog");
+});
+
+test("Review card playback delegates to the shared browser-speech module", () => {
+    const today = "2026-01-01";
+    const { sandbox, doc } = createDOMEnvironment({
+        schemaVersion: 1,
+        history: { 1: { firstSeen: today } },
+        srs: {
+            1: { wordId: 1, repetition: 0, interval: 0, ef: 2.5, nextReviewDate: today, lastReviewedDate: null, reviewCount: 0, lapses: 0, history: [] }
+        },
+        favorites: {},
+        preferences: { showEnglish: true, speechRate: 0.85, speechRepeat: 1 }
+    });
+    const calls = [];
+    sandbox.KalimatSpeech.speak = (text, options) => {
+        calls.push({ text, options });
+        return { kind: "ok" };
+    };
+
+    sandbox.window.KalimatApp.startSpacedRepetitionReview();
+    const speaker = doc.getElementById("fc-btn-audio");
+    speaker.dispatchEvent({ type: "click", stopPropagation() {} });
+
+    assert.equal(calls.length, 1, "review playback must call KalimatSpeech once");
+    assert.equal(calls[0].text, doc.getElementById("fc-front-word").textContent);
+    assert.equal(calls[0].options.repeat, 1, "review playback must preserve the configured repeat count");
+    assert.equal(calls[0].options.rate, 0.85, "review playback must preserve the configured speech rate");
+});
+
+test("Speech playback waits for voiceschanged before reporting a missing Arabic voice", () => {
+    const env = createDOMEnvironment();
+    const speech = env.sandbox.window.speechSynthesis;
+    const listeners = new Map();
+    let voices = [];
+    const pendingTimers = [];
+    speech.getVoices = () => voices;
+    speech.addEventListener = (type, callback) => listeners.set(type, callback);
+    speech.removeEventListener = (type, callback) => {
+        if (listeners.get(type) === callback) listeners.delete(type);
+    };
+    env.sandbox.setTimeout = (callback) => {
+        pendingTimers.push(callback);
+        return pendingTimers.length;
+    };
+    env.sandbox.clearTimeout = (id) => {
+        if (pendingTimers[id - 1]) pendingTimers[id - 1] = null;
+    };
+
+    const speaker = env.doc.getElementById("btn-speak");
+    env.sandbox.window.KalimatApp.speakText("السَّمَيْدَعُ", speaker);
+
+    assert.equal(speaker.classList.contains("speaking"), true, "the button stays active while voices are loading");
+    assert.equal(typeof listeners.get("voiceschanged"), "function", "speech playback must listen for voiceschanged");
+
+    voices = [{ name: "Arabic", lang: "ar-SA" }];
+    listeners.get("voiceschanged")();
+
+    assert.notEqual(env.sandbox.window._activeUtterance, null, "speech must start after an Arabic voice becomes ready");
+    assert.equal(speaker.getAttribute("aria-pressed"), "true", "the button remains pressed during playback");
+});
+
+test("Failed or cancelled review playback fully resets the clicked control", () => {
+    const { sandbox, doc } = createDOMEnvironment();
+    const app = sandbox.window.KalimatApp;
+    let result = { kind: "no-arabic-voice" };
+    sandbox.KalimatSpeech.speak = () => result;
+
+    app.startSpacedRepetitionReview();
+    const speaker = doc.getElementById("fc-btn-audio");
+    const assertIdle = () => {
+        assert.equal(speaker.classList.contains("speaking"), false);
+        assert.equal(speaker.getAttribute("aria-pressed"), "false");
+        assert.equal(speaker.getAttribute("aria-busy"), "false");
+        assert.equal(speaker.getAttribute("aria-label"), "استمع إلى نطق الكلمة");
+        const icon = speaker.querySelector("use");
+        if (icon) assert.equal(icon.getAttribute("href"), "#i-volume-high");
+    };
+
+    speaker.dispatchEvent({ type: "click", stopPropagation() {} });
+    assertIdle();
+
+    result = { kind: "unavailable" };
+    speaker.dispatchEvent({ type: "click", stopPropagation() {} });
+    assertIdle();
+
+    result = { kind: "ok" };
+    speaker.dispatchEvent({ type: "click", stopPropagation() {} });
+    assert.equal(speaker.getAttribute("aria-pressed"), "true");
+    app.stopSpeech();
+    assertIdle();
 });
 
 test("Failed review writes keep the visible card and announce a retry", () => {

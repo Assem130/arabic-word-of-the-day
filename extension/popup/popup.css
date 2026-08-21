@@ -189,6 +189,11 @@ h2 {
   font-size: 12px;
   margin-top: 4px;
 }
+.masthead .local-data-note,
+.masthead .channel-boundary {
+  font-size: 10px;
+  line-height: 1.45;
+}
 
 .status {
   min-height: 18px;
@@ -317,7 +322,7 @@ button:disabled {
 
 .levels {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 6px;
 }
 
@@ -1039,7 +1044,7 @@ html[data-theme="midnight"] .reminder-row button[aria-checked="true"]::before {
     width: 100vw;
   }
   .levels {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 

@@ -1,10 +1,11 @@
-﻿// Service Worker for Kalimat (Offline PWA)
-const STATIC_CACHE_NAME = "kalimat-static-v1.6";
+// Service Worker for Kalimat (Offline PWA)
+const STATIC_CACHE_NAME = "kalimat-static-v1.7";
 const AUDIO_CACHE_NAME = "kalimat-audio-v1";
 const STATIC_ASSETS = [
     "./",
     "./index.html",
     "./word.html",
+    "./privacy.html",
     "./style.css",
     "./app-core.js",
     "./web-ui.js",
@@ -46,6 +47,7 @@ function canonicalUrlFor(url) {
     return url.origin + url.pathname;
 }
 
+
 self.addEventListener("install", event => {
     event.waitUntil(
         caches.open(STATIC_CACHE_NAME).then(cache => {
@@ -59,7 +61,7 @@ self.addEventListener("activate", event => {
         caches.keys().then(keys => {
             return Promise.all(
                 keys
-                    .filter(key => key !== STATIC_CACHE_NAME && key !== AUDIO_CACHE_NAME)
+                    .filter(key => key.startsWith("kalimat-") && key !== STATIC_CACHE_NAME)
                     .map(key => caches.delete(key))
             );
         }).then(() => self.clients.claim())
