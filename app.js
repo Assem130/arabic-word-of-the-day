@@ -1711,6 +1711,7 @@ function startSpacedRepetitionReview() {
     if (!practiceDialog || !practiceBody) return;
 
     practiceDialogInvoker = document.activeElement;
+    const todayKey = activeDateKey || (Core ? Core.getLocalDateKey(new Date()) : "");
     const stats = getCachedReviewStats();
     const configuredLimit = Number.isInteger(appState.preferences?.dailyReviewLimit)
         && appState.preferences.dailyReviewLimit >= 1
