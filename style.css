@@ -1974,7 +1974,6 @@ html[data-theme="midnight"] #theme-select option {
 
 
 html[data-theme="midnight"] .primary-button,
-html[data-theme="midnight"] .secondary-button,
 html[data-theme="midnight"] .speak-button,
 html[data-theme="midnight"] .skip-link,
 html[data-theme="midnight"] .example-action-btn.speaking,
@@ -1983,6 +1982,12 @@ html[data-theme="midnight"] .history-action-btn.highlight,
 html[data-theme="midnight"] .practice-cta-btn,
 html[data-theme="midnight"] .related-word-pill:hover {
     color: var(--paper-light);
+}
+
+/* Transparent-fill button on the dark hero: --paper-light flips dark in
+   midnight, so the resting label must use the light ink token instead. */
+html[data-theme="midnight"] .secondary-button {
+    color: var(--ink);
 }
 
 
