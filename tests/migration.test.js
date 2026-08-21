@@ -55,6 +55,34 @@ test("Schema Migration — review limit accepts only bounded integers", () => {
     assert.equal(valid.preferences.dailyReviewLimit, 15);
 });
 
+test("Schema Migration — imported streak values must be non-negative integers", () => {
+    const validStreak = Core.migrateState({ streak: 7 }, "2026-08-17");
+    assert.equal(validStreak.streak, 7);
+
+    const legacyAlias = Core.migrateState({ streakData: 3 }, "2026-08-17");
+    assert.equal(legacyAlias.streak, 3);
+
+    const zero = Core.migrateState({ streak: 0 }, "2026-08-17");
+    assert.equal(zero.streak, 0);
+
+    const negative = Core.migrateState({ streak: -2 }, "2026-08-17");
+    assert.equal(negative.streak, undefined);
+
+    const fractional = Core.migrateState({ streak: 2.5 }, "2026-08-17");
+    assert.equal(fractional.streak, undefined);
+
+    const string = Core.migrateState({ streak: "10" }, "2026-08-17");
+    assert.equal(string.streak, undefined);
+
+    const polluted = JSON.parse('{"streak": {"__proto__": {"injected": true}}, "history": {}}');
+    const migratedPolluted = Core.migrateState(polluted, "2026-08-17");
+    assert.equal(migratedPolluted.streak, undefined);
+    assert.equal(({}).injected, undefined, "__proto__ via streak must not pollute Object.prototype");
+
+    const legacyBeatsMissing = Core.migrateState({}, "2026-08-17");
+    assert.equal(legacyBeatsMissing.streak, undefined);
+});
+
 test("Schema inspection — current v2 payloads require the complete contract", () => {
     const valid = {
         version: 2,

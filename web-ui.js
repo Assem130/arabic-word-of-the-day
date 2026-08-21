@@ -213,10 +213,18 @@
                 emptyState.hidden = filtered.length > 0;
             }
 
-            renderCards(filtered);
+            // ponytail: cap rendered cards; refine the query if results overflow.
+            const MAX_CARDS = 60;
+            let overflowHint = null;
+            if (filtered.length > MAX_CARDS) {
+                overflowHint = document.createElement("p");
+                overflowHint.className = "lexicon-results-hint";
+                overflowHint.textContent = `يُعرض أول ${MAX_CARDS} من ${filtered.length} نتيجة؛ حدّد البحث لعرض المزيد.`;
+            }
+            renderCards(filtered.slice(0, MAX_CARDS), overflowHint);
         }
 
-        function renderCards(words) {
+        function renderCards(words, overflowHint) {
             if (!grid) return;
             const frag = document.createDocumentFragment();
 
@@ -368,6 +376,7 @@
                 frag.appendChild(card);
             });
 
+            if (overflowHint) frag.appendChild(overflowHint);
             grid.replaceChildren(frag);
         }
 
@@ -439,9 +448,14 @@
         }
 
         if (searchInput) {
+            let searchDebounceTimer = null;
             searchInput.addEventListener("input", (e) => {
                 currentFilters.query = e.target.value;
-                applyFilters();
+                if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+                searchDebounceTimer = setTimeout(() => {
+                    searchDebounceTimer = null;
+                    applyFilters();
+                }, 150);
             });
         }
 

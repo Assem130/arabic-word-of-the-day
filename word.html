@@ -1,17 +1,28 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="كلمة اليوم من كَلِمات: معناها، نطقها، جذرها، وسياقها.">
+    <meta property="og:title" content="كَلِمات | كلمة اليوم">
+    <meta property="og:description" content="كلمة اليوم من كَلِمات: معناها، نطقها، جذرها، وسياقها.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://assem130.github.io/arabic-word-of-the-day/word.html">
+    <meta property="og:image" content="https://assem130.github.io/arabic-word-of-the-day/assets/icons/icon-512.png">
+    <meta name="twitter:card" content="summary">
     <title>كَلِمات | كلمة اليوم</title>
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; media-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; worker-src 'self'; manifest-src 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; media-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; worker-src 'self'; manifest-src 'self'">
     <link rel="manifest" href="manifest.webmanifest">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="preload" href="assets/fonts/Amiri-Regular.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="assets/fonts/Amiri-Bold.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="assets/fonts/Outfit-Regular.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="revamp.css">
+    <script src="words.js" charset="utf-8" defer></script>
+    <script src="extension/shared/review-policy.js" defer></script>
+    <script src="extension/shared/speech.js" defer></script>
+    <script src="app-core.js" charset="utf-8" defer></script>
+    <script src="web-ui.js" defer></script>
+    <script src="app.js" charset="utf-8" defer></script>
 </head>
 <body class="word-page">
     <a class="skip-link" href="#main-content">تخطَّ إلى المحتوى</a>
@@ -20,6 +31,8 @@
             <symbol id="i-book-open" viewBox="0 0 24 24"><path d="M12 7v14M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></symbol>
             <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></symbol>
             <symbol id="i-bars" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+<symbol id="i-flame" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></symbol>
+<symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></symbol>
             <symbol id="i-volume-high" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4zM15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14"/></symbol>
             <symbol id="i-waveform" viewBox="0 0 24 24"><path d="M2 12h2M6 9v6M10 5v14M14 8v8M18 10v4M22 12h0"/></symbol>
             <symbol id="i-xmark" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
@@ -116,6 +129,10 @@
                         <p>أضفها إلى ذاكرتك بالعودة إلى معناها وصوتها في أي وقت.</p>
                         <p class="next-word">الكلمة التالية خلال <b id="countdown-timer">--:--:--</b></p>
                         <p class="archive-notice">يُحفَظ ما تقرؤه تلقائياً في مخزونك اللغوي.</p>
+                        <div id="completion-banner" class="completion-banner" role="status" hidden>
+                            <span>أتممتَ المعجم كاملًا! حافظ على ما بنيتَ.</span>
+                            <button type="button" id="btn-review-all" class="inline-review-button">راجع كل الكلمات</button>
+                        </div>
                         <p class="local-data-note">لا حسابات؛ تبقى بيانات تعلّمك على هذا الجهاز.</p>
                         <p class="channel-boundary">الموقع والامتداد تجربتان محليتان منفصلتان؛ لا تتزامن التعيينات أو المراجعات بينهما.</p>
                         <p class="archive-preview-note" id="archive-preview-note" role="status" aria-live="polite" hidden>أنت تستعرض كلمة من مخزونك، وليست كلمة اليوم.</p>
@@ -133,11 +150,15 @@
                         <span class="badge" id="history-count">0</span>
                     </button>
                     <button id="due-review-badge" class="due-review-badge" type="button" title="المراجعات المستحقة اليوم (Q)" aria-label="المراجعات المستحقة اليوم: 0 كلمات">
-                        <span class="due-icon badge-icon">⚡</span>
+                        <svg class="due-icon badge-icon" aria-hidden="true"><use href="#i-bolt"/></svg>
                         <span class="due-count" id="due-count">0</span>
                         <span class="due-label">مراجعة</span>
                     </button>
-                    <div id="streak-badge" class="streak-badge" title="تتابع القراءة اليومي" aria-label="تتابع القراءة اليومي">🔥 لا يوجد تتابع بعد</div>
+                    <div id="streak-badge" class="streak-badge" title="تتابع القراءة اليومي" aria-label="تتابع القراءة اليومي"><svg class="icon" aria-hidden="true"><use href="#i-flame"/></svg> لا يوجد تتابع بعد</div>
+                    <label class="word-menu-theme" for="reminder-time">
+                        <span>التذكير اليومي</span>
+                        <button id="btn-toggle-reminder" type="button" aria-pressed="false" aria-label="تفعيل التذكير اليومي">معطّل</button>
+                    </label>
                     <label class="word-menu-theme" for="theme-select">
                         <span>المظهر</span>
                         <select id="theme-select" class="theme-select" aria-label="اختر المظهر">
@@ -176,8 +197,8 @@
                 <input type="search" id="input-search-history" class="history-search-input" placeholder="ابحث في الكلمات أو الجذور أو المعاني..." aria-label="البحث في المخزون اللغوي">
             </div>
             <div class="history-filter-tabs" role="tablist" aria-label="تصفية المخزون">
-                <button type="button" id="tab-history-all" class="history-tab active" role="tab" aria-selected="true" aria-label="عرض كل كلمات المخزون">الكل (<span id="count-history-all">0</span>)</button>
-                <button type="button" id="tab-history-favs" class="history-tab" role="tab" aria-selected="false" aria-label="عرض الكلمات المفضلة">المفضلة ⭐ (<span id="count-history-favs">0</span>)</button>
+                <button type="button" id="tab-history-all" class="history-tab active" role="tab" aria-selected="true" aria-controls="history-list" tabindex="0" aria-label="عرض كل كلمات المخزون">الكل (<span id="count-history-all">0</span>)</button>
+                <button type="button" id="tab-history-favs" class="history-tab" role="tab" aria-selected="false" aria-controls="history-list" tabindex="-1" aria-label="عرض الكلمات المفضلة"><svg class="icon" aria-hidden="true"><use href="#i-star"/></svg> المفضلة (<span id="count-history-favs">0</span>)</button>
             </div>
             <div class="history-dialog-actions">
                 <button id="btn-start-practice" type="button" class="history-action-btn highlight" aria-label="بدء اختبار التثبيت والمراجعة"><svg class="icon"><use href="#i-sparkles"/></svg> اختبر حفظك</button>
@@ -185,8 +206,9 @@
             </div>
         </div>
         <div class="drawer-content">
+            <p class="history-stats-row" id="history-stats-row" role="status"></p>
             <p class="drawer-empty-msg" id="drawer-empty-msg">لم تفتح أي كلمات بعد.</p>
-            <ul class="history-list" id="history-list"></ul>
+            <ul class="history-list" id="history-list" role="tabpanel" aria-label="قائمة الكلمات"></ul>
         </div>
     </dialog>
 
@@ -222,17 +244,27 @@
         </div>
     </dialog>
 
+    <dialog class="shortcuts-dialog" id="onboarding-dialog" aria-labelledby="onboarding-title">
+        <header>
+            <div><p>أهلًا بك</p><h2 id="onboarding-title">كلمة واحدة كل يوم</h2></div>
+            <button class="icon-button" id="btn-close-onboarding" type="button" aria-label="إغلاق الترحيب">
+                <svg class="icon"><use href="#i-xmark"/></svg>
+            </button>
+        </header>
+        <div class="shortcuts-body">
+            <ol class="how-steps">
+                <li><span class="how-step-num" aria-hidden="true">١</span><h3>اقرأ كلمة اليوم</h3><p lang="en" dir="ltr">Read today's word.</p></li>
+                <li><span class="how-step-num" aria-hidden="true">٢</span><h3>قيّم استذكارك</h3><p lang="en" dir="ltr">Rate your recall.</p></li>
+                <li><span class="how-step-num" aria-hidden="true">٣</span><h3>عد في موعدها</h3><p lang="en" dir="ltr">Come back tomorrow — spaced repetition schedules the rest.</p></li>
+            </ol>
+        </div>
+    </dialog>
+
     <div id="storage-warning" class="storage-warning" role="alert" hidden>
         <span>تعذّر حفظ المخزون على هذا الجهاز؛ ستبقى الجلسة الحالية متاحة.</span>
         <button id="btn-reset-storage" type="button" class="reset-storage-button" aria-label="إعادة ضبط التخزين">إعادة ضبط التخزين</button>
     </div>
     <div id="audio-announcer" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="words.js" charset="utf-8"></script>
-    <script src="extension/shared/review-policy.js"></script>
-    <script src="extension/shared/speech.js"></script>
-    <script src="app-core.js" charset="utf-8"></script>
-    <script src="web-ui.js"></script>
-    <script src="app.js" charset="utf-8"></script>
 </body>
 </html>

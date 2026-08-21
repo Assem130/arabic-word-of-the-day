@@ -383,6 +383,7 @@ test("4. Interactive Explorer Controller & Reactive DOM Sync (initLexiconExplore
         const searchInput = sandbox.elements["input-lexicon-search"];
         searchInput.value = "السميدع";
         await searchInput.emit("input", { target: searchInput });
+        await new Promise(resolve => setTimeout(resolve, 200)); // input is debounced
         assert.equal(grid.children.length, 1, "Searching 'السميدع' must filter to 1 card");
         assert.equal(countEl.textContent, "عرض لفظ واحد من أصل 365 لفظاً");
         assert.equal(sandbox.elements["btn-clear-lexicon-filters"].hidden, false, "Clear filters button must be shown when filtered");
@@ -681,15 +682,14 @@ test("Lexicon speech feedback toast dismisses after a bounded delay", async () =
 });
 
 test("7. Tashkeel Typography & CSS Design Tokens Compliance", () => {
-    const revampCss = fs.readFileSync("revamp.css", "utf8");
     const styleCss = fs.readFileSync("style.css", "utf8");
     const indexHtml = fs.readFileSync("index.html", "utf8");
     const wordHtml = fs.readFileSync("word.html", "utf8");
 
     // 6.1 Strict Arabic Typography: Normal Letter Spacing
-    assert.ok(revampCss.includes(".lexicon-card-word"), "revamp.css must contain .lexicon-card-word");
-    assert.ok(revampCss.includes("letter-spacing: normal"), "Arabic elements must enforce letter-spacing: normal");
-    assert.ok(revampCss.includes("line-height: 1.35") || revampCss.includes("line-height: 1.4"), "Arabic cards must have adequate line-height for stacked tashkeel");
+    assert.ok(styleCss.includes(".lexicon-card-word"), "style.css must contain .lexicon-card-word");
+    assert.ok(styleCss.includes("letter-spacing: normal"), "Arabic elements must enforce letter-spacing: normal");
+    assert.ok(styleCss.includes("line-height: 1.35") || styleCss.includes("line-height: 1.4"), "Arabic cards must have adequate line-height for stacked tashkeel");
 
     // 6.2 HTML Markup
     assert.ok(indexHtml.includes('id="lexicon-grid"'), "index.html must include lexicon-grid");
@@ -700,7 +700,7 @@ test("7. Tashkeel Typography & CSS Design Tokens Compliance", () => {
     assert.equal((navActions.match(/class="nav-word-link"/g) || []).length, 1, "Only the word-of-day link may remain visible in the homepage nav actions");
     assert.equal(navActions.includes("nav-explorer-link"), false, "Explorer link must move into the homepage disclosure");
     assert.equal((indexHtml.match(/class="accordion-teaser"/g) || []).length, 3, "Each landing-page method card must include a concise teaser");
-    assert.match(revampCss, /\.home-menu-dropdown,\s*\.word-menu-dropdown\s*\{[^}]*left:\s*max\([^}]*right:\s*auto/s, "Homepage menu must anchor from the left side");
+    assert.match(styleCss, /\.home-menu-dropdown,\s*\.word-menu-dropdown\s*\{[^}]*left:\s*max\([^}]*right:\s*auto/s, "Homepage menu must anchor from the left side");
     assert.equal(wordHtml.includes('id="lexicon-dialog"'), false, "word.html must not ship a dead duplicate lexicon dialog");
     assert.equal(wordHtml.includes('id="btn-toggle-explorer"'), false, "word.html must not advertise an unbound explorer trigger");
 });

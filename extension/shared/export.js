@@ -105,7 +105,11 @@
     }
 
     const headers = ["Word", "Root", "Weight", "Vocalization", "Meaning", "English Meaning", "Example"];
-    const escapeField = (val) => `"${String(val ?? "").replace(/"/g, '""')}"`;
+    // ponytail: leading '=+-@ get a quote prefix (CSV formula-injection guard).
+    const escapeField = (val) => {
+      const text = String(val ?? "").replace(/"/g, '""');
+      return `"${/^[=+\-@]/.test(text) ? `'${text}` : text}"`;
+    };
     const rows = [headers.map(escapeField).join(",")];
 
     for (const w of wordsList) {

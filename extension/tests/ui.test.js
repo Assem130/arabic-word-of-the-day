@@ -1961,7 +1961,7 @@ test("Atlas startup loads a due badge and keeps zero due hidden", async () => {
   assert.equal(zero.elements.get("due-review-badge").hidden, true);
 });
 
-test("Atlas waits for review queue hydration before focusing the initial view", async () => {
+test("Atlas paints the daily word before hydrating the review queue", async () => {
   let releaseQueue;
   let queueResolved = false;
   const pendingQueue = new Promise((resolve) => { releaseQueue = resolve; });
@@ -1981,14 +1981,14 @@ test("Atlas waits for review queue hydration before focusing the initial view", 
   };
   const initializing = fixture.api.initialize();
   await new Promise(setImmediate);
-  assert.equal(fixture.calls.some((message) => message.type === "review.queue"), true);
-  assert.equal(heading.focuses, 0);
+  assert.equal(fixture.calls.some((message) => message.type === "review.queue"), true, "review queue must hydrate in the background");
+  assert.equal(fixture.elements.get("today-view").hidden, false, "the daily word must paint before the queue round-trip resolves");
+  assert.equal(heading.focuses, 1, "today view must be focused once, without waiting on the queue");
+  assert.equal(focusBeforeQueue, true, "focus must happen before queue hydration completes");
   queueResolved = true;
   releaseQueue({ kind: "queue", words: [], dueCount: 0, visibleCount: 0, remainingCount: 0 });
   await initializing;
-  assert.equal(focusBeforeQueue, false);
-  assert.equal(heading.focuses, 1);
-  assert.equal(fixture.elements.get("today-view").hidden, false);
+  assert.equal(heading.focuses, 1, "queue hydration must not refocus the view");
 });
 
 test("Atlas rejected queues render a retryable error and do not claim completion", async () => {

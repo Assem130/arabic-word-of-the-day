@@ -177,7 +177,12 @@
         }
 
         const headers = ["Word", "Root", "Weight", "Vocalization", "Meaning", "English Meaning", "Example"];
-        const escapeField = val => `"${String(val ?? "").replace(/"/g, '""')}"`;
+        // ponytail: leading '=+-@ get a quote prefix (CSV formula-injection guard);
+        // drop the prefix if exports are only ever opened in plain-text tools.
+        const escapeField = val => {
+            const text = String(val ?? "").replace(/"/g, '""');
+            return `"${/^[=+\-@]/.test(text) ? `'${text}` : text}"`;
+        };
         const rows = [headers.map(escapeField).join(",")];
         for (const w of wordsList) {
             if (!w || typeof w !== "object") continue;
@@ -533,30 +538,45 @@
             .trim();
     }
 
+    // ponytail: per-word normalized search fields are memoized in a WeakMap
+    // (corpus is static for the page's lifetime); entries die with the words.
+    const searchFieldsCache = new WeakMap();
+    function getSearchFields(w) {
+        let fields = searchFieldsCache.get(w);
+        if (fields) return fields;
+        fields = {
+            normWord: normalizeArabicText(w.word),
+            normRoot: normalizeArabicText(w.root),
+            compactRoot: normalizeArabicText(w.root).replace(/\s+/g, ""),
+            normWeight: normalizeArabicText(w.weight),
+            normCategory: normalizeArabicText(w.category),
+            normMeaning: normalizeArabicText(w.meaning),
+            normEnglish: String(w.englishMeaning || "").toLowerCase()
+        };
+        try {
+            searchFieldsCache.set(w, fields);
+        } catch {}
+        return fields;
+    }
+
     function searchLexicon(query, wordsDb) {
         if (!Array.isArray(wordsDb) || wordsDb.length === 0) return [];
         const rawQ = typeof query === "string" ? query.trim() : "";
         if (!rawQ) return [...wordsDb];
         const normQ = normalizeArabicText(rawQ).toLowerCase();
         const compactQ = normQ.replace(/\s+/g, "");
+        const rawLower = rawQ.toLowerCase();
 
         return wordsDb.filter(w => {
             if (!w || typeof w !== "object") return false;
-            const normWord = normalizeArabicText(w.word);
-            const normRoot = normalizeArabicText(w.root);
-            const compactRoot = normRoot.replace(/\s+/g, "");
-            const normWeight = normalizeArabicText(w.weight);
-            const normCategory = normalizeArabicText(w.category);
-            const normMeaning = normalizeArabicText(w.meaning);
-            const normEnglish = String(w.englishMeaning || "").toLowerCase();
-
-            return normWord.includes(normQ)
-                || compactRoot.includes(compactQ)
-                || normRoot.includes(normQ)
-                || normWeight.includes(normQ)
-                || normCategory.includes(normQ)
-                || normMeaning.includes(normQ)
-                || normEnglish.includes(rawQ.toLowerCase());
+            const f = getSearchFields(w);
+            return f.normWord.includes(normQ)
+                || f.compactRoot.includes(compactQ)
+                || f.normRoot.includes(normQ)
+                || f.normWeight.includes(normQ)
+                || f.normCategory.includes(normQ)
+                || f.normMeaning.includes(normQ)
+                || f.normEnglish.includes(rawLower);
         });
     }
 
@@ -927,11 +947,10 @@
             }
         }
 
-        // 6. Preserve streak info if present
-        if (raw.streak !== undefined) {
-            state.streak = raw.streak;
-        } else if (raw.streakData !== undefined) {
-            state.streak = raw.streakData;
+        // 6. Preserve streak info if present (type-validated; never trust imported shapes)
+        const rawStreak = raw.streak !== undefined ? raw.streak : raw.streakData;
+        if (Number.isInteger(rawStreak) && rawStreak >= 0) {
+            state.streak = rawStreak;
         }
 
         return state;

@@ -223,6 +223,9 @@
     }
   }
 
+  // ponytail: cap rendered results; refine the query if the corpus grows large.
+  const MAX_SEARCH_RESULTS = 100;
+
   function search() {
     const rawQuery = elements["atlas-search"].value;
     elements["explore-card"].replaceChildren();
@@ -265,8 +268,9 @@
       elements["search-count"].textContent = `${matches.length} نتيجة`;
     }
 
+    const shown = queryClean ? matches.slice(0, MAX_SEARCH_RESULTS) : matches;
     elements["search-results"].replaceChildren();
-    for (const word of matches) {
+    for (const word of shown) {
       const button = document.createElement("button");
       button.type = "button";
       button.textContent = `${word.word} — ${word.meaningAr}`;
@@ -779,8 +783,6 @@
     updateStreakBadge(assignment?.dateKey);
     const assignedWord = assignment?.kind === "assigned" ? wordById(assignment.wordId) : null;
     if (assignment?.kind === "assigned" && !assignedWord) return renderError("الكلمة غير متاحة.");
-    const reviewResult = await loadDueReviews({ force: true });
-    if (reviewResult?.kind === "recovery" || ReviewSession.isRecovery(reviewSession)) return;
     if (assignment?.kind === "assigned") {
       if (dateKey) {
         viewWord(assignedWord);
@@ -788,14 +790,16 @@
       } else {
         mergeAssignment(assignment);
         state.today = { ...assignment, word: assignedWord };
+        // Paint the daily word before waiting on the review queue round-trip.
         renderToday();
+        show("today");
+        const reviewResult = await loadDueReviews({ force: true });
+        if (reviewResult?.kind === "recovery" || ReviewSession.isRecovery(reviewSession)) return;
         if (exploreRequested) {
           elements["atlas-search"].value = requestedQuery;
           search();
           show("explore");
           elements["atlas-search"].focus();
-        } else {
-          show("today");
         }
       }
     } else if (exploreRequested) {
@@ -1146,6 +1150,10 @@
     elements.history.addEventListener("click", () => { show("history"); renderHistory(); });
     elements.settings.addEventListener("click", () => { show("settings"); hydrateSettings(); });
     elements["atlas-search"].addEventListener("input", search);
+    // ponytail: no debounce here — the packaging contract bans timer APIs in
+    // extension pages, and canonical-key memoization keeps keystroke cost low.
+    // Add debouncing (and lift the packaging ban) if the corpus grows past a
+    // few thousand records.
     if (elements["explore-lookup"]) {
       elements["explore-lookup"].hidden = Boolean(globalThis.browser);
       if (!globalThis.browser) elements["explore-lookup"].addEventListener("click", () => lookupOnline(null, elements["explore-lookup"]));

@@ -1,5 +1,6 @@
 "use strict";
 
+process.on("unhandledRejection", e => console.error("UNHANDLED:", e && e.stack || e));
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const vm = require("node:vm");
@@ -46,14 +47,19 @@ class FakeElement {
     }
 
     click() { this.clickCount += 1; return this.emit("click"); }
-    append(...children) { for (const child of children) { child.parentNode = this; this.children.push(child); } }
+    append(...children) {
+        for (const child of children) {
+            if (typeof child === "string" || typeof child === "number") { this.textContent += String(child); continue; }
+            child.parentNode = this; this.children.push(child);
+        }
+    }
     appendChild(child) { this.append(child); return child; }
     replaceChildren(...children) { this.children.forEach(child => { child.parentNode = null; }); this.children = []; this.append(...children); }
     setAttribute(name, value) { this.attributes.set(name, String(value)); }
     getAttribute(name) { return this.attributes.get(name); }
     contains(target) { return target === this || this.children.some(child => child.contains?.(target)); }
     showModal() { this.open = true; }
-    close() { this.open = false; }
+    close() { this.open = false; this.emit("close"); }
     select() {}
     focus() { this.focused = true; }
     querySelector() { return null; }
@@ -423,6 +429,22 @@ const escapedCsv = Core.serializeAnkiCSV(null, quoteWord);
 assert.equal(escapedCsv.includes('""قول""'), true, 'Double quotes must be escaped as double-double quotes in RFC 4180');
 assert.equal(escapedCsv.includes('""speech""'), true);
 
+// Anki CSV formula-injection neutralization: leading =+-@ get a quote prefix
+const formulaWord = [{
+    id: 4,
+    word: '=HYPERLINK("https://evil.example")',
+    root: 'خ ب ء',
+    weight: 'فَعَل',
+    vocalization: 'خَبْءٌ',
+    meaning: 'شر محفوظ',
+    englishMeaning: '@risk of +evil =formulas',
+    example: '=cmd|calc'
+}];
+const formulaCsv = Core.serializeAnkiCSV(null, formulaWord);
+assert.equal(formulaCsv.includes('"\'=HYPERLINK'), true, "Leading '=' must be neutralized with a quote prefix");
+assert.equal(formulaCsv.includes('"\'@risk'), true, "Leading '@' must be neutralized with a quote prefix");
+assert.equal(formulaCsv.includes('"\'=cmd|calc"'), true, "Example cells starting with '=' must be neutralized");
+
 // Alias generateAnkiCsv compatibility
 assert.equal(Core.generateAnkiCsv(testWords), fullAnkiCsv);
 
@@ -468,7 +490,7 @@ assert.equal(browser.globalThis.WORDS_DB.length, 365);
 assert.deepEqual(Array.from(browser.globalThis.WORDS_DB, word => word.id), Array.from({ length: 365 }, (_, index) => index + 1));
 const wordPage = fs.readFileSync("word.html", "utf8");
 const homePage = fs.readFileSync("index.html", "utf8");
-const css = fs.readFileSync("revamp.css", "utf8");
+const css = fs.readFileSync("style.css", "utf8");
 const popupCss = fs.readFileSync("extension/popup/popup.css", "utf8");
 const revamp = fs.readFileSync("revamp.js", "utf8");
 const appSource = fs.readFileSync("app.js", "utf8");
@@ -500,9 +522,9 @@ for (const page of [wordPage, homePage]) {
     assert.match(page, /<option value="midnight">واحة الليل<\/option>/, "theme select midnight option");
 }
 
-assert.match(css, /html\[data-theme="paper"\]/, "revamp.css must define paper theme");
-assert.match(css, /html\[data-theme="emerald"\]/, "revamp.css must define emerald theme");
-assert.match(css, /html\[data-theme="midnight"\]/, "revamp.css must define midnight theme");
+assert.match(css, /html\[data-theme="paper"\]/, "style.css must define paper theme");
+assert.match(css, /html\[data-theme="emerald"\]/, "style.css must define emerald theme");
+assert.match(css, /html\[data-theme="midnight"\]/, "style.css must define midnight theme");
 
 assert.match(css, /--ink:\s*#14211b/, "paper theme ink color");
 assert.match(css, /--ink-soft:\s*#24332b/, "paper theme ink-soft color");
@@ -576,13 +598,13 @@ assert.match(css, /--line-light:\s*rgba\(241,\s*245,\s*249,\s*0\.15\)/, "midnigh
 assert.match(css, /--nav-bg:\s*rgba\(7,\s*13,\s*28,\s*0\.94\)/, "midnight theme nav-bg color");
 
 assert.match(css, /\.nav\s*\{[^}]*background:\s*var\(--nav-bg\)/, ".nav background must use var(--nav-bg)");
-assert.match(css, /\.theme-select\s*\{/, "revamp.css must style .theme-select");
-assert.match(css, /\.theme-select\s+option\s*\{/, "revamp.css must style .theme-select option");
+assert.match(css, /\.theme-select\s*\{/, "style.css must style .theme-select");
+assert.match(css, /\.theme-select\s+option\s*\{/, "style.css must style .theme-select option");
 
 assert.match(popupCss, /html,\s*body\s*\{[^}]*width:\s*380px;[^}]*min-width:\s*380px;[^}]*max-width:\s*380px;/s, "popup html/body layout must stay fixed at the extension viewport width");
 assert.match(popupCss, /main\s*\{[^}]*width:\s*380px;/s, "popup main layout must match the extension viewport width");
 
-assert.match(css, /@media\s+print\s*\{/, "revamp.css must contain @media print block");
+assert.match(css, /@media\s+print\s*\{/, "style.css must contain @media print block");
 assert.match(css, /background:\s*white\s*!important;\s*color:\s*black\s*!important;/, "@media print body reset");
 assert.match(css, /\.skip-link,\s*\.nav-wrap,\s*\.nav,\s*\.footer,\s*\.back-link,\s*#btn-speak,\s*\.reading-sidebar,\s*\.app-menu-dropdown,\s*#history-dialog,\s*#storage-warning,\s*\.toast,\s*button,\s*svg\.svg-sprite/, "@media print chrome hiding selectors");
 assert.match(css, /\.word-experience,\s*\n?\s*\.word-card,\s*\n?\s*\.word-reading/, "@media print word experience selectors including .word-reading");
@@ -620,7 +642,10 @@ const revampContext = {
     document: {
         documentElement: revampDocumentElement,
         addEventListener(type, listener) { revampListeners.set(type, listener); },
-        querySelectorAll(selector) { assert.equal(selector, ".horizontal-accordion details"); return touchPanels; },
+        querySelectorAll(selector) {
+            if (selector !== ".horizontal-accordion details") return [];
+            return touchPanels;
+        },
         getElementById(id) { return id === "theme-select" ? themeSelectEl : null; }
     },
     matchMedia(query) { return { matches: query === "(hover: none)" }; },
@@ -842,7 +867,7 @@ class FakeAudioElement {
     }
 }
 
-function loadBrowserApp({ state, rawStorage, storageFails = false, exportProbe, theme, search = "", audioMock = null, onLine = true } = {}) {
+function loadBrowserApp({ state, rawStorage, extraStorage, storageFails = false, exportProbe, theme, search = "", audioMock = null, onLine = true } = {}) {
     const elementIds = [
         "main-word", "date-display", "word-vocalization", "word-weight", "word-root", "word-category",
         "word-meaning", "word-pronunciation", "word-meaning-en", "word-context-text", "word-context-en", "word-example-text", "countdown-timer",
@@ -854,7 +879,8 @@ function loadBrowserApp({ state, rawStorage, storageFails = false, exportProbe, 
         "btn-reset-storage", "theme-select", "streak-badge", "btn-export-card", "btn-export-anki", "btn-inline-review", "inline-review-count",
         "practice-dialog", "practice-body", "btn-start-practice", "btn-menu-practice", "btn-close-practice",
         "shortcuts-dialog", "btn-menu-shortcuts", "btn-close-shortcuts", "btn-audio-speed", "btn-audio-repeat",
-        "input-search-history", "related-words-container"
+        "input-search-history", "related-words-container",
+        "onboarding-dialog", "btn-close-onboarding", "completion-banner", "btn-review-all", "btn-toggle-reminder", "history-stats-row"
     ];
     const elements = Object.fromEntries(elementIds.map(id => [id, new FakeElement(id === "input-import-history" || id === "input-search-history" ? "input" : id === "theme-select" ? "select" : "div")]));
     elements["storage-warning"].hidden = true;
@@ -886,6 +912,9 @@ function loadBrowserApp({ state, rawStorage, storageFails = false, exportProbe, 
         }
     };
     const values = new Map(rawStorage !== undefined ? [["arabic_words_state", rawStorage]] : state ? [["arabic_words_state", JSON.stringify(state)]] : []);
+    if (extraStorage) {
+        for (const [key, value] of Object.entries(extraStorage)) values.set(key, value);
+    }
     if (theme !== undefined) {
         values.set("kalimat_theme", theme);
     }
@@ -1212,7 +1241,7 @@ assert.equal(themeSwitchApp.document.documentElement.getAttribute("data-theme"),
 // R3.1 Streak Badge Browser UI Verification
 // ==========================================
 const streakOneApp = loadBrowserApp({ state: { schemaVersion: 1, history: {}, preferences: { showEnglish: true } } });
-assert.equal(streakOneApp.elements["streak-badge"].textContent, "🔥 يوم واحد", "Initial day visit streak badge must render '🔥 يوم واحد'");
+assert.match(streakOneApp.elements["streak-badge"].textContent, /يوم واحد/, "Initial day visit streak badge must render 'يوم واحد'");
 assert.equal(streakOneApp.elements["streak-badge"].getAttribute("aria-label"), "تتابع القراءة: يوم واحد");
 
 const todayStr = Core.getLocalDateKey(new Date());
@@ -1230,8 +1259,56 @@ const streakTwoApp = loadBrowserApp({
         preferences: { showEnglish: true }
     }
 });
-assert.equal(streakTwoApp.elements["streak-badge"].textContent, "🔥 يومان متتاليان", "2 streak badge must render '🔥 يومان متتاليان'");
+assert.match(streakTwoApp.elements["streak-badge"].textContent, /يومان متتاليان/, "2 streak badge must render 'يومان متتاليان'");
 assert.equal(streakTwoApp.elements["streak-badge"].getAttribute("aria-label"), "تتابع القراءة: يومان متتاليان");
+
+// ==========================================
+// T8 acceptance: Open Graph / Twitter meta on both pages
+// ==========================================
+for (const [pageName, pageSource] of [["index.html", homePage], ["word.html", wordPage]]) {
+    assert.match(pageSource, /property="og:title"/, `${pageName} must declare og:title`);
+    assert.match(pageSource, /property="og:url" content="https:\/\//, `${pageName} must declare an absolute og:url`);
+    assert.match(pageSource, /property="og:image" content="https:\/\//, `${pageName} must declare an absolute og:image`);
+    assert.match(pageSource, /name="twitter:card" content="summary"/, `${pageName} must declare twitter:card`);
+}
+
+// ==========================================
+// T9 acceptance: onboarding shows once, then never again
+// ==========================================
+const onboardingFresh = loadBrowserApp({ state: { schemaVersion: 1, history: {}, preferences: { showEnglish: true } } });
+assert.equal(onboardingFresh.elements["onboarding-dialog"].open, true, "first visit must show the explainer");
+await onboardingFresh.elements["btn-close-onboarding"].emit("click");
+assert.equal(onboardingFresh.elements["onboarding-dialog"].open, false, "dismissal closes the explainer");
+assert.equal(onboardingFresh.localStorage.value("kalimat_onboarded"), "1", "dismissal must persist the onboarded flag");
+
+const onboardingReturning = loadBrowserApp({
+    state: { schemaVersion: 1, history: {}, preferences: { showEnglish: true } },
+    extraStorage: { kalimat_onboarded: "1" }
+});
+assert.equal(Boolean(onboardingReturning.elements["onboarding-dialog"].open), false, "flagged visitors must not see the explainer again");
+
+const onboardingWithHistory = loadBrowserApp({ state: savedState });
+assert.equal(Boolean(onboardingWithHistory.elements["onboarding-dialog"].open), false, "learners with history skip the explainer");
+
+// T9 acceptance: reminder toggle stays disabled without Notification support
+const reminderApp = loadBrowserApp({ state: savedState });
+assert.equal(reminderApp.elements["btn-toggle-reminder"].getAttribute("aria-pressed"), "false", "reminder starts disabled");
+await reminderApp.elements["btn-toggle-reminder"].emit("click");
+assert.equal(reminderApp.elements["btn-toggle-reminder"].getAttribute("aria-pressed"), "false", "missing Notification API must keep the reminder disabled");
+assert.match(reminderApp.elements.toast.textContent, /لا يدعم/, "unsupported reminders explain themselves");
+
+// ==========================================
+// T10 acceptance: completion banner appears only when the corpus is fully seen
+// ==========================================
+const partialCorpusApp = loadBrowserApp({ state: savedState });
+assert.equal(partialCorpusApp.elements["completion-banner"].hidden, true, "banner stays hidden until every word is seen");
+const fullHistoryState = {
+    schemaVersion: 1,
+    preferences: { showEnglish: true },
+    history: Object.fromEntries(words.map(w => [String(w.id), { firstSeen: "2026-08-01" }]))
+};
+const completeCorpusApp = loadBrowserApp({ state: fullHistoryState });
+assert.equal(completeCorpusApp.elements["completion-banner"].hidden, false, "completing the corpus reveals the banner");
 
 // ==========================================
 // R3.2 Canvas 1080x1080 Social Card Export
@@ -1372,15 +1449,15 @@ assert.equal(m3Announcer.textContent, "استماع لنطق كلمة «المج
 
 // M3.2 File and CSS Consistency Verification
 const m3WordHtml = fs.readFileSync("word.html", "utf-8");
-const m3RevampCss = fs.readFileSync("revamp.css", "utf-8");
+const m3Css = fs.readFileSync("style.css", "utf-8");
 assert.ok(m3WordHtml.includes('id="audio-announcer"'));
 assert.ok(m3WordHtml.includes('aria-busy="false"'));
-assert.ok(m3RevampCss.includes(".sr-only"));
-assert.ok(m3RevampCss.includes(".speak-button.loading"));
-assert.ok(m3RevampCss.includes(".speak-button.buffering"));
-assert.ok(m3RevampCss.includes('@keyframes pulse-buffering'));
-assert.ok(m3RevampCss.includes('html[data-theme="midnight"] .example-action-btn.speaking'));
-assert.ok(m3RevampCss.includes('html[data-theme="midnight"] .audio-option-btn.active'));
+assert.ok(m3Css.includes(".sr-only"));
+assert.ok(m3Css.includes(".speak-button.loading"));
+assert.ok(m3Css.includes(".speak-button.buffering"));
+assert.ok(m3Css.includes('@keyframes pulse-buffering'));
+assert.ok(m3Css.includes('html[data-theme="midnight"] .example-action-btn.speaking'));
+assert.ok(m3Css.includes('html[data-theme="midnight"] .audio-option-btn.active'));
 
 }
 

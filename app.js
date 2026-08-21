@@ -58,6 +58,7 @@ const dueReviewBadge = document.getElementById("due-review-badge");
 const dueCountEl = document.getElementById("due-count");
 const btnInlineReview = document.getElementById("btn-inline-review");
 const inlineReviewCount = document.getElementById("inline-review-count");
+const btnReviewAll = document.getElementById("btn-review-all");
 const btnExportCard = document.getElementById("btn-export-card");
 const btnExportAnki = document.getElementById("btn-export-anki");
 const practiceDialog = document.getElementById("practice-dialog");
@@ -139,6 +140,9 @@ document.addEventListener("DOMContentLoaded", () => {
     startCountdown();
     updateStreakUI();
     updateDueReviewBadge();
+    setupOnboarding();
+    setupInstallPrompt();
+    setupDailyReminder();
 
     let action = null;
     try {
@@ -160,12 +164,12 @@ document.addEventListener("DOMContentLoaded", () => {
 function loadState() {
     const fallbackDate = Core ? Core.getLocalDateKey(new Date()) : "";
     try {
-        const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-        const stored = Core.inspectStoredState(raw, VALID_WORD_IDS, fallbackDate);
+        const raw = localStorage.getItem(STORAGE_KEY);
+        const stored = Core.inspectStoredState(JSON.parse(raw || "null"), VALID_WORD_IDS, fallbackDate);
         appState = stored.state;
         persistenceBlocked = !stored.canPersist;
         if (persistenceBlocked) document.getElementById("storage-warning").hidden = false;
-        else saveState();
+        else if (JSON.stringify(appState) !== raw) saveState();
     } catch {
         appState = (Core && typeof Core.createDefaultState === "function") ? Core.createDefaultState() : { version: 2, schemaVersion: 2, srs: {}, history: {}, favorites: {}, preferences: {} };
         persistenceBlocked = true;
@@ -177,6 +181,7 @@ function saveState() {
     if (persistenceBlocked) return false;
     try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+        reviewStatsCache = null;
         return true;
     } catch {
         document.getElementById("storage-warning").hidden = false;
@@ -184,16 +189,36 @@ function saveState() {
     }
 }
 
+// getReviewStats deep-validates the whole state; memoize per state identity so
+// repeated badge/menu renders between mutations don't re-migrate. appState is
+// replaced (or the cache dropped in saveState) on every real mutation.
+let reviewStatsCache = null;
+function getCachedReviewStats() {
+    if (!Core || typeof Core.getReviewStats !== "function") return null;
+    const dateKey = activeDateKey || Core.getLocalDateKey(new Date());
+    if (reviewStatsCache && reviewStatsCache.state === appState && reviewStatsCache.dateKey === dateKey) {
+        return reviewStatsCache.stats;
+    }
+    const stats = Core.getReviewStats(appState, dateKey, WORDS_DB);
+    reviewStatsCache = { state: appState, dateKey, stats };
+    return stats;
+}
+
 function determineTodayWord(now = new Date()) {
     const dateKey = Core.getLocalDateKey(now);
     const word = WORDS_DB[Core.getDailyWordIndex(dateKey, WORDS_DB.length)];
+    let changed = false;
     if (!appState.history) appState.history = {};
-    if (!appState.history[word.id]) appState.history[word.id] = { firstSeen: dateKey };
+    if (!appState.history[word.id]) {
+        appState.history[word.id] = { firstSeen: dateKey };
+        changed = true;
+    }
     if (!appState.srs) appState.srs = {};
     if (!appState.srs[word.id] && Core && typeof Core.createDefaultSrsItem === "function") {
         appState.srs[word.id] = Core.createDefaultSrsItem(word.id, dateKey);
+        changed = true;
     }
-    saveState();
+    if (changed) saveState();
     return word;
 }
 
@@ -236,9 +261,17 @@ function renderWord(word, archiveDateKey) {
     archivePreviewNote.hidden = !isArchivePreview;
     if (isArchivePreview) archivePreviewNote.textContent = `أنت تستعرض كلمة من مخزونك بتاريخ ${displayDate}، وليست كلمة اليوم.`;
     btnReturnToday.hidden = !isArchivePreview;
+    updateCompletionBanner();
     updateHistoryUI();
     updateStreakUI();
     updateDueReviewBadge();
+}
+
+function updateCompletionBanner() {
+    const banner = document.getElementById("completion-banner");
+    if (!banner) return;
+    const seenCount = Object.keys(appState.history || {}).length;
+    banner.hidden = !(WORDS_DB && seenCount >= WORDS_DB.length);
 }
 
 function renderRelatedWords(word) {
@@ -266,7 +299,12 @@ function renderRelatedWords(word) {
         const pill = document.createElement("button");
         pill.type = "button";
         pill.className = "related-word-pill";
-        pill.innerHTML = `<span>${relWord.word}</span> <span class="related-word-badge">(${relation})</span>`;
+        const wordSpan = document.createElement("span");
+        wordSpan.textContent = relWord.word;
+        const badgeSpan = document.createElement("span");
+        badgeSpan.className = "related-word-badge";
+        badgeSpan.textContent = `(${relation})`;
+        pill.append(wordSpan, " ", badgeSpan);
         pill.title = `استعرض «${relWord.word}» (${relWord.meaning})`;
         pill.addEventListener("click", () => {
             if (!appState.history[relWord.id]) {
@@ -300,11 +338,31 @@ function updateAudioControlsUI() {
 function renderExample(word) {
     const cleanWord = word.word.replace(/[\u064B-\u065F]/g, "");
     const pattern = new RegExp(cleanWord.split("").join("[\\u064B-\\u065F]*"), "g");
-    const highlighted = word.example.replace(pattern, match => `<span class="highlight-word">${match}</span>`);
-    const parts = highlighted.split(" — ");
-    elExampleText.innerHTML = parts.length > 1
-        ? `«${parts[0]}» <cite>— ${parts[1]}</cite>`
-        : `«${highlighted}»`;
+    const sepIndex = word.example.indexOf(" — ");
+    const quoteText = sepIndex >= 0 ? word.example.slice(0, sepIndex) : word.example;
+    const citeText = sepIndex >= 0 ? word.example.slice(sepIndex + 3) : null;
+
+    elExampleText.replaceChildren();
+    elExampleText.append("«");
+    let last = 0;
+    quoteText.replace(pattern, (match, offset) => {
+        if (offset > last) elExampleText.append(quoteText.slice(last, offset));
+        const span = document.createElement("span");
+        span.className = "highlight-word";
+        span.textContent = match;
+        elExampleText.append(span);
+        last = offset + match.length;
+        return match;
+    });
+    if (last < quoteText.length) elExampleText.append(quoteText.slice(last));
+    elExampleText.append("»");
+
+    if (citeText !== null) {
+        elExampleText.append(" ");
+        const cite = document.createElement("cite");
+        cite.textContent = `— ${citeText}`;
+        elExampleText.append(cite);
+    }
 }
 
 function updateFavoriteButton(word) {
@@ -363,28 +421,162 @@ function getArabicDateFromKey(dateKey) {
     return getFormattedArabicDate(new Date(year, month - 1, day));
 }
 
+const ONBOARDED_KEY = "kalimat_onboarded";
+const REMINDER_KEY = "kalimat_reminder";
+
+function markOnboarded() {
+    try { localStorage.setItem(ONBOARDED_KEY, "1"); } catch {}
+}
+
+function setupOnboarding() {
+    const dialog = document.getElementById("onboarding-dialog");
+    if (!dialog || typeof dialog.showModal !== "function") return;
+    let seen = false;
+    try { seen = Boolean(localStorage.getItem(ONBOARDED_KEY)); } catch {}
+    // Genuinely new = no history, or only the auto-added daily word of today.
+    const historyEntries = Object.values(appState.history || {});
+    const isGenuinelyNew = historyEntries.length === 0
+        || (historyEntries.length === 1 && historyEntries[0]?.firstSeen === activeDateKey);
+    if (seen || !isGenuinelyNew) return;
+    dialog.addEventListener("close", markOnboarded);
+    const closeBtn = document.getElementById("btn-close-onboarding");
+    if (closeBtn && typeof closeBtn.addEventListener === "function") {
+        closeBtn.addEventListener("click", () => {
+            if (typeof dialog.close === "function") dialog.close();
+        });
+    }
+    dialog.showModal();
+}
+
+function setupInstallPrompt() {
+    if (typeof window === "undefined" || typeof window.addEventListener !== "function") return;
+    window.addEventListener("beforeinstallprompt", (event) => {
+        if (event && typeof event.preventDefault === "function") event.preventDefault();
+        const navActions = document.querySelector(".nav-actions");
+        if (!navActions || document.getElementById("btn-install")) return;
+        const btn = document.createElement("button");
+        btn.id = "btn-install";
+        btn.type = "button";
+        btn.className = "icon-button install-button";
+        btn.textContent = "تثبيت";
+        btn.setAttribute("aria-label", "تثبيت التطبيق على هذا الجهاز");
+        btn.addEventListener("click", async () => {
+            if (!deferredInstallEvent) return;
+            deferredInstallEvent.prompt();
+            try { await deferredInstallEvent.userChoice; } catch {}
+            deferredInstallEvent = null;
+            btn.remove();
+        });
+        navActions.appendChild(btn);
+        deferredInstallEvent = event;
+    });
+}
+
+function readReminder() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(REMINDER_KEY) || "null");
+        if (parsed && typeof parsed === "object") {
+            return { enabled: Boolean(parsed.enabled), time: typeof parsed.time === "string" ? parsed.time : "20:00", lastFired: typeof parsed.lastFired === "string" ? parsed.lastFired : "" };
+        }
+    } catch {}
+    return { enabled: false, time: "20:00", lastFired: "" };
+}
+
+function writeReminder(reminder) {
+    try { localStorage.setItem(REMINDER_KEY, JSON.stringify(reminder)); } catch {}
+}
+
+// ponytail: reminders fire only while a Kalimat tab is open (no push server);
+// a service worker + push would be the upgrade path for closed-browser reminders.
+function setupDailyReminder() {
+    const btn = document.getElementById("btn-toggle-reminder");
+    if (!btn) return;
+    const render = () => {
+        const reminder = readReminder();
+        btn.setAttribute("aria-pressed", String(reminder.enabled));
+        btn.textContent = reminder.enabled ? `مفعّل ${reminder.time}` : "معطّل";
+    };
+    btn.addEventListener("click", async () => {
+        const reminder = readReminder();
+        if (!reminder.enabled) {
+            if (typeof Notification === "undefined") {
+                showToast("هذا المتصفح لا يدعم الإشعارات.");
+                return;
+            }
+            let permission = Notification.permission;
+            if (permission === "default" && typeof Notification.requestPermission === "function") {
+                try { permission = await Notification.requestPermission(); } catch { permission = "denied"; }
+            }
+            if (permission !== "granted") {
+                showToast("لم يُسمح بعرض الإشعارات.");
+                return;
+            }
+            reminder.enabled = true;
+        } else {
+            reminder.enabled = false;
+        }
+        writeReminder(reminder);
+        render();
+    });
+    render();
+    setInterval(() => {
+        const reminder = readReminder();
+        if (!reminder.enabled || typeof Notification === "undefined" || Notification.permission !== "granted") return;
+        const now = new Date();
+        const hhmm = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+        const dateKeyNow = Core ? Core.getLocalDateKey(now) : "";
+        if (reminder.time === hhmm && reminder.lastFired !== dateKeyNow) {
+            reminder.lastFired = dateKeyNow;
+            writeReminder(reminder);
+            try {
+                const notification = new Notification("كَلِمات", { body: "موعد كلمة اليوم! تفضّل بالقراءة.", tag: "kalimat-daily" });
+                if (typeof notification.addEventListener === "function") {
+                    notification.addEventListener("click", () => {
+                        if (window && typeof window.focus === "function") window.focus();
+                        notification.close();
+                    });
+                }
+            } catch {}
+        }
+    }, 30000);
+}
+
+let deferredInstallEvent = null;
+
+function streakPhrase(count) {
+    if (count <= 0) return "لا يوجد تتابع بعد";
+    if (count === 1) return "يوم واحد";
+    if (count === 2) return "يومان متتاليان";
+    if (count <= 10) return `${count} أيام متتالية`;
+    return `${count} يوماً متتالياً`;
+}
+
+function setBadgeContent(badge, phrase) {
+    if (typeof document === "undefined" || typeof document.createElementNS !== "function") {
+        badge.textContent = `🔥 ${phrase}`;
+        return;
+    }
+    badge.replaceChildren();
+    const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    icon.setAttribute("class", "icon");
+    icon.setAttribute("aria-hidden", "true");
+    const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+    use.setAttribute("href", "#i-flame");
+    icon.appendChild(use);
+    badge.append(icon, ` ${phrase}`);
+}
+
 function updateStreakUI() {
     const badge = streakBadge || (typeof document !== "undefined" && document.getElementById ? document.getElementById("streak-badge") : null);
     if (!badge || !Core) return;
     const today = activeDateKey || (Core.getLocalDateKey ? Core.getLocalDateKey(new Date()) : "");
     const streakResult = Core.calculateStreak(appState.history || {}, today);
     const count = typeof streakResult === "object" ? streakResult.currentStreak : Number(streakResult);
-    if (count <= 0) {
-        badge.textContent = "🔥 لا يوجد تتابع بعد";
-        badge.setAttribute("aria-label", "تتابع القراءة: لا يوجد تتابع بعد");
-    } else if (count === 1) {
-        badge.textContent = "🔥 يوم واحد";
-        badge.setAttribute("aria-label", "تتابع القراءة: يوم واحد");
-    } else if (count === 2) {
-        badge.textContent = "🔥 يومان متتاليان";
-        badge.setAttribute("aria-label", "تتابع القراءة: يومان متتاليان");
-    } else if (count >= 3 && count <= 10) {
-        badge.textContent = `🔥 ${count} أيام متتالية`;
-        badge.setAttribute("aria-label", `تتابع القراءة: ${count} أيام متتالية`);
-    } else {
-        badge.textContent = `🔥 ${count} يوماً متتالياً`;
-        badge.setAttribute("aria-label", `تتابع القراءة: ${count} يوماً متتالياً`);
-    }
+    const maxCount = typeof streakResult === "object" && Number.isInteger(streakResult.maxStreak) ? streakResult.maxStreak : count;
+    let phrase = streakPhrase(count);
+    if (count > 0 && maxCount > count) phrase += ` (الأفضل: ${streakPhrase(maxCount).replace(" متتاليان", "").replace(" متتالية", "").replace(" متتالياً", "")})`;
+    setBadgeContent(badge, phrase);
+    badge.setAttribute("aria-label", `تتابع القراءة: ${phrase}`);
     badge.title = "تتابع القراءة اليومي";
 }
 
@@ -634,7 +826,17 @@ function setButtonSpeakingState(buttonEl, isSpeaking, activeIcon = "i-waveform",
     return setButtonPlaybackState(buttonEl, isSpeaking ? "speaking" : "idle", activeIcon, idleIcon);
 }
 
-function updateHistoryUI() {
+let historyUIStale = true;
+function updateHistoryUI(force = false) {
+    // After the initial build, skip full rebuilds while the dialog is hidden;
+    // keep the always-visible count fresh and rebuild on next open.
+    if (!force && !historyUIStale && !(historyDialog && historyDialog.open)) {
+        historyUIStale = true;
+        const historyCount = Object.keys(appState.history || {}).length;
+        if (countHistoryBadge) countHistoryBadge.textContent = String(historyCount);
+        return;
+    }
+    historyUIStale = false;
     const allHistory = getSortedHistoryItems()
         .map(item => ({
             ...item,
@@ -646,6 +848,17 @@ function updateHistoryUI() {
     if (countHistoryBadge) countHistoryBadge.textContent = String(allHistory.length);
     if (countHistoryAll) countHistoryAll.textContent = String(allHistory.length);
     if (countHistoryFavs) countHistoryFavs.textContent = String(favoritesList.length);
+
+    const statsRow = document.getElementById("history-stats-row");
+    if (statsRow) {
+        const stats = getCachedReviewStats();
+        if (stats && typeof stats === "object") {
+            const reviewedCount = Object.keys(appState.history || {}).length;
+            statsRow.textContent = `راجعتَ ${toArabicDigits(reviewedCount)} — نسبة الاستذكار ${toArabicDigits(stats.retentionRate ?? 100)}٪ — كلمات راسخة ${toArabicDigits(stats.masteredCount ?? 0)}`;
+        } else {
+            statsRow.textContent = "";
+        }
+    }
 
     let displayList = currentHistoryFilter === "favorites" ? favoritesList : allHistory;
 
@@ -1054,6 +1267,7 @@ function setupEventListeners() {
         setMenuOpen(false);
         historyDialogInvoker = document.activeElement || btnToggleHistory;
         historyDialog.showModal();
+        updateHistoryUI(true);
         if (typeof btnCloseHistory.focus === "function") btnCloseHistory.focus();
     });
     btnCloseHistory.addEventListener("click", () => {
@@ -1166,9 +1380,14 @@ function setupEventListeners() {
     }
 
     if (inputSearchHistory) {
+        let historySearchTimer = null;
         inputSearchHistory.addEventListener("input", () => {
             searchHistoryQuery = inputSearchHistory.value || "";
-            updateHistoryUI();
+            if (historySearchTimer) clearTimeout(historySearchTimer);
+            historySearchTimer = setTimeout(() => {
+                historySearchTimer = null;
+                updateHistoryUI();
+            }, 150);
         });
     }
 
@@ -1181,28 +1400,41 @@ function setupEventListeners() {
     }
 
     if (tabHistoryAll && tabHistoryFavs) {
-        tabHistoryAll.addEventListener("click", () => {
-            currentHistoryFilter = "all";
-            tabHistoryAll.classList.add("active");
-            tabHistoryAll.setAttribute("aria-selected", "true");
-            tabHistoryFavs.classList.remove("active");
-            tabHistoryFavs.setAttribute("aria-selected", "false");
+        const selectHistoryTab = (which) => {
+            currentHistoryFilter = which === "favorites" ? "favorites" : "all";
+            const activeTab = which === "favorites" ? tabHistoryFavs : tabHistoryAll;
+            const inactiveTab = which === "favorites" ? tabHistoryAll : tabHistoryFavs;
+            activeTab.classList.add("active");
+            activeTab.setAttribute("aria-selected", "true");
+            activeTab.setAttribute("tabindex", "0");
+            inactiveTab.classList.remove("active");
+            inactiveTab.setAttribute("aria-selected", "false");
+            inactiveTab.setAttribute("tabindex", "-1");
             updateHistoryUI();
-        });
-        tabHistoryFavs.addEventListener("click", () => {
-            currentHistoryFilter = "favorites";
-            tabHistoryFavs.classList.add("active");
-            tabHistoryFavs.setAttribute("aria-selected", "true");
-            tabHistoryAll.classList.remove("active");
-            tabHistoryAll.setAttribute("aria-selected", "false");
-            updateHistoryUI();
-        });
+        };
+        tabHistoryAll.addEventListener("click", () => selectHistoryTab("all"));
+        tabHistoryFavs.addEventListener("click", () => selectHistoryTab("favorites"));
+        for (const tab of [tabHistoryAll, tabHistoryFavs]) {
+            tab.addEventListener("keydown", (event) => {
+                if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+                event.preventDefault();
+                const next = event.target === tabHistoryAll ? tabHistoryFavs : tabHistoryAll;
+                selectHistoryTab(next === tabHistoryFavs ? "favorites" : "all");
+                if (typeof next.focus === "function") next.focus();
+            });
+        }
     }
 
     if (btnStartPractice) {
         btnStartPractice.addEventListener("click", () => {
             if (historyDialog && historyDialog.open) historyDialog.close();
             startSpacedRepetitionReview();
+        });
+    }
+
+    if (btnReviewAll) {
+        btnReviewAll.addEventListener("click", () => {
+            startSpacedRepetitionReview(WORDS_DB.length);
         });
     }
 
@@ -1332,8 +1564,8 @@ function updateDueReviewBadge() {
     if (!badge && !countEl && !btnInlineReview && !inlineReviewCount) return;
     if (!Core || typeof Core.getReviewStats !== "function") return;
 
-    const stats = Core.getReviewStats(appState, activeDateKey || Core.getLocalDateKey(new Date()), WORDS_DB);
-    const dueCount = stats.dueToday || 0;
+    const stats = getCachedReviewStats();
+    const dueCount = stats ? (stats.dueToday || 0) : 0;
 
     if (countEl) {
         countEl.textContent = String(dueCount);
@@ -1353,20 +1585,20 @@ function updateDueReviewBadge() {
     }
 }
 
-function startSpacedRepetitionReview() {
+function startSpacedRepetitionReview(limitOverride = null) {
     stopSpeech();
     if (!practiceDialog || !practiceBody) return;
 
     practiceDialogInvoker = document.activeElement;
     const todayKey = activeDateKey || (Core ? Core.getLocalDateKey(new Date()) : "");
-    const stats = (Core && typeof Core.getReviewStats === "function")
-        ? Core.getReviewStats(appState, todayKey, WORDS_DB)
-        : null;
-    const configuredLimit = Number.isInteger(appState.preferences?.dailyReviewLimit)
-        && appState.preferences.dailyReviewLimit >= 1
-        && appState.preferences.dailyReviewLimit <= 100
-        ? appState.preferences.dailyReviewLimit
-        : 20;
+    const stats = getCachedReviewStats();
+    const configuredLimit = Number.isInteger(limitOverride) && limitOverride >= 1
+        ? limitOverride
+        : Number.isInteger(appState.preferences?.dailyReviewLimit)
+            && appState.preferences.dailyReviewLimit >= 1
+            && appState.preferences.dailyReviewLimit <= 100
+            ? appState.preferences.dailyReviewLimit
+            : 20;
     const dueItems = (Core && typeof Core.getDueReviewWords === "function")
         ? Core.getDueReviewWords(appState, WORDS_DB, todayKey, configuredLimit)
         : [];
@@ -1818,15 +2050,27 @@ function renderReviewCompletionSummary() {
 
     const stat1 = document.createElement("div");
     stat1.className = "practice-stat-box";
-    stat1.innerHTML = `<span>تمت مراجعتها</span><strong>${count}</strong>`;
+    const stat1Label = document.createElement("span");
+    stat1Label.textContent = "تمت مراجعتها";
+    const stat1Value = document.createElement("strong");
+    stat1Value.textContent = count;
+    stat1.append(stat1Label, stat1Value);
 
     const stat2 = document.createElement("div");
     stat2.className = "practice-stat-box";
-    stat2.innerHTML = `<span>نسبة الاستذكار</span><strong>${stats ? stats.retentionRate : 100}%</strong>`;
+    const stat2Label = document.createElement("span");
+    stat2Label.textContent = "نسبة الاستذكار";
+    const stat2Value = document.createElement("strong");
+    stat2Value.textContent = `${stats ? stats.retentionRate : 100}%`;
+    stat2.append(stat2Label, stat2Value);
 
     const stat3 = document.createElement("div");
     stat3.className = "practice-stat-box";
-    stat3.innerHTML = `<span>كلمات راسخة</span><strong>${stats ? stats.masteredCount : 0}</strong>`;
+    const stat3Label = document.createElement("span");
+    stat3Label.textContent = "كلمات راسخة";
+    const stat3Value = document.createElement("strong");
+    stat3Value.textContent = stats ? stats.masteredCount : 0;
+    stat3.append(stat3Label, stat3Value);
 
     statsGrid.append(stat1, stat2, stat3);
 
@@ -1887,6 +2131,7 @@ function setupKeyboardShortcuts() {
             if (historyDialog) {
                 historyDialogInvoker = document.activeElement || btnToggleHistory;
                 historyDialog.showModal();
+                updateHistoryUI(true);
                 if (btnCloseHistory && typeof btnCloseHistory.focus === "function") btnCloseHistory.focus();
             }
         } else if (event.key === "q" || event.key === "Q" || event.key === "ض") {
@@ -2015,9 +2260,15 @@ function copyToClipboard(text) {
 function startCountdown() {
     updateTimer();
     setInterval(updateTimer, 1000);
+    if (typeof document !== "undefined" && typeof document.addEventListener === "function") {
+        document.addEventListener("visibilitychange", () => {
+            if (!document.hidden) updateTimer();
+        });
+    }
 }
 
 function updateTimer() {
+    if (typeof document !== "undefined" && document.hidden) return;
     const now = new Date();
     const dateKey = Core.getLocalDateKey(now);
     if (dateKey !== activeDateKey) {

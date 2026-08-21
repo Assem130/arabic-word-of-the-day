@@ -105,6 +105,22 @@
       .replace(/ى/g, "ي");
   }
 
+  // ponytail: canonical keys are memoized in a WeakMap (validated records are
+  // frozen); the cache dies with each record and never leaks into JSON.
+  const canonicalKeyCache = new WeakMap();
+
+  function cachedCanonicalKey(item, field) {
+    let entry = canonicalKeyCache.get(item);
+    if (!entry) {
+      entry = {};
+      canonicalKeyCache.set(item, entry);
+    }
+    if (entry[field] === undefined) {
+      entry[field] = canonicalSearchKey(item[field]);
+    }
+    return entry[field];
+  }
+
   function rankVocabulary(vocabulary, query) {
     if (!Array.isArray(vocabulary)) return [];
     const canonicalQuery = canonicalSearchKey(query);
@@ -116,8 +132,8 @@
     for (const item of vocabulary) {
       if (!item || item.reviewed !== true) continue;
 
-      const headword = canonicalSearchKey(item.word);
-      const normalized = canonicalSearchKey(item.normalized);
+      const headword = cachedCanonicalKey(item, "word");
+      const normalized = cachedCanonicalKey(item, "normalized");
 
       let tier = null;
       if (item.word === query.trim()) {
@@ -129,21 +145,33 @@
       } else if (headword.includes(canonicalQuery) || normalized.includes(canonicalQuery)) {
         tier = 3;
       } else {
-        const metaFields = [
-          item.root,
-          item.pattern || item.weight,
-          item.meaningAr || item.meaning,
-          item.meaningEn || item.englishMeaning,
-          item.contextAr || item.context,
-          item.contextEn || item.contextEnglish,
-          item.exampleAr || item.example,
-          item.category,
-          item.vocalization,
-          item.partOfSpeech,
-          item.register,
-          item.pronunciation,
-        ];
-        let matchesMeta = metaFields.some((f) => f && canonicalSearchKey(f).includes(canonicalQuery));
+        // ponytail: combined meta keys memoized per record; preserves the
+        // original field-fallback semantics while computing each key once.
+        let metaKeys = canonicalKeyCache.get(item)?.meta;
+        if (!metaKeys) {
+          const metaFields = [
+            item.root,
+            item.pattern || item.weight,
+            item.meaningAr || item.meaning,
+            item.meaningEn || item.englishMeaning,
+            item.contextAr || item.context,
+            item.contextEn || item.contextEnglish,
+            item.exampleAr || item.example,
+            item.category,
+            item.vocalization,
+            item.partOfSpeech,
+            item.register,
+            item.pronunciation,
+          ];
+          metaKeys = metaFields.filter(Boolean).map((f) => canonicalSearchKey(f));
+          let entry = canonicalKeyCache.get(item);
+          if (!entry) {
+            entry = {};
+            canonicalKeyCache.set(item, entry);
+          }
+          entry.meta = metaKeys;
+        }
+        let matchesMeta = metaKeys.some((key) => key.includes(canonicalQuery));
         if (!matchesMeta && Array.isArray(item.topics)) {
           matchesMeta = item.topics.some((t) => t && canonicalSearchKey(t).includes(canonicalQuery));
         }
