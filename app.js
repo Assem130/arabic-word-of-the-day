@@ -149,6 +149,9 @@ document.addEventListener("DOMContentLoaded", () => {
     startCountdown();
     updateStreakUI();
     updateDueReviewBadge();
+    setupOnboarding();
+    setupInstallPrompt();
+    setupDailyReminder();
 
     let action = null;
     try {
@@ -419,8 +422,120 @@ function getArabicDateFromKey(dateKey) {
     return getFormattedArabicDate(new Date(year, month - 1, day));
 }
 
-function updateStreakUI() {
-    const badge = streakBadge || (typeof document !== "undefined" && document.getElementById ? document.getElementById("streak-badge") : null);
+const ONBOARDED_KEY = "kalimat_onboarded";
+const REMINDER_KEY = "kalimat_reminder";
+
+function markOnboarded() {
+    try { localStorage.setItem(ONBOARDED_KEY, "1"); } catch {}
+}
+
+function setupOnboarding() {
+    const dialog = document.getElementById("onboarding-dialog");
+    if (!dialog || typeof dialog.showModal !== "function") return;
+    let seen = false;
+    try { seen = Boolean(localStorage.getItem(ONBOARDED_KEY)); } catch {}
+    const hasHistory = appState.history && Object.keys(appState.history).length > 0;
+    if (seen || hasHistory) return;
+    dialog.addEventListener("close", markOnboarded);
+    dialog.showModal();
+}
+
+function setupInstallPrompt() {
+    if (typeof window === "undefined" || typeof window.addEventListener !== "function") return;
+    window.addEventListener("beforeinstallprompt", (event) => {
+        if (event && typeof event.preventDefault === "function") event.preventDefault();
+        const navActions = document.querySelector(".nav-actions");
+        if (!navActions || document.getElementById("btn-install")) return;
+        const btn = document.createElement("button");
+        btn.id = "btn-install";
+        btn.type = "button";
+        btn.className = "icon-button install-button";
+        btn.textContent = "تثبيت";
+        btn.setAttribute("aria-label", "تثبيت التطبيق على هذا الجهاز");
+        btn.addEventListener("click", async () => {
+            if (!deferredInstallEvent) return;
+            deferredInstallEvent.prompt();
+            try { await deferredInstallEvent.userChoice; } catch {}
+            deferredInstallEvent = null;
+            btn.remove();
+        });
+        navActions.appendChild(btn);
+        deferredInstallEvent = event;
+    });
+}
+
+function readReminder() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(REMINDER_KEY) || "null");
+        if (parsed && typeof parsed === "object") {
+            return { enabled: Boolean(parsed.enabled), time: typeof parsed.time === "string" ? parsed.time : "20:00", lastFired: typeof parsed.lastFired === "string" ? parsed.lastFired : "" };
+        }
+    } catch {}
+    return { enabled: false, time: "20:00", lastFired: "" };
+}
+
+function writeReminder(reminder) {
+    try { localStorage.setItem(REMINDER_KEY, JSON.stringify(reminder)); } catch {}
+}
+
+// ponytail: reminders fire only while a Kalimat tab is open (no push server);
+// a service worker + push would be the upgrade path for closed-browser reminders.
+function setupDailyReminder() {
+    const btn = document.getElementById("btn-toggle-reminder");
+    if (!btn) return;
+    const render = () => {
+        const reminder = readReminder();
+        btn.setAttribute("aria-pressed", String(reminder.enabled));
+        btn.textContent = reminder.enabled ? `مفعّل ${reminder.time}` : "معطّل";
+    };
+    btn.addEventListener("click", async () => {
+        const reminder = readReminder();
+        if (!reminder.enabled) {
+            if (typeof Notification === "undefined") {
+                showToast("هذا المتصفح لا يدعم الإشعارات.");
+                return;
+            }
+            let permission = Notification.permission;
+            if (permission === "default" && typeof Notification.requestPermission === "function") {
+                try { permission = await Notification.requestPermission(); } catch { permission = "denied"; }
+            }
+            if (permission !== "granted") {
+                showToast("لم يُسمح بعرض الإشعارات.");
+                return;
+            }
+            reminder.enabled = true;
+        } else {
+            reminder.enabled = false;
+        }
+        writeReminder(reminder);
+        render();
+    });
+    render();
+    setInterval(() => {
+        const reminder = readReminder();
+        if (!reminder.enabled || typeof Notification === "undefined" || Notification.permission !== "granted") return;
+        const now = new Date();
+        const hhmm = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+        const dateKeyNow = Core ? Core.getLocalDateKey(now) : "";
+        if (reminder.time === hhmm && reminder.lastFired !== dateKeyNow) {
+            reminder.lastFired = dateKeyNow;
+            writeReminder(reminder);
+            try {
+                const notification = new Notification("كَلِمات", { body: "موعد كلمة اليوم! تفضّل بالقراءة.", tag: "kalimat-daily" });
+                if (typeof notification.addEventListener === "function") {
+                    notification.addEventListener("click", () => {
+                        if (window && typeof window.focus === "function") window.focus();
+                        notification.close();
+                    });
+                }
+            } catch {}
+        }
+    }, 30000);
+}
+
+let deferredInstallEvent = null;
+
+function updateStreakUI() {    const badge = streakBadge || (typeof document !== "undefined" && document.getElementById ? document.getElementById("streak-badge") : null);
     if (!badge || !Core) return;
     const today = activeDateKey || (Core.getLocalDateKey ? Core.getLocalDateKey(new Date()) : "");
     const streakResult = Core.calculateStreak(appState.history || {}, today);

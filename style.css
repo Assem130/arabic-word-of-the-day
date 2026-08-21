@@ -2074,6 +2074,10 @@ body:has(.history-dialog[open]), body:has(.practice-dialog[open]), body:has(.sho
 
 .word-menu-theme { display: grid; gap: 6px; padding: 8px 12px; color: var(--ink); font: 600 .78rem var(--sans); }
 
+.word-menu-theme .install-button,
+#btn-toggle-reminder { min-height: 44px; width: 100%; padding: 10px 12px; background: var(--paper-light); border: 1px solid var(--line-dark); color: var(--ink); font: 600 .78rem var(--sans); cursor: pointer; text-align: start; }
+#btn-toggle-reminder[aria-pressed="true"] { border-color: var(--accent-border); }
+
 .word-menu-theme .theme-select { width: 100%; background: var(--paper-light); border-color: var(--line-dark); color: var(--ink); }
 
 .menu-divider { width: 100%; height: 1px; margin: 4px 0; border: 0; background: var(--line-dark); }

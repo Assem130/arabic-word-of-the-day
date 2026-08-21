@@ -147,7 +147,11 @@
                         <span class="due-count" id="due-count">0</span>
                         <span class="due-label">مراجعة</span>
                     </button>
-                    <div id="streak-badge" class="streak-badge" title="تتابع القراءة اليومي" aria-label="تتابع القراءة اليومي">🔥 لا يوجد تتابع بعد</div>
+                    <div id="streak-badge" class="streak-badge" title="تتابع القراءة اليومي" aria-label="تتابع القراءة اليومي"><svg class="icon" aria-hidden="true"><use href="#i-flame"/></svg> لا يوجد تتابع بعد</div>
+                    <label class="word-menu-theme" for="reminder-time">
+                        <span>التذكير اليومي</span>
+                        <button id="btn-toggle-reminder" type="button" aria-pressed="false" aria-label="تفعيل التذكير اليومي">معطّل</button>
+                    </label>
                     <label class="word-menu-theme" for="theme-select">
                         <span>المظهر</span>
                         <select id="theme-select" class="theme-select" aria-label="اختر المظهر">
@@ -227,6 +231,22 @@
                 <li><span class="key-combo"><kbd>?</kbd></span> <span>عرض نافذة الاختصارات</span></li>
                 <li><span class="key-combo"><kbd>Esc</kbd></span> <span>إغلاق النوافذ المفتوحة</span></li>
             </ul>
+        </div>
+    </dialog>
+
+    <dialog class="shortcuts-dialog" id="onboarding-dialog" aria-labelledby="onboarding-title">
+        <header>
+            <div><p>أهلًا بك</p><h2 id="onboarding-title">كلمة واحدة كل يوم</h2></div>
+            <button class="icon-button" id="btn-close-onboarding" type="button" aria-label="إغلاق الترحيب">
+                <svg class="icon"><use href="#i-xmark"/></svg>
+            </button>
+        </header>
+        <div class="shortcuts-body">
+            <ol class="how-steps">
+                <li><span class="how-step-num" aria-hidden="true">١</span><h3>اقرأ كلمة اليوم</h3><p lang="en" dir="ltr">Read today's word.</p></li>
+                <li><span class="how-step-num" aria-hidden="true">٢</span><h3>قيّم استذكارك</h3><p lang="en" dir="ltr">Rate your recall.</p></li>
+                <li><span class="how-step-num" aria-hidden="true">٣</span><h3>عد في موعدها</h3><p lang="en" dir="ltr">Come back tomorrow — spaced repetition schedules the rest.</p></li>
+            </ol>
         </div>
     </dialog>
 
