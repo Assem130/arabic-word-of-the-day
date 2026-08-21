@@ -538,30 +538,45 @@
             .trim();
     }
 
+    // ponytail: per-word normalized search fields are memoized in a WeakMap
+    // (corpus is static for the page's lifetime); entries die with the words.
+    const searchFieldsCache = new WeakMap();
+    function getSearchFields(w) {
+        let fields = searchFieldsCache.get(w);
+        if (fields) return fields;
+        fields = {
+            normWord: normalizeArabicText(w.word),
+            normRoot: normalizeArabicText(w.root),
+            compactRoot: normalizeArabicText(w.root).replace(/\s+/g, ""),
+            normWeight: normalizeArabicText(w.weight),
+            normCategory: normalizeArabicText(w.category),
+            normMeaning: normalizeArabicText(w.meaning),
+            normEnglish: String(w.englishMeaning || "").toLowerCase()
+        };
+        try {
+            searchFieldsCache.set(w, fields);
+        } catch {}
+        return fields;
+    }
+
     function searchLexicon(query, wordsDb) {
         if (!Array.isArray(wordsDb) || wordsDb.length === 0) return [];
         const rawQ = typeof query === "string" ? query.trim() : "";
         if (!rawQ) return [...wordsDb];
         const normQ = normalizeArabicText(rawQ).toLowerCase();
         const compactQ = normQ.replace(/\s+/g, "");
+        const rawLower = rawQ.toLowerCase();
 
         return wordsDb.filter(w => {
             if (!w || typeof w !== "object") return false;
-            const normWord = normalizeArabicText(w.word);
-            const normRoot = normalizeArabicText(w.root);
-            const compactRoot = normRoot.replace(/\s+/g, "");
-            const normWeight = normalizeArabicText(w.weight);
-            const normCategory = normalizeArabicText(w.category);
-            const normMeaning = normalizeArabicText(w.meaning);
-            const normEnglish = String(w.englishMeaning || "").toLowerCase();
-
-            return normWord.includes(normQ)
-                || compactRoot.includes(compactQ)
-                || normRoot.includes(normQ)
-                || normWeight.includes(normQ)
-                || normCategory.includes(normQ)
-                || normMeaning.includes(normQ)
-                || normEnglish.includes(rawQ.toLowerCase());
+            const f = getSearchFields(w);
+            return f.normWord.includes(normQ)
+                || f.compactRoot.includes(compactQ)
+                || f.normRoot.includes(normQ)
+                || f.normWeight.includes(normQ)
+                || f.normCategory.includes(normQ)
+                || f.normMeaning.includes(normQ)
+                || f.normEnglish.includes(rawLower);
         });
     }
 

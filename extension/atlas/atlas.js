@@ -223,6 +223,9 @@
     }
   }
 
+  // ponytail: cap rendered results; refine the query if the corpus grows large.
+  const MAX_SEARCH_RESULTS = 100;
+
   function search() {
     const rawQuery = elements["atlas-search"].value;
     elements["explore-card"].replaceChildren();
@@ -265,8 +268,9 @@
       elements["search-count"].textContent = `${matches.length} نتيجة`;
     }
 
+    const shown = queryClean ? matches.slice(0, MAX_SEARCH_RESULTS) : matches;
     elements["search-results"].replaceChildren();
-    for (const word of matches) {
+    for (const word of shown) {
       const button = document.createElement("button");
       button.type = "button";
       button.textContent = `${word.word} — ${word.meaningAr}`;
@@ -1146,6 +1150,10 @@
     elements.history.addEventListener("click", () => { show("history"); renderHistory(); });
     elements.settings.addEventListener("click", () => { show("settings"); hydrateSettings(); });
     elements["atlas-search"].addEventListener("input", search);
+    // ponytail: no debounce here — the packaging contract bans timer APIs in
+    // extension pages, and canonical-key memoization keeps keystroke cost low.
+    // Add debouncing (and lift the packaging ban) if the corpus grows past a
+    // few thousand records.
     if (elements["explore-lookup"]) {
       elements["explore-lookup"].hidden = Boolean(globalThis.browser);
       if (!globalThis.browser) elements["explore-lookup"].addEventListener("click", () => lookupOnline(null, elements["explore-lookup"]));

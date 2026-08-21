@@ -377,6 +377,7 @@ test("4. Interactive Explorer Controller & Reactive DOM Sync (initLexiconExplore
         const searchInput = sandbox.elements["input-lexicon-search"];
         searchInput.value = "السميدع";
         await searchInput.emit("input", { target: searchInput });
+        await new Promise(resolve => setTimeout(resolve, 200)); // input is debounced
         assert.equal(grid.children.length, 1, "Searching 'السميدع' must filter to 1 card");
         assert.equal(countEl.textContent, "عرض لفظ واحد من أصل 365 لفظاً");
         assert.equal(sandbox.elements["btn-clear-lexicon-filters"].hidden, false, "Clear filters button must be shown when filtered");
